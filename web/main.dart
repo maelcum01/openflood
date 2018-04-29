@@ -26,7 +26,7 @@ class Board
     {
       var list= new List();
       tiles.add(list);
-      for(var j 0; j < y;j++)
+      for(var j = 0; j < y;j++)
       {
           list.add(new Tile());
 
