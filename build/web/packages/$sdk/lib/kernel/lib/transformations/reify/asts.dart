@@ -4,7 +4,7 @@
 
 library kernel.transformations.reify.ast_helpers;
 
-import '../../ast.dart';
+import 'package:kernel/ast.dart';
 
 Class getEnclosingClass(TreeNode node) {
   TreeNode original = node;

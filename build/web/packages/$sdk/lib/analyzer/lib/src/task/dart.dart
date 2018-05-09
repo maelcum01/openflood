@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+library analyzer.src.task.dart;
+
 import 'dart:collection';
 
 import 'package:analyzer/dart/ast/ast.dart';
@@ -13,7 +15,6 @@ import 'package:analyzer/dart/element/type.dart';
 import 'package:analyzer/error/error.dart';
 import 'package:analyzer/error/listener.dart';
 import 'package:analyzer/exception/exception.dart';
-import 'package:analyzer/source/line_info.dart';
 import 'package:analyzer/src/context/cache.dart';
 import 'package:analyzer/src/dart/ast/ast.dart'
     show NamespaceDirectiveImpl, UriBasedDirectiveImpl, UriValidationCode;
@@ -39,9 +40,6 @@ import 'package:analyzer/src/generated/source.dart';
 import 'package:analyzer/src/generated/utilities_dart.dart';
 import 'package:analyzer/src/plugin/engine_plugin.dart';
 import 'package:analyzer/src/services/lint.dart';
-import 'package:analyzer/src/task/api/dart.dart';
-import 'package:analyzer/src/task/api/general.dart';
-import 'package:analyzer/src/task/api/model.dart';
 import 'package:analyzer/src/task/driver.dart';
 import 'package:analyzer/src/task/general.dart';
 import 'package:analyzer/src/task/html.dart';
@@ -49,47 +47,71 @@ import 'package:analyzer/src/task/inputs.dart';
 import 'package:analyzer/src/task/model.dart';
 import 'package:analyzer/src/task/strong/checker.dart';
 import 'package:analyzer/src/task/strong_mode.dart';
+import 'package:analyzer/task/dart.dart';
+import 'package:analyzer/task/general.dart';
+import 'package:analyzer/task/model.dart';
 
 /**
  * The [ResultCachingPolicy] for ASTs.
  */
-const ResultCachingPolicy AST_CACHING_POLICY =
-    const SimpleResultCachingPolicy(1024 * 64, 32);
+const ResultCachingPolicy<CompilationUnit> AST_CACHING_POLICY =
+    const SimpleResultCachingPolicy(16384, 32);
+
+/**
+ * The [ResultCachingPolicy] for fully resolved ASTs.  It is separated from
+ * [AST_CACHING_POLICY] because we want to keep some number of fully resolved
+ * ASTs when users switch between contexts, and they should not be pushed out
+ * of the cache by temporary partially resolved ASTs.
+ */
+const ResultCachingPolicy<CompilationUnit> AST_RESOLVED_CACHING_POLICY =
+    const SimpleResultCachingPolicy(1024, 32);
+
+/**
+ * The [ResultCachingPolicy] for ASTs that can be reused when a library
+ * on which the source depends is changed.  It is worth to keep some number
+ * of these ASTs in memory in order to avoid parsing sources.  In contrast,
+ * none of [AST_CACHING_POLICY] managed ASTs can be reused after a change, so
+ * it is worth to keep them in memory while analysis is being performed, but
+ * once analysis is done, they can be flushed.
+ */
+const ResultCachingPolicy<CompilationUnit> AST_REUSABLE_CACHING_POLICY =
+    const SimpleResultCachingPolicy(1024, 64);
 
 /**
  * The [ResultCachingPolicy] for lists of [ConstantEvaluationTarget]s.
  */
-const ResultCachingPolicy CONSTANT_EVALUATION_TARGET_LIST_POLICY =
+const ResultCachingPolicy<List<ConstantEvaluationTarget>>
+    CONSTANT_EVALUATION_TARGET_LIST_POLICY =
     const SimpleResultCachingPolicy(-1, -1);
 
 /**
  * The [ResultCachingPolicy] for [ConstantEvaluationTarget]s.
  */
-const ResultCachingPolicy CONSTANT_EVALUATION_TARGET_POLICY =
-    const SimpleResultCachingPolicy(-1, -1);
+const ResultCachingPolicy<ConstantEvaluationTarget>
+    CONSTANT_EVALUATION_TARGET_POLICY = const SimpleResultCachingPolicy(-1, -1);
 
 /**
  * The [ResultCachingPolicy] for [Element]s.
  */
-const ResultCachingPolicy ELEMENT_CACHING_POLICY =
+const ResultCachingPolicy<Element> ELEMENT_CACHING_POLICY =
     const SimpleResultCachingPolicy(-1, -1);
 
 /**
  * The [ResultCachingPolicy] for [TOKEN_STREAM].
  */
-const ResultCachingPolicy TOKEN_STREAM_CACHING_POLICY =
+const ResultCachingPolicy<Token> TOKEN_STREAM_CACHING_POLICY =
     const SimpleResultCachingPolicy(1, 1);
 
 /**
  * The [ResultCachingPolicy] for [UsedImportedElements]s.
  */
-const ResultCachingPolicy USED_IMPORTED_ELEMENTS_POLICY =
+const ResultCachingPolicy<UsedImportedElements> USED_IMPORTED_ELEMENTS_POLICY =
     const SimpleResultCachingPolicy(-1, -1);
 
 /**
  * The [ResultCachingPolicy] for [UsedLocalElements]s.
  */
-const ResultCachingPolicy USED_LOCAL_ELEMENTS_POLICY =
+const ResultCachingPolicy<UsedLocalElements> USED_LOCAL_ELEMENTS_POLICY =
     const SimpleResultCachingPolicy(-1, -1);
 
 /**
@@ -729,7 +751,7 @@ final ListResultDescriptor<AnalysisError> RESOLVE_UNIT_ERRORS =
  */
 final ResultDescriptor<CompilationUnit> RESOLVED_UNIT1 =
     new ResultDescriptor<CompilationUnit>('RESOLVED_UNIT1', null,
-        cachingPolicy: AST_CACHING_POLICY);
+        cachingPolicy: AST_REUSABLE_CACHING_POLICY);
 
 /**
  * The resolved [CompilationUnit] associated with a compilation unit in which
@@ -772,7 +794,7 @@ final ResultDescriptor<CompilationUnit> RESOLVED_UNIT12 =
  */
 final ResultDescriptor<CompilationUnit> RESOLVED_UNIT2 =
     new ResultDescriptor<CompilationUnit>('RESOLVED_UNIT2', null,
-        cachingPolicy: AST_CACHING_POLICY);
+        cachingPolicy: AST_REUSABLE_CACHING_POLICY);
 
 /**
  * The partially resolved [CompilationUnit] associated with a compilation unit.
@@ -785,7 +807,7 @@ final ResultDescriptor<CompilationUnit> RESOLVED_UNIT2 =
  */
 final ResultDescriptor<CompilationUnit> RESOLVED_UNIT3 =
     new ResultDescriptor<CompilationUnit>('RESOLVED_UNIT3', null,
-        cachingPolicy: AST_CACHING_POLICY);
+        cachingPolicy: AST_REUSABLE_CACHING_POLICY);
 
 /**
  * The partially resolved [CompilationUnit] associated with a compilation unit.
@@ -1076,7 +1098,7 @@ class BuildCompilationUnitElementTask extends SourceBasedAnalysisTask {
     ConstantFinder constantFinder = new ConstantFinder();
     unit.accept(constantFinder);
     List<ConstantEvaluationTarget> constants =
-        constantFinder.constantsToCompute;
+        constantFinder.constantsToCompute.toList();
     //
     // Record outputs.
     //
@@ -1508,6 +1530,7 @@ class BuildLibraryElementTask extends SourceBasedAnalysisTask {
     //
     LibraryIdentifier libraryNameNode = null;
     String partsLibraryName = _UNKNOWN_LIBRARY_NAME;
+    bool hasPartDirective = false;
     Set<Source> seenPartSources = new Set<Source>();
     FunctionElement entryPoint =
         _findEntryPoint(definingCompilationUnitElement);
@@ -1524,6 +1547,7 @@ class BuildLibraryElementTask extends SourceBasedAnalysisTask {
       } else if (directive is PartDirective) {
         StringLiteral partUri = directive.uri;
         Source partSource = directive.uriSource;
+        hasPartDirective = true;
         CompilationUnit partUnit = partUnitMap[partSource];
         if (partUnit != null) {
           CompilationUnitElementImpl partElement = partUnit.element;
@@ -1593,8 +1617,12 @@ class BuildLibraryElementTask extends SourceBasedAnalysisTask {
         }
       }
     }
-    // TODO(brianwilkerson) Report the error
-    // ResolverErrorCode.MISSING_LIBRARY_DIRECTIVE_WITH_PART
+    if (hasPartDirective &&
+        libraryNameNode == null &&
+        !context.analysisOptions.enableUriInPartOf) {
+      errors.add(new AnalysisError(librarySource, 0, 0,
+          ResolverErrorCode.MISSING_LIBRARY_DIRECTIVE_WITH_PART));
+    }
     //
     // Create and populate the library element.
     //
@@ -2051,11 +2079,7 @@ class ComputeConstantValueTask extends ConstantEvaluationAnalysisTask {
       for (int i = 0; i < length; i++) {
         WorkItem workItem = dependencyCycle[i];
         if (workItem.descriptor == DESCRIPTOR) {
-          AnalysisTarget target = workItem.target;
-          constantsInCycle.add(target);
-          if (target is ConstructorElementImpl) {
-            target.isCycleFree = false;
-          }
+          constantsInCycle.add(workItem.target);
         }
       }
       assert(constantsInCycle.isNotEmpty);
@@ -2255,9 +2279,9 @@ class ComputeLibraryCycleTask extends SourceBasedAnalysisTask {
           component.expand((l) => l.units).map(unitToLSU).toList();
       outputs[LIBRARY_CYCLE_DEPENDENCIES] = deps.map(unitToLSU).toList();
     } else {
-      outputs[LIBRARY_CYCLE] = <LibraryElement>[];
-      outputs[LIBRARY_CYCLE_UNITS] = <LibrarySpecificUnit>[];
-      outputs[LIBRARY_CYCLE_DEPENDENCIES] = <LibrarySpecificUnit>[];
+      outputs[LIBRARY_CYCLE] = [];
+      outputs[LIBRARY_CYCLE_UNITS] = [];
+      outputs[LIBRARY_CYCLE_DEPENDENCIES] = [];
     }
   }
 
@@ -2523,20 +2547,18 @@ class DartErrorsTask extends SourceBasedAnalysisTask {
     inputs[IGNORE_INFO_INPUT] = IGNORE_INFO.of(source);
     EnginePlugin enginePlugin = AnalysisEngine.instance.enginePlugin;
     // for Source
-    List<ListResultDescriptor<AnalysisError>> errorsForSource =
-        enginePlugin.dartErrorsForSource;
+    List<ResultDescriptor> errorsForSource = enginePlugin.dartErrorsForSource;
     int sourceLength = errorsForSource.length;
     for (int i = 0; i < sourceLength; i++) {
-      ListResultDescriptor<AnalysisError> result = errorsForSource[i];
+      ResultDescriptor result = errorsForSource[i];
       String inputName = result.name + '_input';
       inputs[inputName] = result.of(source);
     }
     // for LibrarySpecificUnit
-    List<ListResultDescriptor<AnalysisError>> errorsForUnit =
-        enginePlugin.dartErrorsForUnit;
+    List<ResultDescriptor> errorsForUnit = enginePlugin.dartErrorsForUnit;
     int unitLength = errorsForUnit.length;
     for (int i = 0; i < unitLength; i++) {
-      ListResultDescriptor<AnalysisError> result = errorsForUnit[i];
+      ResultDescriptor result = errorsForUnit[i];
       String inputName = result.name + '_input';
       inputs[inputName] =
           CONTAINING_LIBRARIES.of(source).toMap((Source library) {
@@ -2569,7 +2591,9 @@ class DartErrorsTask extends SourceBasedAnalysisTask {
     bool isIgnored(AnalysisError error) {
       int errorLine = lineInfo.getLocation(error.offset).lineNumber;
       String errorCode = error.errorCode.name.toLowerCase();
-      return ignoreInfo.ignoredAt(errorCode, errorLine);
+      // Ignores can be on the line or just preceding the error.
+      return ignoreInfo.ignoredAt(errorCode, errorLine) ||
+          ignoreInfo.ignoredAt(errorCode, errorLine - 1);
     }
 
     return errors.where((AnalysisError e) => !isIgnored(e)).toList();
@@ -2845,7 +2869,7 @@ class GenerateHintsTask extends SourceBasedAnalysisTask {
           new UsedLocalElements.merge(usedLocalElementsList);
       UnusedLocalElementsVerifier visitor =
           new UnusedLocalElementsVerifier(errorListener, usedElements);
-      unit.accept(visitor);
+      unitElement.accept(visitor);
     }
     // Dart2js analysis.
     if (analysisOptions.dart2jsHint) {
@@ -2999,7 +3023,7 @@ class IgnoreInfo {
    * Resulting codes may be in a list ('error_code_1,error_code2').
    */
   static final RegExp _IGNORE_MATCHER =
-      new RegExp(r'//+[ ]*ignore:(.*)$', multiLine: true);
+      new RegExp(r'//[ ]*ignore:(.*)$', multiLine: true);
 
   /**
    * A regular expression for matching 'ignore_for_file' comments.  Produces
@@ -3022,14 +3046,14 @@ class IgnoreInfo {
   bool get hasIgnores => ignores.isNotEmpty || _ignoreForFileSet.isNotEmpty;
 
   /**
-   * Iterable of error codes ignored for the whole file.
-   */
-  Iterable<String> get ignoreForFiles => _ignoreForFileSet;
-
-  /**
    * Map of line numbers to associated ignored error codes.
    */
   Map<int, Iterable<String>> get ignores => _ignoreMap;
+
+  /**
+   * Iterable of error codes ignored for the whole file.
+   */
+  Iterable<String> get ignoreForFiles => _ignoreForFileSet;
 
   /**
    * Ignore this [errorCode] at [line].
@@ -3076,19 +3100,7 @@ class IgnoreInfo {
           .group(1)
           .split(',')
           .map((String code) => code.trim().toLowerCase());
-      CharacterLocation location = info.getLocation(match.start);
-      int lineNumber = location.lineNumber;
-      String beforeMatch = content.substring(
-          info.getOffsetOfLine(lineNumber - 1),
-          info.getOffsetOfLine(lineNumber - 1) + location.columnNumber - 1);
-
-      if (beforeMatch.trim().isEmpty) {
-        // The comment is on its own line, so it refers to the next line.
-        ignoreInfo.addAll(lineNumber + 1, codes);
-      } else {
-        // The comment sits next to code, so it refers to its own line.
-        ignoreInfo.addAll(lineNumber, codes);
-      }
+      ignoreInfo.addAll(info.getLocation(match.start).lineNumber, codes);
     }
     for (Match match in fileMatches) {
       Iterable<String> codes = match
@@ -3146,13 +3158,36 @@ class InferInstanceMembersInUnitTask extends SourceBasedAnalysisTask {
     TypeProvider typeProvider = getRequiredInput(TYPE_PROVIDER_INPUT);
 
     //
+    // Prepare fields for which inference should be disabled.
+    //
+    Set<FieldElement> fieldsWithDisabledInference = new Set<FieldElement>();
+    for (CompilationUnitMember classDeclaration in unit.declarations) {
+      if (classDeclaration is ClassDeclaration) {
+        for (ClassMember fieldDeclaration in classDeclaration.members) {
+          if (fieldDeclaration is FieldDeclaration) {
+            if (!fieldDeclaration.isStatic) {
+              for (VariableDeclaration field
+                  in fieldDeclaration.fields.variables) {
+                Expression initializer = field.initializer;
+                if (initializer != null &&
+                    !isValidForTypeInference(initializer)) {
+                  fieldsWithDisabledInference.add(field.element);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    //
     // Infer instance members.
     //
     if (context.analysisOptions.strongMode) {
       var inheritanceManager = new InheritanceManager(
           resolutionMap.elementDeclaredByCompilationUnit(unit).library);
       InstanceMemberInferrer inferrer = new InstanceMemberInferrer(
-          typeProvider, (_) => inheritanceManager,
+          typeProvider, (_) => inheritanceManager, fieldsWithDisabledInference,
           typeSystem: context.typeSystem);
       inferrer.inferCompilationUnit(unit.element);
     }
@@ -3414,20 +3449,25 @@ class InferStaticVariableTypeTask extends InferStaticVariableTask {
       RecordingErrorListener errorListener = new RecordingErrorListener();
       Expression initializer = declaration.initializer;
 
-      ResolutionContext resolutionContext =
-          ResolutionContextBuilder.contextFor(initializer);
-      ResolverVisitor visitor = new ResolverVisitor(
-          variable.library, variable.source, typeProvider, errorListener,
-          nameScope: resolutionContext.scope);
-      if (resolutionContext.enclosingClassDeclaration != null) {
-        visitor.prepareToResolveMembersInClass(
-            resolutionContext.enclosingClassDeclaration);
-      }
-      visitor.initForIncrementalResolution();
-      initializer.accept(visitor);
-      DartType newType = initializer.staticType;
-      if (newType == null || newType.isBottom || newType.isDartCoreNull) {
+      DartType newType;
+      if (!isValidForTypeInference(initializer)) {
         newType = typeProvider.dynamicType;
+      } else {
+        ResolutionContext resolutionContext =
+            ResolutionContextBuilder.contextFor(initializer);
+        ResolverVisitor visitor = new ResolverVisitor(
+            variable.library, variable.source, typeProvider, errorListener,
+            nameScope: resolutionContext.scope);
+        if (resolutionContext.enclosingClassDeclaration != null) {
+          visitor.prepareToResolveMembersInClass(
+              resolutionContext.enclosingClassDeclaration);
+        }
+        visitor.initForIncrementalResolution();
+        initializer.accept(visitor);
+        newType = initializer.staticType;
+        if (newType == null || newType.isBottom || newType.isDartCoreNull) {
+          newType = typeProvider.dynamicType;
+        }
       }
 
       //
@@ -3757,13 +3797,13 @@ class ParseDartTask extends SourceBasedAnalysisTask {
     RecordingErrorListener errorListener = new RecordingErrorListener();
     _errorReporter = new ErrorReporter(errorListener, _source);
 
+    Parser parser = new Parser(_source, errorListener);
     AnalysisOptions options = context.analysisOptions;
-    Parser parser =
-        new Parser(_source, errorListener, useFasta: options.useFastaParser);
+    parser.enableAssertInitializer = options.enableAssertInitializer;
     parser.parseFunctionBodies =
         options.analyzeFunctionBodiesPredicate(_source);
     parser.parseGenericMethodComments = options.strongMode;
-    parser.enableOptionalNewAndConst = options.previewDart2;
+    parser.enableUriInPartOf = options.enableUriInPartOf;
     CompilationUnit unit = parser.parseCompilationUnit(tokenStream);
     unit.lineInfo = lineInfo;
 
@@ -4927,7 +4967,7 @@ class ResolveTopLevelUnitTypeBoundsTask extends SourceBasedAnalysisTask {
     //
     RecordingErrorListener errorListener = new RecordingErrorListener();
     new TypeParameterBoundsResolver(
-            context.typeSystem, library, unitElement.source, errorListener)
+            typeProvider, library, unitElement.source, errorListener)
         .resolveTypeBounds(unit);
     //
     // Record outputs.
@@ -5127,13 +5167,6 @@ class ResolveUnitTypeNamesTask extends SourceBasedAnalysisTask {
     TypeResolverVisitor visitor = new TypeResolverVisitor(
         library, unitElement.source, typeProvider, errorListener);
     unit.accept(visitor);
-    //
-    // Re-write the AST to handle the optional new and const feature.
-    //
-    if (library.context.analysisOptions.previewDart2) {
-      unit.accept(new AstRewriteVisitor(library, unit.element.source,
-          typeProvider, AnalysisErrorListener.NULL_LISTENER));
-    }
     //
     // Record outputs.
     //
@@ -5460,7 +5493,6 @@ class StrongModeVerifyUnitTask extends SourceBasedAnalysisTask {
           typeProvider,
           new StrongTypeSystemImpl(typeProvider,
               implicitCasts: options.implicitCasts,
-              declarationCasts: options.declarationCasts,
               nonnullableTypes: options.nonnullableTypes),
           errorListener,
           options);
@@ -5584,8 +5616,7 @@ class VerifyUnitTask extends SourceBasedAnalysisTask {
         libraryElement,
         typeProvider,
         new InheritanceManager(libraryElement),
-        context.analysisOptions.enableSuperMixins,
-        disableConflictingGenericsCheck: true);
+        context.analysisOptions.enableSuperMixins);
     unit.accept(errorVerifier);
     //
     // Convert the pending errors into actual errors.

@@ -4,12 +4,6 @@
 
 library fasta.kernel_procedure_builder;
 
-import 'package:front_end/src/base/instrumentation.dart'
-    show Instrumentation, InstrumentationValueForType;
-
-import 'package:front_end/src/fasta/type_inference/type_inferrer.dart'
-    show TypeInferrer;
-
 import 'package:kernel/ast.dart'
     show
         Arguments,
@@ -34,7 +28,6 @@ import 'package:kernel/ast.dart'
         StringLiteral,
         SuperInitializer,
         TypeParameter,
-        TypeParameterType,
         VariableDeclaration,
         VariableGet,
         VoidType,
@@ -42,21 +35,11 @@ import 'package:kernel/ast.dart'
 
 import 'package:kernel/type_algebra.dart' show containsTypeVariable, substitute;
 
+import '../errors.dart' show internalError;
+
+import '../messages.dart' show warning;
+
 import '../loader.dart' show Loader;
-
-import '../messages.dart'
-    show
-        messageNonInstanceTypeVariableUse,
-        messagePatchDeclarationMismatch,
-        messagePatchDeclarationOrigin,
-        messagePatchNonExternal,
-        noLength;
-
-import '../problems.dart' show unexpected;
-
-import '../deprecated_problems.dart' show deprecated_inputError;
-
-import '../source/source_library_builder.dart' show SourceLibraryBuilder;
 
 import 'kernel_builder.dart'
     show
@@ -72,11 +55,8 @@ import 'kernel_builder.dart'
         MetadataBuilder,
         ProcedureBuilder,
         TypeVariableBuilder,
-        isRedirectingGenerativeConstructorImplementation;
-
-import 'kernel_shadow_ast.dart' show ShadowProcedure, ShadowVariableDeclaration;
-
-import 'redirecting_factory_body.dart' show RedirectingFactoryBody;
+        isRedirectingGenerativeConstructorImplementation,
+        memberError;
 
 abstract class KernelFunctionBuilder
     extends ProcedureBuilder<KernelTypeBuilder> {
@@ -99,41 +79,14 @@ abstract class KernelFunctionBuilder
       : super(metadata, modifiers, returnType, name, typeVariables, formals,
             compilationUnit, charOffset);
 
-  KernelFunctionBuilder get actualOrigin;
-
   void set body(Statement newBody) {
-//    if (newBody != null) {
-//      if (isAbstract) {
-//        // TODO(danrubel): Is this check needed?
-//        return internalProblem(messageInternalProblemBodyOnAbstractMethod,
-//            newBody.fileOffset, fileUri);
-//      }
-//    }
+    if (isAbstract && newBody != null) {
+      return internalError("Attempting to set body on abstract method.");
+    }
     actualBody = newBody;
     if (function != null) {
-      // A forwarding semi-stub is a method that is abstract in the source code,
-      // but which needs to have a forwarding stub body in order to ensure that
-      // covariance checks occur.  We don't want to replace the forwarding stub
-      // body with null.
-      var parent = function.parent;
-      if (!(newBody == null &&
-          parent is Procedure &&
-          parent.isForwardingSemiStub)) {
-        function.body = newBody;
-        newBody?.parent = function;
-      }
-    }
-  }
-
-  void setRedirectingFactoryBody(Member target, List<DartType> typeArguments) {
-    if (actualBody != null) {
-      unexpected("null", "${actualBody.runtimeType}", charOffset, fileUri);
-    }
-    actualBody = new RedirectingFactoryBody(target, typeArguments);
-    function.body = actualBody;
-    actualBody?.parent = function;
-    if (isPatch) {
-      actualOrigin.setRedirectingFactoryBody(target, typeArguments);
+      function.body = newBody;
+      newBody?.parent = function;
     }
   }
 
@@ -164,18 +117,6 @@ abstract class KernelFunctionBuilder
         }
       }
     }
-    if (isSetter && (formals?.length != 1 || formals[0].isOptional)) {
-      // Replace illegal parameters by single dummy parameter.
-      // Do this after building the parameters, since the diet listener
-      // assumes that parameters are built, even if illegal in number.
-      VariableDeclaration parameter =
-          new ShadowVariableDeclaration("#synthetic", 0);
-      result.positionalParameters.clear();
-      result.positionalParameters.add(parameter);
-      parameter.parent = result;
-      result.namedParameters.clear();
-      result.requiredParameterCount = 1;
-    }
     if (returnType != null) {
       result.returnType = returnType.build(library);
     }
@@ -190,8 +131,8 @@ abstract class KernelFunctionBuilder
               substitution[parameter] = const DynamicType();
             }
           }
-          library.addProblem(
-              messageNonInstanceTypeVariableUse, charOffset, noLength, fileUri);
+          warning(fileUri, charOffset,
+              "Can only use type variables in instance methods.");
           return substitute(type, substitution);
         }
 
@@ -214,9 +155,10 @@ abstract class KernelFunctionBuilder
     return function = result;
   }
 
-  Member build(SourceLibraryBuilder library);
+  Member build(LibraryBuilder library);
 
   void becomeNative(Loader loader) {
+    target.isExternal = true;
     Builder constructor = loader.getNativeAnnotation();
     Arguments arguments =
         new Arguments(<Expression>[new StringLiteral(nativeMethodName)]);
@@ -230,36 +172,15 @@ abstract class KernelFunctionBuilder
     }
     target.addAnnotation(annotation);
   }
-
-  bool checkPatch(KernelFunctionBuilder patch) {
-    if (!isExternal) {
-      patch.library.addCompileTimeError(
-          messagePatchNonExternal, patch.charOffset, noLength, patch.fileUri,
-          context: [
-            messagePatchDeclarationOrigin.withLocation(
-                fileUri, charOffset, noLength)
-          ]);
-      return false;
-    }
-    return true;
-  }
-
-  void reportPatchMismatch(Builder patch) {
-    library.addCompileTimeError(messagePatchDeclarationMismatch,
-        patch.charOffset, noLength, patch.fileUri, context: [
-      messagePatchDeclarationOrigin.withLocation(fileUri, charOffset, noLength)
-    ]);
-  }
 }
 
 class KernelProcedureBuilder extends KernelFunctionBuilder {
-  final ShadowProcedure procedure;
+  final Procedure procedure;
   final int charOpenParenOffset;
 
   AsyncMarker actualAsyncModifier = AsyncMarker.Sync;
 
-  @override
-  KernelProcedureBuilder actualOrigin;
+  final ConstructorReferenceBuilder redirectionTarget;
 
   KernelProcedureBuilder(
       List<MetadataBuilder> metadata,
@@ -273,23 +194,24 @@ class KernelProcedureBuilder extends KernelFunctionBuilder {
       int charOffset,
       this.charOpenParenOffset,
       int charEndOffset,
-      [String nativeMethodName])
-      : procedure = new ShadowProcedure(null, kind, null, returnType == null,
-            fileUri: compilationUnit?.fileUri)
+      [String nativeMethodName,
+      this.redirectionTarget])
+      : procedure = new Procedure(null, kind, null,
+            fileUri: compilationUnit?.relativeFileUri)
           ..fileOffset = charOffset
           ..fileEndOffset = charEndOffset,
         super(metadata, modifiers, returnType, name, typeVariables, formals,
             compilationUnit, charOffset, nativeMethodName);
-
-  @override
-  KernelProcedureBuilder get origin => actualOrigin ?? this;
 
   ProcedureKind get kind => procedure.kind;
 
   AsyncMarker get asyncModifier => actualAsyncModifier;
 
   Statement get body {
-    if (actualBody == null && !isAbstract && !isExternal) {
+    if (actualBody == null &&
+        redirectionTarget == null &&
+        !isAbstract &&
+        !isExternal) {
       actualBody = new EmptyStatement();
     }
     return actualBody;
@@ -304,19 +226,7 @@ class KernelProcedureBuilder extends KernelFunctionBuilder {
     }
   }
 
-  bool get isEligibleForTopLevelInference {
-    if (isInstanceMember) {
-      if (returnType == null) return true;
-      if (formals != null) {
-        for (var formal in formals) {
-          if (formal.type == null) return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  Procedure build(SourceLibraryBuilder library) {
+  Procedure build(LibraryBuilder library) {
     // TODO(ahe): I think we may call this twice on parts. Investigate.
     if (procedure.name == null) {
       procedure.function = buildFunction(library);
@@ -329,71 +239,10 @@ class KernelProcedureBuilder extends KernelFunctionBuilder {
       procedure.isConst = isConst;
       procedure.name = new Name(name, library.target);
     }
-    if (library.loader.target.strongMode &&
-        (isSetter || (isOperator && name == '[]=')) &&
-        returnType == null) {
-      procedure.function.returnType = const VoidType();
-    }
     return procedure;
   }
 
-  Procedure get target => origin.procedure;
-
-  @override
-  void instrumentTopLevelInference(Instrumentation instrumentation) {
-    bool isEligibleForTopLevelInference = this.isEligibleForTopLevelInference;
-    if ((isEligibleForTopLevelInference || isSetter) && returnType == null) {
-      instrumentation.record(procedure.fileUri, procedure.fileOffset, 'topType',
-          new InstrumentationValueForType(procedure.function.returnType));
-    }
-    if (isEligibleForTopLevelInference) {
-      if (formals != null) {
-        for (var formal in formals) {
-          if (formal.type == null) {
-            VariableDeclaration formalTarget = formal.target;
-            instrumentation.record(procedure.fileUri, formalTarget.fileOffset,
-                'topType', new InstrumentationValueForType(formalTarget.type));
-          }
-        }
-      }
-    }
-  }
-
-  @override
-  int finishPatch() {
-    if (!isPatch) return 0;
-
-    // TODO(ahe): restore file-offset once we track both origin and patch file
-    // URIs. See https://github.com/dart-lang/sdk/issues/31579
-    origin.procedure.fileUri = fileUri;
-    origin.procedure.fileOffset = procedure.fileOffset;
-    origin.procedure.fileEndOffset = procedure.fileEndOffset;
-    origin.procedure.annotations
-        .forEach((m) => m.fileOffset = procedure.fileOffset);
-
-    origin.procedure.isAbstract = procedure.isAbstract;
-    origin.procedure.isExternal = procedure.isExternal;
-    origin.procedure.function = procedure.function;
-    origin.procedure.function.parent = origin.procedure;
-    return 1;
-  }
-
-  @override
-  void becomeNative(Loader loader) {
-    procedure.isExternal = true;
-    super.becomeNative(loader);
-  }
-
-  @override
-  void applyPatch(Builder patch) {
-    if (patch is KernelProcedureBuilder) {
-      if (checkPatch(patch)) {
-        patch.actualOrigin = this;
-      }
-    } else {
-      reportPatchMismatch(patch);
-    }
-  }
+  Procedure get target => procedure;
 }
 
 // TODO(ahe): Move this to own file?
@@ -408,9 +257,6 @@ class KernelConstructorBuilder extends KernelFunctionBuilder {
 
   RedirectingInitializer redirectingInitializer;
 
-  @override
-  KernelConstructorBuilder actualOrigin;
-
   KernelConstructorBuilder(
       List<MetadataBuilder> metadata,
       int modifiers,
@@ -423,14 +269,11 @@ class KernelConstructorBuilder extends KernelFunctionBuilder {
       this.charOpenParenOffset,
       int charEndOffset,
       [String nativeMethodName])
-      : constructor = new Constructor(null, fileUri: compilationUnit?.fileUri)
+      : constructor = new Constructor(null)
           ..fileOffset = charOffset
           ..fileEndOffset = charEndOffset,
         super(metadata, modifiers, returnType, name, typeVariables, formals,
             compilationUnit, charOffset, nativeMethodName);
-
-  @override
-  KernelConstructorBuilder get origin => actualOrigin ?? this;
 
   bool get isInstanceMember => false;
 
@@ -444,7 +287,7 @@ class KernelConstructorBuilder extends KernelFunctionBuilder {
     return isRedirectingGenerativeConstructorImplementation(constructor);
   }
 
-  Constructor build(SourceLibraryBuilder library) {
+  Constructor build(LibraryBuilder library) {
     if (constructor.name == null) {
       constructor.function = buildFunction(library);
       constructor.function.parent = constructor;
@@ -462,16 +305,18 @@ class KernelConstructorBuilder extends KernelFunctionBuilder {
     return super.buildFunction(library)..returnType = const VoidType();
   }
 
-  Constructor get target => origin.constructor;
+  Constructor get target => constructor;
 
   void checkSuperOrThisInitializer(Initializer initializer) {
     if (superInitializer != null || redirectingInitializer != null) {
-      return deprecated_inputError(fileUri, initializer.fileOffset,
-          "Can't have more than one 'super' or 'this' initializer.");
+      memberError(
+          target,
+          "Can't have more than one 'super' or 'this' initializer.",
+          initializer.fileOffset);
     }
   }
 
-  void addInitializer(Initializer initializer, TypeInferrer typeInferrer) {
+  void addInitializer(Initializer initializer) {
     List<Initializer> initializers = constructor.initializers;
     if (initializer is SuperInitializer) {
       checkSuperOrThisInitializer(initializer);
@@ -480,12 +325,12 @@ class KernelConstructorBuilder extends KernelFunctionBuilder {
       checkSuperOrThisInitializer(initializer);
       redirectingInitializer = initializer;
       if (constructor.initializers.isNotEmpty) {
-        deprecated_inputError(fileUri, initializer.fileOffset,
-            "'this' initializer must be the only initializer.");
+        memberError(target, "'this' initializer must be the only initializer.",
+            initializer.fileOffset);
       }
     } else if (redirectingInitializer != null) {
-      deprecated_inputError(fileUri, initializer.fileOffset,
-          "'this' initializer must be the only initializer.");
+      memberError(target, "'this' initializer must be the only initializer.",
+          initializer.fileOffset);
     } else if (superInitializer != null) {
       // If there is a super initializer ([initializer] isn't it), we need to
       // insert [initializer] before the super initializer (thus ensuring that
@@ -502,13 +347,8 @@ class KernelConstructorBuilder extends KernelFunctionBuilder {
         Arguments arguments = superInitializer.arguments;
         List<Expression> positional = arguments.positional;
         for (int i = 0; i < positional.length; i++) {
-          var type = typeInferrer.typeSchemaEnvironment.strongMode
-              ? positional[i].getStaticType(typeInferrer.typeSchemaEnvironment)
-              : const DynamicType();
-          VariableDeclaration variable = new VariableDeclaration.forValue(
-              positional[i],
-              isFinal: true,
-              type: type);
+          VariableDeclaration variable =
+              new VariableDeclaration.forValue(positional[i], isFinal: true);
           initializers
               .add(new LocalInitializer(variable)..parent = constructor);
           positional[i] = new VariableGet(variable)..parent = arguments;
@@ -527,131 +367,5 @@ class KernelConstructorBuilder extends KernelFunctionBuilder {
     }
     initializers.add(initializer);
     initializer.parent = constructor;
-  }
-
-  @override
-  int finishPatch() {
-    if (!isPatch) return 0;
-
-    // TODO(ahe): restore file-offset once we track both origin and patch file
-    // URIs. See https://github.com/dart-lang/sdk/issues/31579
-    origin.constructor.fileUri = fileUri;
-    origin.constructor.fileOffset = constructor.fileOffset;
-    origin.constructor.fileEndOffset = constructor.fileEndOffset;
-    origin.constructor.annotations
-        .forEach((m) => m.fileOffset = constructor.fileOffset);
-
-    origin.constructor.isExternal = constructor.isExternal;
-    origin.constructor.function = constructor.function;
-    origin.constructor.function.parent = constructor.function;
-    origin.constructor.initializers = constructor.initializers;
-    setParents(origin.constructor.initializers, origin.constructor);
-    return 1;
-  }
-
-  @override
-  void becomeNative(Loader loader) {
-    constructor.isExternal = true;
-    super.becomeNative(loader);
-  }
-
-  @override
-  void applyPatch(Builder patch) {
-    if (patch is KernelConstructorBuilder) {
-      if (checkPatch(patch)) {
-        patch.actualOrigin = this;
-      }
-    } else {
-      reportPatchMismatch(patch);
-    }
-  }
-}
-
-class KernelRedirectingFactoryBuilder extends KernelProcedureBuilder {
-  final ConstructorReferenceBuilder redirectionTarget;
-  List<DartType> typeArguments;
-
-  KernelRedirectingFactoryBuilder(
-      List<MetadataBuilder> metadata,
-      int modifiers,
-      KernelTypeBuilder returnType,
-      String name,
-      List<TypeVariableBuilder> typeVariables,
-      List<FormalParameterBuilder> formals,
-      KernelLibraryBuilder compilationUnit,
-      int charOffset,
-      int charOpenParenOffset,
-      int charEndOffset,
-      [String nativeMethodName,
-      this.redirectionTarget])
-      : super(
-            metadata,
-            modifiers,
-            returnType,
-            name,
-            typeVariables,
-            formals,
-            ProcedureKind.Factory,
-            compilationUnit,
-            charOffset,
-            charOpenParenOffset,
-            charEndOffset,
-            nativeMethodName);
-
-  @override
-  Statement get body => actualBody;
-
-  @override
-  void setRedirectingFactoryBody(Member target, List<DartType> typeArguments) {
-    if (actualBody != null) {
-      unexpected("null", "${actualBody.runtimeType}", charOffset, fileUri);
-    }
-    actualBody = new RedirectingFactoryBody(target, typeArguments);
-    function.body = actualBody;
-    actualBody?.parent = function;
-    if (isPatch) {
-      if (function.typeParameters != null) {
-        Map<TypeParameter, DartType> substitution = <TypeParameter, DartType>{};
-        for (int i = 0; i < function.typeParameters.length; i++) {
-          substitution[function.typeParameters[i]] =
-              new TypeParameterType(actualOrigin.function.typeParameters[i]);
-        }
-        List<DartType> newTypeArguments =
-            new List<DartType>(typeArguments.length);
-        for (int i = 0; i < newTypeArguments.length; i++) {
-          newTypeArguments[i] = substitute(typeArguments[i], substitution);
-        }
-        typeArguments = newTypeArguments;
-      }
-      actualOrigin.setRedirectingFactoryBody(target, typeArguments);
-    }
-  }
-
-  @override
-  Procedure build(SourceLibraryBuilder library) {
-    Procedure result = super.build(library);
-    result.isRedirectingFactoryConstructor = true;
-    if (redirectionTarget.typeArguments != null) {
-      typeArguments =
-          new List<DartType>(redirectionTarget.typeArguments.length);
-      for (int i = 0; i < typeArguments.length; i++) {
-        typeArguments[i] = redirectionTarget.typeArguments[i].build(library);
-      }
-    }
-    return result;
-  }
-
-  @override
-  int finishPatch() {
-    if (!isPatch) return 0;
-
-    super.finishPatch();
-
-    if (origin is KernelRedirectingFactoryBuilder) {
-      KernelRedirectingFactoryBuilder redirectingOrigin = origin;
-      redirectingOrigin.typeArguments = typeArguments;
-    }
-
-    return 1;
   }
 }

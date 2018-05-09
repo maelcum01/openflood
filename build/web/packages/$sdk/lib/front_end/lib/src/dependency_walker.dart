@@ -26,6 +26,11 @@ abstract class Node<NodeType> {
   List<NodeType> _dependencies;
 
   /**
+   * Retrieve the dependencies of this node.
+   */
+  List<NodeType> get dependencies => _dependencies ??= computeDependencies();
+
+  /**
    * Indicates whether this node has been evaluated yet.
    */
   bool get isEvaluated;
@@ -34,13 +39,6 @@ abstract class Node<NodeType> {
    * Compute the dependencies of this node.
    */
   List<NodeType> computeDependencies();
-
-  /**
-   * Gets the dependencies of the given node, computing them if necessary.
-   */
-  static List<NodeType> getDependencies<NodeType>(Node<NodeType> node) {
-    return node._dependencies ??= node.computeDependencies();
-  }
 }
 
 /**
@@ -99,7 +97,7 @@ abstract class DependencyWalker<NodeType extends Node<NodeType>> {
       stack.add(node);
 
       // Consider the node's dependencies one at a time.
-      for (NodeType dependency in Node.getDependencies(node)) {
+      for (NodeType dependency in node.dependencies) {
         // If the dependency has already been evaluated, it can't be
         // part of this node's strongly connected component, so we can
         // skip it.

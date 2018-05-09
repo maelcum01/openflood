@@ -5,23 +5,19 @@
 library fasta.kernel_formal_parameter_builder;
 
 import 'package:front_end/src/fasta/kernel/kernel_shadow_ast.dart'
-    show ShadowVariableDeclaration;
-
-import '../modifier.dart' show finalMask;
+    show KernelVariableDeclaration;
 
 import 'kernel_builder.dart'
     show
         FormalParameterBuilder,
         KernelLibraryBuilder,
         KernelTypeBuilder,
+        LibraryBuilder,
         MetadataBuilder;
-
-import 'package:front_end/src/fasta/source/source_library_builder.dart'
-    show SourceLibraryBuilder;
 
 class KernelFormalParameterBuilder
     extends FormalParameterBuilder<KernelTypeBuilder> {
-  ShadowVariableDeclaration declaration;
+  KernelVariableDeclaration declaration;
   final int charOffset;
 
   KernelFormalParameterBuilder(
@@ -35,32 +31,11 @@ class KernelFormalParameterBuilder
       : super(metadata, modifiers, type, name, hasThis, compilationUnit,
             charOffset);
 
-  ShadowVariableDeclaration get target => declaration;
+  KernelVariableDeclaration get target => declaration;
 
-  ShadowVariableDeclaration build(SourceLibraryBuilder library) {
-    if (declaration == null) {
-      declaration = new ShadowVariableDeclaration(name, 0,
-          type: type?.build(library),
-          isFinal: isFinal,
-          isConst: isConst,
-          isFieldFormal: hasThis,
-          isCovariant: isCovariant)
-        ..fileOffset = charOffset;
-      if (type == null && hasThis) {
-        library.loader.typeInferenceEngine
-            .recordInitializingFormal(declaration);
-      }
-    }
-    return declaration;
-  }
-
-  @override
-  FormalParameterBuilder forFormalParameterInitializerScope() {
-    assert(declaration != null);
-    return !hasThis
-        ? this
-        : (new KernelFormalParameterBuilder(metadata, modifiers | finalMask,
-            type, name, hasThis, parent, charOffset)
-          ..declaration = declaration);
+  KernelVariableDeclaration build(LibraryBuilder library) {
+    return declaration ??= new KernelVariableDeclaration(name, 0,
+        type: type?.build(library), isFinal: isFinal, isConst: isConst)
+      ..fileOffset = charOffset;
   }
 }

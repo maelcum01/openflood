@@ -11,26 +11,10 @@ import 'dart:io' as io;
 import 'package:analyzer/file_system/file_system.dart';
 import 'package:analyzer/src/generated/source_io.dart';
 import 'package:analyzer/src/source/source_resource.dart';
+import 'package:analyzer/src/util/absolute_path.dart';
+import 'package:isolate/isolate_runner.dart';
 import 'package:path/path.dart';
 import 'package:watcher/watcher.dart';
-
-/**
- * The name of the directory containing plugin specific subfolders used to
- * store data across sessions.
- */
-const String _SERVER_DIR = ".dartServer";
-
-/**
- * Returns the path to the user's home directory.
- */
-String _getStandardStateLocation() {
-  final home = io.Platform.isWindows
-      ? io.Platform.environment['LOCALAPPDATA']
-      : io.Platform.environment['HOME'];
-  return home != null && io.FileSystemEntity.isDirectorySync(home)
-      ? join(home, _SERVER_DIR)
-      : null;
-}
 
 /**
  * Return modification times for every file path in [paths].
@@ -59,20 +43,26 @@ List<int> _pathsToTimes(List<String> paths) {
  * A `dart:io` based implementation of [ResourceProvider].
  */
 class PhysicalResourceProvider implements ResourceProvider {
-  static final String Function(String) NORMALIZE_EOL_ALWAYS =
+  static final FileReadMode NORMALIZE_EOL_ALWAYS =
       (String string) => string.replaceAll(new RegExp('\r\n?'), '\n');
 
   static final PhysicalResourceProvider INSTANCE =
       new PhysicalResourceProvider(null);
 
   /**
-   * The path to the base folder where state is stored.
+   * The name of the directory containing plugin specific subfolders used to
+   * store data across sessions.
    */
-  final String _stateLocation;
+  static final String SERVER_DIR = ".dartServer";
 
-  PhysicalResourceProvider(String Function(String) fileReadMode,
-      {String stateLocation})
-      : _stateLocation = stateLocation ?? _getStandardStateLocation() {
+  static _SingleIsolateRunnerProvider pathsToTimesIsolateProvider =
+      new _SingleIsolateRunnerProvider();
+
+  @override
+  final AbsolutePathContext absolutePathContext =
+      new AbsolutePathContext(io.Platform.isWindows);
+
+  PhysicalResourceProvider(FileReadMode fileReadMode) {
     if (fileReadMode != null) {
       FileBasedSource.fileReadMode = fileReadMode;
     }
@@ -96,7 +86,8 @@ class PhysicalResourceProvider implements ResourceProvider {
   @override
   Future<List<int>> getModificationTimes(List<Source> sources) async {
     List<String> paths = sources.map((source) => source.fullName).toList();
-    return _pathsToTimes(paths);
+    IsolateRunner runner = await pathsToTimesIsolateProvider.get();
+    return runner.run(_pathsToTimes, paths);
   }
 
   @override
@@ -110,8 +101,15 @@ class PhysicalResourceProvider implements ResourceProvider {
 
   @override
   Folder getStateLocation(String pluginId) {
-    if (_stateLocation != null) {
-      io.Directory directory = new io.Directory(join(_stateLocation, pluginId));
+    String home;
+    if (io.Platform.isWindows) {
+      home = io.Platform.environment['LOCALAPPDATA'];
+    } else {
+      home = io.Platform.environment['HOME'];
+    }
+    if (home != null && io.FileSystemEntity.isDirectorySync(home)) {
+      io.Directory directory =
+          new io.Directory(join(home, SERVER_DIR, pluginId));
       directory.createSync(recursive: true);
       return new _PhysicalFolder(directory);
     }
@@ -252,7 +250,7 @@ class _PhysicalFolder extends _PhysicalResource implements Folder {
 
   @override
   bool contains(String path) {
-    return pathContext.isWithin(this.path, path);
+    return absolutePathContext.isWithin(this.path, path);
   }
 
   @override
@@ -341,6 +339,9 @@ abstract class _PhysicalResource implements Resource {
 
   _PhysicalResource(this._entry);
 
+  AbsolutePathContext get absolutePathContext =>
+      PhysicalResourceProvider.INSTANCE.absolutePathContext;
+
   @override
   bool get exists => _entry.existsSync();
 
@@ -349,7 +350,7 @@ abstract class _PhysicalResource implements Resource {
 
   @override
   Folder get parent {
-    String parentPath = pathContext.dirname(path);
+    String parentPath = absolutePathContext.dirname(path);
     if (parentPath == path) {
       return null;
     }
@@ -365,7 +366,7 @@ abstract class _PhysicalResource implements Resource {
   Context get pathContext => io.Platform.isWindows ? windows : posix;
 
   @override
-  String get shortName => pathContext.basename(path);
+  String get shortName => absolutePathContext.basename(path);
 
   @override
   bool operator ==(other) {
@@ -412,5 +413,35 @@ abstract class _PhysicalResource implements Resource {
             path, 'Windows device drivers cannot be read.');
       }
     }
+  }
+}
+
+/**
+ * This class encapsulates logic for creating a single [IsolateRunner].
+ */
+class _SingleIsolateRunnerProvider {
+  bool _isSpawning = false;
+  IsolateRunner _runner;
+
+  /**
+   * Complete with the only [IsolateRunner] instance.
+   */
+  Future<IsolateRunner> get() async {
+    if (_runner != null) {
+      return _runner;
+    }
+    if (_isSpawning) {
+      Completer<IsolateRunner> completer = new Completer<IsolateRunner>();
+      new Timer.periodic(new Duration(milliseconds: 10), (Timer timer) {
+        if (_runner != null) {
+          completer.complete(_runner);
+          timer.cancel();
+        }
+      });
+      return completer.future;
+    }
+    _isSpawning = true;
+    _runner = await IsolateRunner.spawn();
+    return _runner;
   }
 }

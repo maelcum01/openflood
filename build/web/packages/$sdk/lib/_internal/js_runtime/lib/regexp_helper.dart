@@ -104,7 +104,7 @@ class JSSyntaxRegExp implements RegExp {
   }
 
   Match firstMatch(String string) {
-    List m = JS('JSExtendableArray|Null', r'#.exec(#)', _nativeRegExp,
+    List<String> m = JS('JSExtendableArray|Null', r'#.exec(#)', _nativeRegExp,
         checkString(string));
     if (m == null) return null;
     return new _MatchImplementation(this, m);
@@ -163,9 +163,7 @@ class _MatchImplementation implements Match {
   final Pattern pattern;
   // Contains a JS RegExp match object.
   // It is an Array of String values with extra 'index' and 'input' properties.
-  // We didn't force it to be JSArray<String>, so it is JSArray<dynamic>, but
-  // containing String or `undefined` values.
-  final JSArray _match;
+  final List<String> _match;
 
   _MatchImplementation(this.pattern, this._match) {
     assert(JS('var', '#.input', _match) is String);
@@ -182,12 +180,8 @@ class _MatchImplementation implements Match {
       JS('returns:int;depends:none;effects:none;gvn:true', '#[0].length',
           _match);
 
-  // The JS below changes the static type to avoid an implicit cast.
-  // TODO(sra): Find a nicer way to do this, e.g. unsafeCast.
-  String group(int index) => JS('String|Null', '#', _match[index]);
-
+  String group(int index) => _match[index];
   String operator [](int index) => group(index);
-
   int get groupCount => _match.length - 1;
 
   List<String> groups(List<int> groups) {

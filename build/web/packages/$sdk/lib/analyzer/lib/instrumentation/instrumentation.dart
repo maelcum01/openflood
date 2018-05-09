@@ -2,10 +2,12 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+library analyzer.instrumentation.instrumentation;
+
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:analyzer/src/task/api/model.dart';
+import 'package:analyzer/task/model.dart';
 
 /**
  * A container with analysis performance constants.
@@ -211,16 +213,9 @@ class InstrumentationService {
    */
   void logPluginError(
       PluginData plugin, String code, String message, String stackTrace) {
-    if (_instrumentationServer != null) {
-      List<String> fields = <String>[
-        TAG_PLUGIN_ERROR,
-        code,
-        message,
-        stackTrace
-      ];
-      plugin.addToFields(fields);
-      _instrumentationServer.log(_join(fields));
-    }
+    List<String> fields = <String>[TAG_PLUGIN_ERROR, code, message, stackTrace];
+    plugin.addToFields(fields);
+    _instrumentationServer.log(_join(fields));
   }
 
   /**
@@ -313,8 +308,8 @@ class InstrumentationService {
         TAG_SUBPROCESS_RESULT,
         subprocessId.toString(),
         exitCode.toString(),
-        json.encode(stdout),
-        json.encode(stderr)
+        JSON.encode(stdout),
+        JSON.encode(stderr)
       ]));
     }
   }
@@ -333,7 +328,7 @@ class InstrumentationService {
         subprocessId.toString(),
         executablePath,
         workingDirectory,
-        json.encode(arguments)
+        JSON.encode(arguments)
       ]));
     }
     return subprocessId;

@@ -10,6 +10,4 @@ class DynamicTypeBuilder<T extends TypeBuilder, R>
     extends BuiltinTypeBuilder<T, R> {
   DynamicTypeBuilder(R type, LibraryBuilder compilationUnit, int charOffset)
       : super("dynamic", type, compilationUnit, charOffset);
-
-  String get debugName => "DynamicTypeBuilder";
 }

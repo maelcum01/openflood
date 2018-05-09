@@ -9,7 +9,6 @@ import 'package:analyzer/file_system/file_system.dart';
 import 'package:analyzer/src/dart/analysis/driver.dart';
 import 'package:analyzer_plugin/protocol/protocol_common.dart'
     show SourceChange;
-import 'package:analyzer_plugin/utilities/fixes/fixes.dart';
 
 /**
  * A description of a single proposed fix for some problem.
@@ -24,15 +23,11 @@ class Fix {
 
   /**
    * A comparator that can be used to sort fixes by their relevance. The most
-   * relevant fixes will be sorted before fixes with a lower relevance. Fixes
-   * with the same relevance are sorted alphabetically.
+   * relevant fixes will be sorted before fixes with a lower relevance.
    */
-  static final Comparator<Fix> SORT_BY_RELEVANCE = (Fix a, Fix b) {
-    if (a.kind.priority != b.kind.priority) {
-      return a.kind.priority - b.kind.priority;
-    }
-    return a.change.message.compareTo(b.change.message);
-  };
+  static final Comparator<Fix> SORT_BY_RELEVANCE =
+      (Fix firstFix, Fix secondFix) =>
+          firstFix.kind.relevance - secondFix.kind.relevance;
 
   /**
    * A description of the fix being proposed.
@@ -89,4 +84,41 @@ abstract class FixContributor {
    * Return a list of fixes for the given [context].
    */
   Future<List<Fix>> computeFixes(FixContext context);
+}
+
+/**
+ * A description of a class of fixes. Instances are intended to hold the
+ * information that is common across a number of fixes and to be shared by those
+ * fixes. For example, if an unnecessary cast is found then one of the suggested
+ * fixes will be to remove the cast. If there are multiple unnecessary casts in
+ * a single file, then there will be multiple fixes, one per occurrence, but
+ * they will all share the same kind.
+ *
+ * Clients may not extend, implement or mix-in this class.
+ */
+class FixKind {
+  /**
+   * The name of this kind of fix, used for debugging.
+   */
+  final String name;
+
+  /**
+   * The relevance of this kind of fix for the kind of error being addressed.
+   */
+  final int relevance;
+
+  /**
+   * A human-readable description of the changes that will be applied by this
+   * kind of fix.
+   */
+  final String message;
+
+  /**
+   * Initialize a newly created kind of fix to have the given [name],
+   * [relevance] and [message].
+   */
+  const FixKind(this.name, this.relevance, this.message);
+
+  @override
+  String toString() => name;
 }

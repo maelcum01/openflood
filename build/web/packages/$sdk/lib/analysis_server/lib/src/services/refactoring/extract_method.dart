@@ -15,8 +15,8 @@ import 'package:analysis_server/src/services/refactoring/refactoring.dart';
 import 'package:analysis_server/src/services/refactoring/refactoring_internal.dart';
 import 'package:analysis_server/src/services/refactoring/rename_class_member.dart';
 import 'package:analysis_server/src/services/refactoring/rename_unit_member.dart';
+import 'package:analysis_server/src/services/search/element_visitors.dart';
 import 'package:analysis_server/src/services/search/search_engine.dart';
-import 'package:analyzer/dart/analysis/session.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/standard_resolution_map.dart';
 import 'package:analyzer/dart/ast/token.dart';
@@ -24,12 +24,10 @@ import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:analyzer/src/dart/ast/utilities.dart';
-import 'package:analyzer/src/dart/element/ast_provider.dart';
+import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/java_core.dart';
 import 'package:analyzer/src/generated/resolver.dart' show ExitDetector;
-import 'package:analyzer/src/generated/resolver.dart';
 import 'package:analyzer/src/generated/source.dart';
-import 'package:analyzer/src/generated/type_system.dart';
 import 'package:analyzer_plugin/utilities/range_factory.dart';
 
 const String _TOKEN_SEPARATOR = '\uFFFF';
@@ -74,11 +72,10 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
       'execution flows exit. Semantics may not be preserved.';
 
   final SearchEngine searchEngine;
-  final AstProvider astProvider;
   final CompilationUnit unit;
   final int selectionOffset;
   final int selectionLength;
-  AnalysisSession session;
+  AnalysisContext context;
   CompilationUnitElement unitElement;
   LibraryElement libraryElement;
   SourceRange selectionRange;
@@ -121,11 +118,11 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
   List<_Occurrence> _occurrences = [];
   bool _staticContext = false;
 
-  ExtractMethodRefactoringImpl(this.searchEngine, this.astProvider, this.unit,
+  ExtractMethodRefactoringImpl(this.searchEngine, this.unit,
       this.selectionOffset, this.selectionLength) {
     unitElement = unit.element;
     libraryElement = unitElement.library;
-    session = astProvider.driver.currentSession;
+    context = libraryElement.context;
     selectionRange = new SourceRange(selectionOffset, selectionLength);
     utils = new CorrectionUtils(unit);
   }
@@ -197,18 +194,17 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
   }
 
   @override
-  Future<RefactoringStatus> checkInitialConditions() async {
+  Future<RefactoringStatus> checkInitialConditions() {
     RefactoringStatus result = new RefactoringStatus();
     // selection
     result.addStatus(_checkSelection());
     if (result.hasFatalError) {
-      return result;
+      return new Future.value(result);
     }
     // prepare parts
-    RefactoringStatus status = await _initializeParameters();
-    result.addStatus(status);
+    result.addStatus(_initializeParameters());
     _initializeHasAwait();
-    await _initializeReturnType();
+    _initializeReturnType();
     // occurrences
     _initializeOccurrences();
     _prepareOffsetsLengths();
@@ -224,9 +220,10 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
       String message = format(
           'Cannot extract closure as method, it references {0} external variable(s).',
           _parameters.length);
-      return new RefactoringStatus.fatal(message);
+      RefactoringStatus result = new RefactoringStatus.fatal(message);
+      return new Future.value(result);
     }
-    return result;
+    return new Future.value(result);
   }
 
   @override
@@ -326,8 +323,7 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
         String returnExpressionSource = _getMethodBodySource();
         // closure
         if (_selectionFunctionExpression != null) {
-          String returnTypeCode = _getExpectedClosureReturnTypeCode();
-          declarationSource = '$returnTypeCode$name$returnExpressionSource';
+          declarationSource = '$name$returnExpressionSource';
           if (_selectionFunctionExpression.body is ExpressionFunctionBody) {
             declarationSource += ';';
           }
@@ -336,36 +332,13 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
         String asyncKeyword = _hasAwait ? ' async' : '';
         // expression
         if (_selectionExpression != null) {
-          bool isMultiLine = returnExpressionSource.contains(eol);
-
-          // We generate the method body using the shorthand syntax if it fits
-          // into a single line and use the regular method syntax otherwise.
-          if (!isMultiLine) {
-            // add return type
-            if (returnType.isNotEmpty) {
-              annotations += '$returnType ';
-            }
-            // just return expression
-            declarationSource = '$annotations$signature$asyncKeyword => ';
-            declarationSource += '$returnExpressionSource;';
-          } else {
-            // Left indent once; returnExpressionSource was indented for method
-            // shorthands.
-            returnExpressionSource = utils
-                .indentSourceLeftRight('${returnExpressionSource.trim()};')
-                .trim();
-
-            // add return type
-            if (returnType.isNotEmpty) {
-              annotations += '$returnType ';
-            }
-            declarationSource = '$annotations$signature$asyncKeyword {$eol';
-            declarationSource += '$prefix  ';
-            if (returnType.isNotEmpty) {
-              declarationSource += 'return ';
-            }
-            declarationSource += '$returnExpressionSource$eol$prefix}';
+          // add return type
+          if (returnType.isNotEmpty) {
+            annotations += '$returnType ';
           }
+          // just return expression
+          declarationSource = '$annotations$signature$asyncKeyword => ';
+          declarationSource += '$returnExpressionSource;';
         }
         // statements
         if (_selectionStatements != null) {
@@ -444,8 +417,7 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
     // method of class
     if (parent is ClassDeclaration) {
       ClassElement classElement = parent.element;
-      return validateCreateMethod(
-          searchEngine, astProvider, classElement, name);
+      return validateCreateMethod(searchEngine, classElement, name);
     }
     // OK
     return new Future<RefactoringStatus>.value(result);
@@ -456,64 +428,36 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
    * location of this [DartExpression] in AST allows extracting.
    */
   RefactoringStatus _checkSelection() {
-    // Check for implicitly selected closure.
-    {
-      FunctionExpression function = _findFunctionExpression();
-      if (function != null) {
-        _selectionFunctionExpression = function;
-        selectionRange = range.node(function);
-        _parentMember = getEnclosingClassOrUnitMember(function);
-        return new RefactoringStatus();
-      }
-    }
-
     _ExtractMethodAnalyzer selectionAnalyzer =
         new _ExtractMethodAnalyzer(unit, selectionRange);
     unit.accept(selectionAnalyzer);
-    // May be a fatal error.
+    // may be fatal error
     {
-      if (selectionAnalyzer.status.hasFatalError) {
-        return selectionAnalyzer.status;
+      RefactoringStatus status = selectionAnalyzer.status;
+      if (status.hasFatalError) {
+        return status;
       }
     }
-
+    // check selected nodes
     List<AstNode> selectedNodes = selectionAnalyzer.selectedNodes;
-
-    // If no selected nodes, extract the smallest covering expression.
-    if (selectedNodes.isEmpty) {
-      for (var node = selectionAnalyzer.coveringNode;
-          node != null;
-          node = node.parent) {
-        if (node is Statement) {
-          break;
-        }
-        if (node is Expression && _isExtractable(range.node(node))) {
-          selectedNodes.add(node);
-          selectionRange = range.node(node);
-          break;
-        }
-      }
-    }
-
-    // Check selected nodes.
     if (!selectedNodes.isEmpty) {
-      AstNode selectedNode = selectedNodes.first;
-      _parentMember = getEnclosingClassOrUnitMember(selectedNode);
+      AstNode coveringNode = selectionAnalyzer.coveringNode;
+      _parentMember = getEnclosingClassOrUnitMember(coveringNode);
       // single expression selected
-      if (selectedNodes.length == 1) {
-        if (!utils.selectionIncludesNonWhitespaceOutsideNode(
-            selectionRange, selectedNode)) {
-          if (selectedNode is Expression) {
-            _selectionExpression = selectedNode;
-            // additional check for closure
-            if (_selectionExpression is FunctionExpression) {
-              _selectionFunctionExpression =
-                  _selectionExpression as FunctionExpression;
-              _selectionExpression = null;
-            }
-            // OK
-            return new RefactoringStatus();
+      if (selectedNodes.length == 1 &&
+          !utils.selectionIncludesNonWhitespaceOutsideNode(
+              selectionRange, selectionAnalyzer.firstSelectedNode)) {
+        AstNode selectedNode = selectionAnalyzer.firstSelectedNode;
+        if (selectedNode is Expression) {
+          _selectionExpression = selectedNode;
+          // additional check for closure
+          if (_selectionExpression is FunctionExpression) {
+            _selectionFunctionExpression =
+                _selectionExpression as FunctionExpression;
+            _selectionExpression = null;
           }
+          // OK
+          return new RefactoringStatus();
         }
       }
       // statements selected
@@ -559,66 +503,6 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
     }
     // OK
     return true;
-  }
-
-  /**
-   * If the [selectionRange] is associated with a [FunctionExpression], return
-   * this [FunctionExpression].
-   */
-  FunctionExpression _findFunctionExpression() {
-    if (selectionRange.length != 0) {
-      return null;
-    }
-    int offset = selectionRange.offset;
-    AstNode node = new NodeLocator2(offset, offset).searchWithin(unit);
-
-    // Check for the parameter list of a FunctionExpression.
-    {
-      FunctionExpression function =
-          node?.getAncestor((n) => n is FunctionExpression);
-      if (function != null &&
-          function.parameters != null &&
-          range.node(function.parameters).contains(offset)) {
-        return function;
-      }
-    }
-
-    // Check for the name of the named argument with the closure expression.
-    if (node is SimpleIdentifier &&
-        node.parent is Label &&
-        node.parent.parent is NamedExpression) {
-      NamedExpression namedExpression = node.parent.parent;
-      Expression expression = namedExpression.expression;
-      if (expression is FunctionExpression) {
-        return expression;
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * If the selected closure (i.e. [_selectionFunctionExpression]) is an
-   * argument for a function typed parameter (as it should be), and the
-   * function type has the return type specified, return this return type's
-   * code. Otherwise return the empty string.
-   */
-  String _getExpectedClosureReturnTypeCode() {
-    Expression argument = _selectionFunctionExpression;
-    if (argument.parent is NamedExpression) {
-      argument = argument.parent as NamedExpression;
-    }
-    ParameterElement parameter = argument.bestParameterElement;
-    if (parameter != null) {
-      DartType parameterType = parameter.type;
-      if (parameterType is FunctionType) {
-        String typeCode = _getTypeCode(parameterType.returnType);
-        if (typeCode != 'dynamic') {
-          return typeCode + ' ';
-        }
-      }
-    }
-    return '';
   }
 
   /**
@@ -708,7 +592,7 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
    * Prepares information about used variables, which should be turned into
    * parameters.
    */
-  Future<RefactoringStatus> _initializeParameters() async {
+  RefactoringStatus _initializeParameters() {
     _parameters.clear();
     _parametersMap.clear();
     _parameterReferencesMap.clear();
@@ -728,9 +612,7 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
     }
     // maybe ends with "return" statement
     if (_selectionStatements != null) {
-      TypeSystem typeSystem = await session.typeSystem;
-      _ReturnTypeComputer returnTypeComputer =
-          new _ReturnTypeComputer(typeSystem);
+      _ReturnTypeComputer returnTypeComputer = new _ReturnTypeComputer(context);
       _selectionStatements.forEach((statement) {
         statement.accept(returnTypeComputer);
       });
@@ -766,9 +648,8 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
     return result;
   }
 
-  Future<Null> _initializeReturnType() async {
-    TypeProvider typeProvider = await session.typeProvider;
-    InterfaceType futureType = typeProvider.futureType;
+  void _initializeReturnType() {
+    InterfaceType futureType = context.typeProvider.futureType;
     if (_selectionFunctionExpression != null) {
       variableType = '';
       returnType = '';
@@ -849,16 +730,28 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
    */
   void _prepareExcludedNames() {
     _excludedNames.clear();
-    List<LocalElement> localElements = getDefinedLocalElements(_parentMember);
-    _excludedNames.addAll(localElements.map((e) => e.name));
+    ExecutableElement enclosingExecutable =
+        getEnclosingExecutableElement(_parentMember);
+    if (enclosingExecutable != null) {
+      visitChildren(enclosingExecutable, (Element element) {
+        if (element is LocalElement) {
+          SourceRange elementRange = element.visibleRange;
+          if (elementRange != null) {
+            _excludedNames.add(element.displayName);
+          }
+        }
+        return true;
+      });
+    }
   }
 
   void _prepareNames() {
     names.clear();
     if (_selectionExpression != null) {
       names.addAll(getVariableNameSuggestionsForExpression(
-          _selectionExpression.staticType, _selectionExpression, _excludedNames,
-          isMethod: true));
+          _selectionExpression.staticType,
+          _selectionExpression,
+          _excludedNames));
     }
   }
 
@@ -1305,11 +1198,11 @@ class _Occurrence {
 }
 
 class _ReturnTypeComputer extends RecursiveAstVisitor {
-  final TypeSystem typeSystem;
+  final AnalysisContext context;
 
   DartType returnType;
 
-  _ReturnTypeComputer(this.typeSystem);
+  _ReturnTypeComputer(this.context);
 
   @override
   visitBlockFunctionBody(BlockFunctionBody node) {}
@@ -1333,7 +1226,7 @@ class _ReturnTypeComputer extends RecursiveAstVisitor {
       if (returnType is InterfaceType && type is InterfaceType) {
         returnType = InterfaceType.getSmartLeastUpperBound(returnType, type);
       } else {
-        returnType = typeSystem.getLeastUpperBound(returnType, type);
+        returnType = context.typeSystem.getLeastUpperBound(returnType, type);
       }
     }
   }

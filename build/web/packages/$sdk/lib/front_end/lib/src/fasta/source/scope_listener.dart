@@ -41,9 +41,9 @@ abstract class ScopeListener<J> extends UnhandledListener {
     return createJumpTarget(JumpTargetKind.Goto, charOffset);
   }
 
-  void enterLocalScope(String debugName, [Scope newScope]) {
+  void enterLocalScope([Scope newScope]) {
     push(scope);
-    scope = newScope ?? scope.createNestedScope(debugName);
+    scope = newScope ?? scope.createNestedScope();
   }
 
   @override
@@ -82,26 +82,26 @@ abstract class ScopeListener<J> extends UnhandledListener {
   @override
   void beginBlockFunctionBody(Token begin) {
     debugEvent("beginBlockFunctionBody");
-    enterLocalScope("block function body");
+    enterLocalScope();
   }
 
   @override
   void beginForStatement(Token token) {
     debugEvent("beginForStatement");
     enterLoop(token.charOffset);
-    enterLocalScope("for statment");
+    enterLocalScope();
   }
 
   @override
   void beginBlock(Token token) {
     debugEvent("beginBlock");
-    enterLocalScope("block");
+    enterLocalScope();
   }
 
   @override
   void beginSwitchBlock(Token token) {
     debugEvent("beginSwitchBlock");
-    enterLocalScope("swithc block");
+    enterLocalScope();
     enterBreakTarget(token.charOffset);
   }
 
@@ -120,7 +120,7 @@ abstract class ScopeListener<J> extends UnhandledListener {
   @override
   void beginDoWhileStatementBody(Token token) {
     debugEvent("beginDoWhileStatementBody");
-    enterLocalScope("do-while statement body");
+    enterLocalScope();
   }
 
   @override
@@ -134,7 +134,7 @@ abstract class ScopeListener<J> extends UnhandledListener {
   @override
   void beginWhileStatementBody(Token token) {
     debugEvent("beginWhileStatementBody");
-    enterLocalScope("while statement body");
+    enterLocalScope();
   }
 
   @override
@@ -148,7 +148,7 @@ abstract class ScopeListener<J> extends UnhandledListener {
   @override
   void beginForStatementBody(Token token) {
     debugEvent("beginForStatementBody");
-    enterLocalScope("for statement body");
+    enterLocalScope();
   }
 
   @override
@@ -162,7 +162,7 @@ abstract class ScopeListener<J> extends UnhandledListener {
   @override
   void beginForInBody(Token token) {
     debugEvent("beginForInBody");
-    enterLocalScope("for-in body");
+    enterLocalScope();
   }
 
   @override
@@ -176,7 +176,7 @@ abstract class ScopeListener<J> extends UnhandledListener {
   @override
   void beginThenStatement(Token token) {
     debugEvent("beginThenStatement");
-    enterLocalScope("then");
+    enterLocalScope();
   }
 
   @override
@@ -190,7 +190,7 @@ abstract class ScopeListener<J> extends UnhandledListener {
   @override
   void beginElseStatement(Token token) {
     debugEvent("beginElseStatement");
-    enterLocalScope("else");
+    enterLocalScope();
   }
 
   @override

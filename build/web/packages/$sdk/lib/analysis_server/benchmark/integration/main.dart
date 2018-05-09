@@ -75,8 +75,9 @@ ArgParser get argParser {
       help: '<filePath>\n'
           'The input file specifying how this client should interact with the server.\n'
           'If the input file name is "stdin", then the instructions are read from standard input.');
-  _argParser.addMultiOption(MAP_OPTION,
+  _argParser.addOption(MAP_OPTION,
       abbr: 'm',
+      allowMultiple: true,
       splitCommas: false,
       help: '<oldSrcPath>,<newSrcPath>\n'
           'This option defines a mapping from the original source directory <oldSrcPath>\n'
@@ -174,12 +175,10 @@ PerfArgs parseArgs(List<String> rawArgs) {
 
   String portText = args[DIAGNOSTIC_PORT_OPTION];
   if (portText != null) {
-    if (int.tryParse(portText) == null) {
-      print('invalid $DIAGNOSTIC_PORT_OPTION: $portText');
+    perfArgs.diagnosticPort = int.parse(portText, onError: (s) {
+      print('invalid $DIAGNOSTIC_PORT_OPTION: $s');
       showHelp = true;
-    } else {
-      perfArgs.diagnosticPort = int.tryParse(portText);
-    }
+    });
   }
 
   if (args[VERY_VERBOSE_CMDLINE_OPTION] || rawArgs.contains('-vv')) {

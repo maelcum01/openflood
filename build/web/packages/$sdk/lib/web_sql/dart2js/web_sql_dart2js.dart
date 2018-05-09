@@ -7,14 +7,12 @@
  * for more information.
  *
  * The [dart:indexed_db] APIs is a recommended alternatives.
- *
- * {@category Web}
  */
 library dart.dom.web_sql;
 
 import 'dart:async';
-import 'dart:collection' hide LinkedList, LinkedListEntry;
-import 'dart:_internal' show FixedLengthListMixin;
+import 'dart:collection';
+import 'dart:_internal';
 import 'dart:html';
 import 'dart:html_common';
 import 'dart:_foreign_helper' show JS;
@@ -25,7 +23,6 @@ import 'dart:_interceptors' show Interceptor;
 
 import 'dart:_js_helper'
     show
-        applyExtension,
         convertDartClosureToJS,
         Creates,
         JSName,
@@ -131,20 +128,6 @@ class SqlDatabase extends Interceptor {
   void transaction(SqlTransactionCallback callback,
       [SqlTransactionErrorCallback errorCallback,
       VoidCallback successCallback]) native;
-
-  @JSName('transaction')
-  @DomName('Database.transaction')
-  @DocsEditable()
-  Future<SqlTransaction> transaction_future() {
-    var completer = new Completer<SqlTransaction>();
-    transaction((value) {
-      applyExtension('SQLTransaction', value);
-      completer.complete(value);
-    }, (error) {
-      completer.completeError(error);
-    });
-    return completer.future;
-  }
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
@@ -321,26 +304,10 @@ class SqlTransaction extends Interceptor {
     throw new UnsupportedError("Not supported");
   }
 
-  @JSName('executeSql')
   @DomName('SQLTransaction.executeSql')
   @DocsEditable()
-  void _executeSql(String sqlStatement,
+  void executeSql(String sqlStatement,
       [List arguments,
       SqlStatementCallback callback,
       SqlStatementErrorCallback errorCallback]) native;
-
-  @JSName('executeSql')
-  @DomName('SQLTransaction.executeSql')
-  @DocsEditable()
-  Future<SqlResultSet> executeSql(String sqlStatement, [List arguments]) {
-    var completer = new Completer<SqlResultSet>();
-    _executeSql(sqlStatement, arguments, (transaction, resultSet) {
-      applyExtension('SQLResultSet', resultSet);
-      applyExtension('SQLResultSetRowList', resultSet.rows);
-      completer.complete(resultSet);
-    }, (transaction, error) {
-      completer.completeError(error);
-    });
-    return completer.future;
-  }
 }

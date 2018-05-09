@@ -9,6 +9,9 @@ import 'package:analysis_server/src/protocol_server.dart'
 import 'package:analysis_server/src/provisional/completion/dart/completion_dart.dart';
 import 'package:analysis_server/src/services/completion/dart/completion_manager.dart'
     show DartCompletionRequestImpl;
+import 'package:analysis_server/src/services/completion/dart/local_declaration_visitor.dart'
+    show LocalDeclarationVisitor;
+import 'package:analysis_server/src/services/completion/dart/optype.dart';
 import 'package:analysis_server/src/services/completion/dart/utilities.dart';
 import 'package:analysis_server/src/services/correction/strings.dart';
 import 'package:analysis_server/src/utilities/documentation.dart';
@@ -17,11 +20,9 @@ import 'package:analyzer/dart/ast/standard_resolution_map.dart';
 import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
+import 'package:analyzer/src/generated/utilities_dart.dart' show ParameterKind;
 import 'package:analyzer_plugin/protocol/protocol_common.dart' as protocol
     show Element, ElementKind;
-import 'package:analyzer_plugin/src/utilities/completion/optype.dart';
-import 'package:analyzer_plugin/src/utilities/visitors/local_declaration_visitor.dart'
-    show LocalDeclarationVisitor;
 
 /**
  * A contributor for calculating suggestions for declarations in the local
@@ -467,16 +468,17 @@ class _LocalVisitor extends LocalDeclarationVisitor {
     }).toList();
 
     Iterable<ParameterElement> requiredParameters = paramList
-        .where((FormalParameter param) => param.isRequired)
+        .where((FormalParameter param) => param.kind == ParameterKind.REQUIRED)
         .map((p) => p.element);
     suggestion.requiredParameterCount = requiredParameters.length;
 
     Iterable<ParameterElement> namedParameters = paramList
-        .where((FormalParameter param) => param.isNamed)
+        .where((FormalParameter param) => param.kind == ParameterKind.NAMED)
         .map((p) => p.element);
     suggestion.hasNamedParameters = namedParameters.isNotEmpty;
 
-    addDefaultArgDetails(suggestion, null, requiredParameters, namedParameters);
+    addDefaultArgDetails(suggestion, null, requiredParameters, namedParameters,
+        request.ideOptions);
   }
 
   bool _isVoid(TypeAnnotation returnType) {

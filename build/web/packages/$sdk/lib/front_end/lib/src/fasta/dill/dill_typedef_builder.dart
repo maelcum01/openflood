@@ -4,58 +4,41 @@
 
 library fasta.dill_typedef_builder;
 
-import 'package:kernel/ast.dart' show DartType, Typedef, TypeParameter, Class;
-
-import 'package:kernel/type_algebra.dart' show calculateBounds;
+import 'package:front_end/src/fasta/builder/library_builder.dart';
+import 'package:front_end/src/fasta/errors.dart';
+import 'package:kernel/ast.dart' show DartType, Typedef;
 
 import '../kernel/kernel_builder.dart'
     show
+        FormalParameterBuilder,
         KernelFunctionTypeAliasBuilder,
-        KernelFunctionTypeBuilder,
-        LibraryBuilder,
+        KernelTypeBuilder,
         MetadataBuilder,
-        TypeBuilder;
-
-import '../problems.dart' show unimplemented;
-
+        TypeVariableBuilder;
 import 'dill_library_builder.dart' show DillLibraryBuilder;
-
-import 'dill_class_builder.dart' show DillClassBuilder;
-
-import 'built_type_builder.dart' show BuiltTypeBuilder;
 
 class DillFunctionTypeAliasBuilder extends KernelFunctionTypeAliasBuilder {
   DillFunctionTypeAliasBuilder(Typedef typedef, DillLibraryBuilder parent)
-      : super(null, typedef.name, null, null, parent, typedef.fileOffset,
+      : super(null, null, typedef.name, null, null, parent, typedef.fileOffset,
             typedef);
 
-  List<MetadataBuilder> get metadata {
-    return unimplemented("metadata", -1, null);
+  @override
+  List<FormalParameterBuilder> get formals {
+    return internalError('Not implemented.');
   }
 
-  List<TypeBuilder> get calculatedBounds {
-    if (super.calculatedBounds != null) {
-      return super.calculatedBounds;
-    }
-    DillLibraryBuilder parentLibraryBuilder = parent;
-    DillClassBuilder objectClassBuilder =
-        parentLibraryBuilder.loader.coreLibrary["Object"];
-    Class objectClass = objectClassBuilder.cls;
-    List<TypeParameter> targetTypeParameters = target.typeParameters;
-    List<DartType> calculatedBoundTypes =
-        calculateBounds(targetTypeParameters, objectClass);
-    List<TypeBuilder> result =
-        new List<BuiltTypeBuilder>(targetTypeParameters.length);
-    for (int i = 0; i < result.length; i++) {
-      result[i] = new BuiltTypeBuilder(calculatedBoundTypes[i]);
-    }
-    super.calculatedBounds = result;
-    return super.calculatedBounds;
+  List<MetadataBuilder> get metadata {
+    return internalError('Not implemented.');
   }
 
   @override
-  KernelFunctionTypeBuilder get type {
-    return unimplemented("type", -1, null);
+  KernelTypeBuilder get returnType {
+    return internalError('Not implemented.');
+  }
+
+  @override
+  List<TypeVariableBuilder> get typeVariables {
+    return internalError('Not implemented.');
   }
 
   @override

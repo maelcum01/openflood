@@ -80,7 +80,7 @@ abstract class InternetAddress {
   /**
    * The [type] of the [InternetAddress] specified what IP protocol.
    */
-  InternetAddressType get type;
+  InternetAddressType type;
 
   /**
    * The numeric address of the host. For IPv4 addresses this is using
@@ -168,7 +168,7 @@ abstract class NetworkInterface {
   /**
    * Get the index of the [NetworkInterface].
    */
-  int get index;
+  String get index;
 
   /**
    * Get a list of [InternetAddress]es currently bound to this
@@ -354,7 +354,7 @@ class SocketOption {
   /**
    * Enable or disable no-delay on the socket. If TCP_NODELAY is enabled, the
    * socket will not buffer data internally, but instead write each data chunk
-   * as an individual TCP packet.
+   * as an invidual TCP packet.
    *
    * TCP_NODELAY is disabled by default.
    */
@@ -424,15 +424,8 @@ abstract class RawSocket implements Stream<RawSocketEvent> {
    * address to bind when making the connection. `sourceAddress` can either
    * be a `String` or an `InternetAddress`. If a `String` is passed it must
    * hold a numeric IP address.
-   *
-   * The argument [timeout] is used to specify the maximum allowed time to wait
-   * for a connection to be established. If [timeout] is longer than the system
-   * level timeout duration, a timeout may occur sooner than specified in
-   * [timeout]. On timeout, a [SocketException] is thrown and all ongoing
-   * connection attempts to [host] are cancelled.
    */
-  external static Future<RawSocket> connect(host, int port,
-      {sourceAddress, Duration timeout});
+  external static Future<RawSocket> connect(host, int port, {sourceAddress});
 
   /**
    * Returns the number of received and non-read bytes in the socket that
@@ -529,26 +522,8 @@ abstract class Socket implements Stream<List<int>>, IOSink {
    * address to bind when making the connection. `sourceAddress` can either
    * be a `String` or an `InternetAddress`. If a `String` is passed it must
    * hold a numeric IP address.
-   *
-   * The argument [timeout] is used to specify the maximum allowed time to wait
-   * for a connection to be established. If [timeout] is longer than the system
-   * level timeout duration, a timeout may occur sooner than specified in
-   * [timeout]. On timeout, a [SocketException] is thrown and all ongoing
-   * connection attempts to [host] are cancelled.
    */
-  static Future<Socket> connect(host, int port,
-      {sourceAddress, Duration timeout}) {
-    final IOOverrides overrides = IOOverrides.current;
-    if (overrides == null) {
-      return Socket._connect(host, port,
-          sourceAddress: sourceAddress, timeout: timeout);
-    }
-    return overrides.socketConnect(host, port,
-        sourceAddress: sourceAddress, timeout: timeout);
-  }
-
-  external static Future<Socket> _connect(host, int port,
-      {sourceAddress, Duration timeout});
+  external static Future<Socket> connect(host, int port, {sourceAddress});
 
   /**
    * Destroy the socket in both directions. Calling [destroy] will make the
@@ -588,9 +563,9 @@ abstract class Socket implements Stream<List<int>>, IOSink {
    */
   InternetAddress get remoteAddress;
 
-  Future close();
+  Future<Socket> close();
 
-  Future get done;
+  Future<Socket> get done;
 }
 
 /**

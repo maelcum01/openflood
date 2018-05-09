@@ -128,13 +128,14 @@ abstract class Accessor {
   Expression _finish(Expression body) => body;
 
   /// Returns an [Expression] representing a compile-time error.
-  makeInvalidRead() => new InvalidExpression(null);
+  ///
+  /// At runtime, an exception will be thrown.
+  makeInvalidRead() => new InvalidExpression();
 
   /// Returns an [Expression] representing a compile-time error wrapping
   /// [value].
   ///
-  /// The expression will be a compile-time error but will contain [value] as a
-  /// subexpression before the compile-time error.
+  /// At runtime, [value] will be evaluated before throwing an exception.
   makeInvalidWrite(Expression value) => wrapInvalid(value);
 }
 
@@ -505,6 +506,5 @@ VariableDeclaration makeOrReuseVariable(Expression value) {
 }
 
 Expression wrapInvalid(Expression e) {
-  return new Let(
-      new VariableDeclaration.forValue(e), new InvalidExpression(null));
+  return new Let(new VariableDeclaration.forValue(e), new InvalidExpression());
 }

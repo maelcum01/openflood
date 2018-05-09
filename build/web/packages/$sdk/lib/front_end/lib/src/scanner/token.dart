@@ -44,27 +44,49 @@ class BeginToken extends SimpleToken {
    * Initialize a newly created token to have the given [type] at the given
    * [offset].
    */
-  BeginToken(TokenType type, int offset, [CommentToken precedingComment])
-      : super(type, offset, precedingComment) {
-    assert(type == TokenType.LT ||
-        type == TokenType.OPEN_CURLY_BRACKET ||
+  BeginToken(TokenType type, int offset) : super(type, offset) {
+    assert(type == TokenType.OPEN_CURLY_BRACKET ||
         type == TokenType.OPEN_PAREN ||
         type == TokenType.OPEN_SQUARE_BRACKET ||
         type == TokenType.STRING_INTERPOLATION_EXPRESSION);
   }
 
   @override
-  Token copy() => new BeginToken(type, offset, copyComments(precedingComments));
+  Token copy() => new BeginToken(type, offset);
+}
 
+/**
+ * A begin token that is preceded by comments.
+ */
+class BeginTokenWithComment extends BeginToken implements TokenWithComment {
+  /**
+   * The first comment in the list of comments that precede this token.
+   */
   @override
-  Token get endGroup => endToken;
+  CommentToken _precedingComment;
 
   /**
-   * Set the token that corresponds to this token.
+   * Initialize a newly created token to have the given [type] at the given
+   * [offset] and to be preceded by the comments reachable from the given
+   * [_precedingComment].
    */
-  set endGroup(Token token) {
-    endToken = token;
+  BeginTokenWithComment(TokenType type, int offset, this._precedingComment)
+      : super(type, offset) {
+    _setCommentParent(_precedingComment);
   }
+
+  @override
+  CommentToken get precedingComments => _precedingComment;
+
+  @override
+  void set precedingComments(CommentToken comment) {
+    _precedingComment = comment;
+    _setCommentParent(_precedingComment);
+  }
+
+  @override
+  Token copy() =>
+      new BeginTokenWithComment(type, offset, copyComments(precedingComments));
 }
 
 /**
@@ -74,7 +96,7 @@ class CommentToken extends StringToken {
   /**
    * The token that contains this comment.
    */
-  SimpleToken parent;
+  TokenWithComment parent;
 
   /**
    * Initialize a newly created token to represent a token of the given [type]
@@ -136,7 +158,7 @@ class DocumentationCommentToken extends CommentToken {
  */
 class Keyword extends TokenType {
   static const Keyword ABSTRACT =
-      const Keyword("abstract", "ABSTRACT", isBuiltIn: true, isModifier: true);
+      const Keyword("abstract", "ABSTRACT", isBuiltIn: true);
 
   static const Keyword AS = const Keyword("as", "AS",
       precedence: RELATIONAL_PRECEDENCE, isBuiltIn: true);
@@ -153,16 +175,14 @@ class Keyword extends TokenType {
 
   static const Keyword CATCH = const Keyword("catch", "CATCH");
 
-  static const Keyword CLASS =
-      const Keyword("class", "CLASS", isTopLevelKeyword: true);
+  static const Keyword CLASS = const Keyword("class", "CLASS");
 
-  static const Keyword CONST =
-      const Keyword("const", "CONST", isModifier: true);
+  static const Keyword CONST = const Keyword("const", "CONST");
 
   static const Keyword CONTINUE = const Keyword("continue", "CONTINUE");
 
-  static const Keyword COVARIANT = const Keyword("covariant", "COVARIANT",
-      isBuiltIn: true, isModifier: true);
+  static const Keyword COVARIANT =
+      const Keyword("covariant", "COVARIANT", isBuiltIn: true);
 
   static const Keyword DEFAULT = const Keyword("default", "DEFAULT");
 
@@ -176,24 +196,22 @@ class Keyword extends TokenType {
 
   static const Keyword ELSE = const Keyword("else", "ELSE");
 
-  static const Keyword ENUM =
-      const Keyword("enum", "ENUM", isTopLevelKeyword: true);
+  static const Keyword ENUM = const Keyword("enum", "ENUM");
 
-  static const Keyword EXPORT = const Keyword("export", "EXPORT",
-      isBuiltIn: true, isTopLevelKeyword: true);
+  static const Keyword EXPORT =
+      const Keyword("export", "EXPORT", isBuiltIn: true);
 
   static const Keyword EXTENDS = const Keyword("extends", "EXTENDS");
 
   static const Keyword EXTERNAL =
-      const Keyword("external", "EXTERNAL", isBuiltIn: true, isModifier: true);
+      const Keyword("external", "EXTERNAL", isBuiltIn: true);
 
   static const Keyword FACTORY =
       const Keyword("factory", "FACTORY", isBuiltIn: true);
 
   static const Keyword FALSE = const Keyword("false", "FALSE");
 
-  static const Keyword FINAL =
-      const Keyword("final", "FINAL", isModifier: true);
+  static const Keyword FINAL = const Keyword("final", "FINAL");
 
   static const Keyword FINALLY = const Keyword("finally", "FINALLY");
 
@@ -211,16 +229,16 @@ class Keyword extends TokenType {
   static const Keyword IMPLEMENTS =
       const Keyword("implements", "IMPLEMENTS", isBuiltIn: true);
 
-  static const Keyword IMPORT = const Keyword("import", "IMPORT",
-      isBuiltIn: true, isTopLevelKeyword: true);
+  static const Keyword IMPORT =
+      const Keyword("import", "IMPORT", isBuiltIn: true);
 
   static const Keyword IN = const Keyword("in", "IN");
 
   static const Keyword IS =
       const Keyword("is", "IS", precedence: RELATIONAL_PRECEDENCE);
 
-  static const Keyword LIBRARY = const Keyword("library", "LIBRARY",
-      isBuiltIn: true, isTopLevelKeyword: true);
+  static const Keyword LIBRARY =
+      const Keyword("library", "LIBRARY", isBuiltIn: true);
 
   static const Keyword NATIVE =
       const Keyword("native", "NATIVE", isPseudo: true);
@@ -236,8 +254,7 @@ class Keyword extends TokenType {
   static const Keyword OPERATOR =
       const Keyword("operator", "OPERATOR", isBuiltIn: true);
 
-  static const Keyword PART =
-      const Keyword("part", "PART", isBuiltIn: true, isTopLevelKeyword: true);
+  static const Keyword PART = const Keyword("part", "PART", isBuiltIn: true);
 
   static const Keyword PATCH = const Keyword("patch", "PATCH", isPseudo: true);
 
@@ -253,7 +270,7 @@ class Keyword extends TokenType {
       const Keyword("source", "SOURCE", isPseudo: true);
 
   static const Keyword STATIC =
-      const Keyword("static", "STATIC", isBuiltIn: true, isModifier: true);
+      const Keyword("static", "STATIC", isBuiltIn: true);
 
   static const Keyword SUPER = const Keyword("super", "SUPER");
 
@@ -269,10 +286,10 @@ class Keyword extends TokenType {
 
   static const Keyword TRY = const Keyword("try", "TRY");
 
-  static const Keyword TYPEDEF = const Keyword("typedef", "TYPEDEF",
-      isBuiltIn: true, isTopLevelKeyword: true);
+  static const Keyword TYPEDEF =
+      const Keyword("typedef", "TYPEDEF", isBuiltIn: true);
 
-  static const Keyword VAR = const Keyword("var", "VAR", isModifier: true);
+  static const Keyword VAR = const Keyword("var", "VAR");
 
   static const Keyword VOID = const Keyword("void", "VOID");
 
@@ -366,12 +383,9 @@ class Keyword extends TokenType {
    */
   const Keyword(String lexeme, String name,
       {this.isBuiltIn: false,
-      bool isModifier: false,
       this.isPseudo: false,
-      bool isTopLevelKeyword: false,
       int precedence: NO_PRECEDENCE})
-      : super(lexeme, name, precedence, KEYWORD_TOKEN,
-            isModifier: isModifier, isTopLevelKeyword: isTopLevelKeyword);
+      : super(lexeme, name, precedence, KEYWORD_TOKEN);
 
   bool get isBuiltInOrPseudo => isBuiltIn || isPseudo;
 
@@ -424,24 +438,49 @@ class KeywordToken extends SimpleToken {
    * Initialize a newly created token to represent the given [keyword] at the
    * given [offset].
    */
-  KeywordToken(this.keyword, int offset, [CommentToken precedingComment])
-      : super(keyword, offset, precedingComment);
+  KeywordToken(this.keyword, int offset) : super(keyword, offset);
 
   @override
-  Token copy() =>
-      new KeywordToken(keyword, offset, copyComments(precedingComments));
+  Token copy() => new KeywordToken(keyword, offset);
 
   @override
   bool get isIdentifier => keyword.isPseudo || keyword.isBuiltIn;
 
   @override
-  bool get isKeyword => true;
-
-  @override
-  bool get isKeywordOrIdentifier => true;
-
-  @override
   Object value() => keyword;
+}
+
+/**
+ * A keyword token that is preceded by comments.
+ */
+class KeywordTokenWithComment extends KeywordToken implements TokenWithComment {
+  /**
+   * The first comment in the list of comments that precede this token.
+   */
+  @override
+  CommentToken _precedingComment;
+
+  /**
+   * Initialize a newly created token to to represent the given [keyword] at the
+   * given [offset] and to be preceded by the comments reachable from the given
+   * [_precedingComment].
+   */
+  KeywordTokenWithComment(Keyword keyword, int offset, this._precedingComment)
+      : super(keyword, offset) {
+    _setCommentParent(_precedingComment);
+  }
+
+  @override
+  CommentToken get precedingComments => _precedingComment;
+
+  void set precedingComments(CommentToken comment) {
+    _precedingComment = comment;
+    _setCommentParent(_precedingComment);
+  }
+
+  @override
+  Token copy() => new KeywordTokenWithComment(
+      keyword, offset, copyComments(precedingComments));
 }
 
 /**
@@ -472,16 +511,9 @@ class SimpleToken implements Token {
   Token next;
 
   /**
-   * The first comment in the list of comments that precede this token.
-   */
-  CommentToken _precedingComment;
-
-  /**
    * Initialize a newly created token to have the given [type] and [offset].
    */
-  SimpleToken(this.type, this.offset, [this._precedingComment]) {
-    _setCommentParent(_precedingComment);
-  }
+  SimpleToken(this.type, this.offset);
 
   @override
   int get charCount => length;
@@ -493,18 +525,7 @@ class SimpleToken implements Token {
   int get charEnd => end;
 
   @override
-  Token get beforeSynthetic => null;
-
-  @override
-  set beforeSynthetic(Token previous) {
-    // ignored
-  }
-
-  @override
   int get end => offset + length;
-
-  @override
-  Token get endGroup => null;
 
   @override
   bool get isEof => type == TokenType.EOF;
@@ -513,22 +534,10 @@ class SimpleToken implements Token {
   bool get isIdentifier => false;
 
   @override
-  bool get isKeyword => false;
-
-  @override
-  bool get isKeywordOrIdentifier => isIdentifier;
-
-  @override
-  bool get isModifier => type.isModifier;
-
-  @override
   bool get isOperator => type.isOperator;
 
   @override
   bool get isSynthetic => length == 0;
-
-  @override
-  bool get isTopLevelKeyword => type.isTopLevelKeyword;
 
   @override
   bool get isUserDefinableOperator => type.isUserDefinableOperator;
@@ -546,19 +555,13 @@ class SimpleToken implements Token {
   String get lexeme => type.lexeme;
 
   @override
-  CommentToken get precedingComments => _precedingComment;
-
-  void set precedingComments(CommentToken comment) {
-    _precedingComment = comment;
-    _setCommentParent(_precedingComment);
-  }
+  CommentToken get precedingComments => null;
 
   @override
   String get stringValue => type.stringValue;
 
   @override
-  Token copy() =>
-      new SimpleToken(type, offset, copyComments(precedingComments));
+  Token copy() => new Token(type, offset);
 
   @override
   Token copyComments(Token token) {
@@ -589,7 +592,6 @@ class SimpleToken implements Token {
   Token setNext(Token token) {
     next = token;
     token.previous = this;
-    token.beforeSynthetic = this;
     return token;
   }
 
@@ -630,9 +632,7 @@ class StringToken extends SimpleToken {
    * Initialize a newly created token to represent a token of the given [type]
    * with the given [value] at the given [offset].
    */
-  StringToken(TokenType type, String value, int offset,
-      [CommentToken precedingComment])
-      : super(type, offset, precedingComment) {
+  StringToken(TokenType type, String value, int offset) : super(type, offset) {
     this._value = StringUtilities.intern(value);
   }
 
@@ -643,34 +643,43 @@ class StringToken extends SimpleToken {
   String get lexeme => _value;
 
   @override
-  Token copy() =>
-      new StringToken(type, _value, offset, copyComments(precedingComments));
+  Token copy() => new StringToken(type, _value, offset);
 
   @override
   String value() => _value;
 }
 
 /**
- * A synthetic begin token.
+ * A string token that is preceded by comments.
  */
-class SyntheticBeginToken extends BeginToken {
+class StringTokenWithComment extends StringToken implements TokenWithComment {
+  /**
+   * The first comment in the list of comments that precede this token.
+   */
+  CommentToken _precedingComment;
+
   /**
    * Initialize a newly created token to have the given [type] at the given
-   * [offset].
+   * [offset] and to be preceded by the comments reachable from the given
+   * [comment].
    */
-  SyntheticBeginToken(TokenType type, int offset,
-      [CommentToken precedingComment])
-      : super(type, offset, precedingComment);
+  StringTokenWithComment(
+      TokenType type, String value, int offset, this._precedingComment)
+      : super(type, value, offset) {
+    _setCommentParent(_precedingComment);
+  }
 
   @override
-  Token copy() =>
-      new SyntheticBeginToken(type, offset, copyComments(precedingComments));
+  CommentToken get precedingComments => _precedingComment;
+
+  void set precedingComments(CommentToken comment) {
+    _precedingComment = comment;
+    _setCommentParent(_precedingComment);
+  }
 
   @override
-  bool get isSynthetic => true;
-
-  @override
-  int get length => 0;
+  Token copy() => new StringTokenWithComment(
+      type, lexeme, offset, copyComments(precedingComments));
 }
 
 /**
@@ -694,43 +703,15 @@ class SyntheticKeywordToken extends KeywordToken {
  * A token whose value is independent of it's type.
  */
 class SyntheticStringToken extends StringToken {
-  final int _length;
-
   /**
    * Initialize a newly created token to represent a token of the given [type]
-   * with the given [value] at the given [offset]. If the [length] is
-   * not specified, then it defaults to the length of [value].
+   * with the given [value] at the given [offset].
    */
-  SyntheticStringToken(TokenType type, String value, int offset, [this._length])
+  SyntheticStringToken(TokenType type, String value, int offset)
       : super(type, value, offset);
 
   @override
   bool get isSynthetic => true;
-
-  @override
-  int get length => _length ?? super.length;
-
-  @override
-  Token copy() => new SyntheticStringToken(type, _value, offset, _length);
-}
-
-/**
- * A synthetic token.
- */
-class SyntheticToken extends SimpleToken {
-  SyntheticToken(TokenType type, int offset) : super(type, offset);
-
-  @override
-  Token beforeSynthetic;
-
-  @override
-  bool get isSynthetic => true;
-
-  @override
-  int get length => 0;
-
-  @override
-  Token copy() => new SyntheticToken(type, offset);
 }
 
 /**
@@ -743,19 +724,7 @@ abstract class Token implements SyntacticEntity {
   /**
    * Initialize a newly created token to have the given [type] and [offset].
    */
-  factory Token(TokenType type, int offset, [CommentToken preceedingComment]) =
-      SimpleToken;
-
-  /**
-   * Initialize a newly created end-of-file token to have the given [offset].
-   */
-  factory Token.eof(int offset, [CommentToken precedingComments]) {
-    Token eof = new SimpleToken(TokenType.EOF, offset, precedingComments);
-    // EOF points to itself so there's always infinite look-ahead.
-    eof.previous = eof;
-    eof.next = eof;
-    return eof;
-  }
+  factory Token(TokenType type, int offset) = SimpleToken;
 
   /**
    * The number of characters parsed by this token.
@@ -772,26 +741,8 @@ abstract class Token implements SyntacticEntity {
    */
   int get charEnd;
 
-  /**
-   * The token before this synthetic token,
-   * or `null` if this is not a synthetic `)`, `]`, `}`, or `>` token.
-   */
-  Token get beforeSynthetic;
-
-  /**
-   * Set token before this synthetic `)`, `]`, `}`, or `>` token,
-   * and ignored otherwise.
-   */
-  set beforeSynthetic(Token previous);
-
   @override
   int get end;
-
-  /**
-   * The token that corresponds to this token, or `null` if this token is not
-   * the first of a pair of matching tokens (such as parentheses).
-   */
-  Token get endGroup => null;
 
   /**
    * Return `true` if this token represents an end of file.
@@ -805,22 +756,6 @@ abstract class Token implements SyntacticEntity {
   bool get isIdentifier;
 
   /**
-   * True if this token is a keyword. Some keywords allowed as identifiers,
-   * see implementation in [KeywordToken].
-   */
-  bool get isKeyword;
-
-  /**
-   * True if this token is a keyword or an identifier.
-   */
-  bool get isKeywordOrIdentifier;
-
-  /**
-   * Return `true` if this token is a modifier such as `abstract` or `const`.
-   */
-  bool get isModifier;
-
-  /**
    * Return `true` if this token represents an operator.
    */
   bool get isOperator;
@@ -831,12 +766,6 @@ abstract class Token implements SyntacticEntity {
    * in the code.
    */
   bool get isSynthetic;
-
-  /**
-   * Return `true` if this token is a keyword starting a top level declaration
-   * such as `class`, `enum`, `import`, etc.
-   */
-  bool get isTopLevelKeyword;
 
   /**
    * Return `true` if this token represents an operator that can be defined by
@@ -1180,12 +1109,8 @@ class TokenType {
       isOperator: true);
 
   // This is not yet part of the language and not supported by fasta
-  static const TokenType AMPERSAND_AMPERSAND_EQ = const TokenType(
-      '&&=',
-      'AMPERSAND_AMPERSAND_EQ',
-      ASSIGNMENT_PRECEDENCE,
-      AMPERSAND_AMPERSAND_EQ_TOKEN,
-      isOperator: true);
+  static const TokenType AMPERSAND_AMPERSAND_EQ =
+      const TokenType('&&=', 'AMPERSAND_AMPERSAND_EQ', 1, -1);
 
   static const TokenType AMPERSAND_EQ = const TokenType(
       '&=', 'AMPERSAND_EQ', ASSIGNMENT_PRECEDENCE, AMPERSAND_EQ_TOKEN,
@@ -1214,9 +1139,8 @@ class TokenType {
       isOperator: true);
 
   // This is not yet part of the language and not supported by fasta
-  static const TokenType BAR_BAR_EQ = const TokenType(
-      '||=', 'BAR_BAR_EQ', ASSIGNMENT_PRECEDENCE, BAR_BAR_EQ_TOKEN,
-      isOperator: true);
+  static const TokenType BAR_BAR_EQ =
+      const TokenType('||=', 'BAR_BAR_EQ', 1, -1);
 
   static const TokenType BAR_EQ = const TokenType(
       '|=', 'BAR_EQ', ASSIGNMENT_PRECEDENCE, BAR_EQ_TOKEN,
@@ -1253,9 +1177,6 @@ class TokenType {
       '==', 'EQ_EQ', EQUALITY_PRECEDENCE, EQ_EQ_TOKEN,
       isOperator: true, isUserDefinableOperator: true);
 
-  /// The `===` operator is not supported in the Dart language
-  /// but is parsed as such by the scanner to support better recovery
-  /// when a JavaScript code snippet is pasted into a Dart file.
   static const TokenType EQ_EQ_EQ =
       const TokenType('===', 'EQ_EQ_EQ', EQUALITY_PRECEDENCE, EQ_EQ_EQ_TOKEN);
 
@@ -1282,7 +1203,7 @@ class TokenType {
       const TokenType('#', 'HASH', NO_PRECEDENCE, HASH_TOKEN);
 
   static const TokenType INDEX = const TokenType(
-      '[]', 'INDEX', POSTFIX_PRECEDENCE, INDEX_TOKEN,
+      '[]', 'INDEX', NO_PRECEDENCE, INDEX_TOKEN,
       isOperator: true, isUserDefinableOperator: true);
 
   static const TokenType INDEX_EQ = const TokenType(
@@ -1549,21 +1470,9 @@ class TokenType {
   final int kind;
 
   /**
-   * `true` if this token type represents a modifier
-   * such as `abstract` or `const`.
-   */
-  final bool isModifier;
-
-  /**
    * `true` if this token type represents an operator.
    */
   final bool isOperator;
-
-  /**
-   * `true` if this token type represents a keyword starting a top level
-   * declaration such as `class`, `enum`, `import`, etc.
-   */
-  final bool isTopLevelKeyword;
 
   /**
    * `true` if this token type represents an operator
@@ -1594,9 +1503,7 @@ class TokenType {
   final String stringValue;
 
   const TokenType(this.lexeme, this.name, this.precedence, this.kind,
-      {this.isModifier: false,
-      this.isOperator: false,
-      this.isTopLevelKeyword: false,
+      {this.isOperator: false,
       this.isUserDefinableOperator: false,
       String stringValue: 'unspecified'})
       : this.stringValue = stringValue == 'unspecified' ? lexeme : stringValue;
@@ -1689,7 +1596,6 @@ class TokenType {
    */
   bool get isUnaryPrefixOperator =>
       precedence == PREFIX_PRECEDENCE ||
-      this == TokenType.MINUS ||
       this == TokenType.PLUS_PLUS ||
       this == TokenType.MINUS_MINUS;
 
@@ -1701,4 +1607,36 @@ class TokenType {
    */
   @deprecated
   String get value => lexeme;
+}
+
+/**
+ * A normal token that is preceded by comments.
+ */
+class TokenWithComment extends SimpleToken {
+  /**
+   * The first comment in the list of comments that precede this token.
+   */
+  CommentToken _precedingComment;
+
+  /**
+   * Initialize a newly created token to have the given [type] at the given
+   * [offset] and to be preceded by the comments reachable from the given
+   * [comment].
+   */
+  TokenWithComment(TokenType type, int offset, this._precedingComment)
+      : super(type, offset) {
+    _setCommentParent(_precedingComment);
+  }
+
+  @override
+  CommentToken get precedingComments => _precedingComment;
+
+  void set precedingComments(CommentToken comment) {
+    _precedingComment = comment;
+    _setCommentParent(_precedingComment);
+  }
+
+  @override
+  Token copy() =>
+      new TokenWithComment(type, offset, copyComments(precedingComments));
 }

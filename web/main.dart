@@ -52,7 +52,7 @@ class BoardView
 
     for(var row in boardModel.tiles)
     {
-      var rowElem = Element.div();
+      var rowElem = new Element.div();
       rootTag.append(rowElem);
       for (var tile in row)
       {

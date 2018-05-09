@@ -5,6 +5,7 @@
 import "dart:collection";
 import "dart:math" as math;
 
+import "typed_wrappers.dart";
 import "unmodifiable_wrappers.dart";
 
 typedef K _KeyForValue<K, V>(V value);
@@ -20,7 +21,10 @@ abstract class _DelegatingIterableBase<E> implements Iterable<E> {
 
   bool any(bool test(E element)) => _base.any(test);
 
-  Iterable<T> cast<T>() => _base.cast<T>();
+  // TODO: Dart 2.0 requires this method to be implemented.
+  Iterable<T> cast<T>() {
+    throw new UnimplementedError('cast');
+  }
 
   bool contains(Object element) => _base.contains(element);
 
@@ -38,7 +42,10 @@ abstract class _DelegatingIterableBase<E> implements Iterable<E> {
   T fold<T>(T initialValue, T combine(T previousValue, E element)) =>
       _base.fold(initialValue, combine);
 
-  Iterable<E> followedBy(Iterable<E> other) => _base.followedBy(other);
+  // TODO: Dart 2.0 requires this method to be implemented.
+  Iterable<E> followedBy(Iterable<E> other) {
+    throw new UnimplementedError('followedBy');
+  }
 
   void forEach(void f(E element)) => _base.forEach(f);
 
@@ -61,12 +68,16 @@ abstract class _DelegatingIterableBase<E> implements Iterable<E> {
 
   E reduce(E combine(E value, E element)) => _base.reduce(combine);
 
-  Iterable<T> retype<T>() => _base.retype<T>();
+  // TODO: Dart 2.0 requires this method to be implemented.
+  Iterable<T> retype<T>() {
+    throw new UnimplementedError('retype');
+  }
 
   E get single => _base.single;
 
   E singleWhere(bool test(E element), {E orElse()}) {
-    return _base.singleWhere(test, orElse: orElse);
+    if (orElse != null) throw new UnimplementedError('singleWhere:orElse');
+    return _base.singleWhere(test);
   }
 
   Iterable<E> skip(int n) => _base.skip(n);
@@ -83,7 +94,10 @@ abstract class _DelegatingIterableBase<E> implements Iterable<E> {
 
   Iterable<E> where(bool test(E element)) => _base.where(test);
 
-  Iterable<T> whereType<T>() => _base.whereType<T>();
+  // TODO: Dart 2.0 requires this method to be implemented.
+  Iterable<T> whereType<T>() {
+    throw new UnimplementedError("whereType");
+  }
 
   String toString() => _base.toString();
 }
@@ -108,8 +122,8 @@ class DelegatingIterable<E> extends _DelegatingIterableBase<E> {
   /// This forwards all operations to [base], so any changes in [base] will be
   /// reflected in [this]. If [base] is already an `Iterable<E>`, it's returned
   /// unmodified.
-  @Deprecated('Use iterable.cast<E> instead.')
-  static Iterable<E> typed<E>(Iterable base) => base.cast<E>();
+  static Iterable<E> typed<E>(Iterable base) =>
+      base is Iterable<E> ? base : new TypeSafeIterable<E>(base);
 }
 
 /// A [List] that delegates all operations to a base list.
@@ -131,8 +145,8 @@ class DelegatingList<E> extends DelegatingIterable<E> implements List<E> {
   /// This forwards all operations to [base], so any changes in [base] will be
   /// reflected in [this]. If [base] is already a `List<E>`, it's returned
   /// unmodified.
-  @Deprecated('Use list.cast<E> instead.')
-  static List<E> typed<E>(List base) => base.cast<E>();
+  static List<E> typed<E>(List base) =>
+      base is List<E> ? base : new TypeSafeList<E>(base);
 
   List<E> get _listBase => _base;
 
@@ -142,7 +156,10 @@ class DelegatingList<E> extends DelegatingIterable<E> implements List<E> {
     _listBase[index] = value;
   }
 
-  List<E> operator +(List<E> other) => _listBase + other;
+  // TODO: Dart 2.0 requires this method to be implemented.
+  List<E> operator +(List<E> other) {
+    throw new UnimplementedError('+');
+  }
 
   void add(E value) {
     _listBase.add(value);
@@ -154,7 +171,10 @@ class DelegatingList<E> extends DelegatingIterable<E> implements List<E> {
 
   Map<int, E> asMap() => _listBase.asMap();
 
-  List<T> cast<T>() => _listBase.cast<T>();
+  // TODO: Dart 2.0 requires this method to be implemented.
+  List<T> cast<T>() {
+    throw new UnimplementedError('cast');
+  }
 
   void clear() {
     _listBase.clear();
@@ -164,6 +184,7 @@ class DelegatingList<E> extends DelegatingIterable<E> implements List<E> {
     _listBase.fillRange(start, end, fillValue);
   }
 
+  // TODO: Dart 2.0 requires this method to be implemented.
   set first(E value) {
     if (this.isEmpty) throw new RangeError.index(0, this);
     this[0] = value;
@@ -173,8 +194,10 @@ class DelegatingList<E> extends DelegatingIterable<E> implements List<E> {
 
   int indexOf(E element, [int start = 0]) => _listBase.indexOf(element, start);
 
-  int indexWhere(bool test(E element), [int start = 0]) =>
-      _listBase.indexWhere(test, start);
+  // TODO: Dart 2.0 requires this method to be implemented.
+  int indexWhere(bool test(E element), [int start = 0]) {
+    throw new UnimplementedError('indexWhere');
+  }
 
   void insert(int index, E element) {
     _listBase.insert(index, element);
@@ -184,6 +207,7 @@ class DelegatingList<E> extends DelegatingIterable<E> implements List<E> {
     _listBase.insertAll(index, iterable);
   }
 
+  // TODO: Dart 2.0 requires this method to be implemented.
   set last(E value) {
     if (this.isEmpty) throw new RangeError.index(0, this);
     this[this.length - 1] = value;
@@ -192,8 +216,10 @@ class DelegatingList<E> extends DelegatingIterable<E> implements List<E> {
   int lastIndexOf(E element, [int start]) =>
       _listBase.lastIndexOf(element, start);
 
-  int lastIndexWhere(bool test(E element), [int start]) =>
-      _listBase.lastIndexWhere(test, start);
+  // TODO: Dart 2.0 requires this method to be implemented.
+  int lastIndexWhere(bool test(E element), [int start]) {
+    throw new UnimplementedError('lastIndexWhere');
+  }
 
   set length(int newLength) {
     _listBase.length = newLength;
@@ -221,7 +247,10 @@ class DelegatingList<E> extends DelegatingIterable<E> implements List<E> {
     _listBase.retainWhere(test);
   }
 
-  List<T> retype<T>() => _listBase.retype<T>();
+  // TODO: Dart 2.0 requires this method to be implemented.
+  List<T> retype<T>() {
+    throw new UnimplementedError('retype');
+  }
 
   Iterable<E> get reversed => _listBase.reversed;
 
@@ -262,8 +291,8 @@ class DelegatingSet<E> extends DelegatingIterable<E> implements Set<E> {
   /// This forwards all operations to [base], so any changes in [base] will be
   /// reflected in [this]. If [base] is already a `Set<E>`, it's returned
   /// unmodified.
-  @Deprecated('Use set.cast<E> instead.')
-  static Set<E> typed<E>(Set base) => base.cast<E>();
+  static Set<E> typed<E>(Set base) =>
+      base is Set<E> ? base : new TypeSafeSet<E>(base);
 
   Set<E> get _setBase => _base;
 
@@ -273,7 +302,10 @@ class DelegatingSet<E> extends DelegatingIterable<E> implements Set<E> {
     _setBase.addAll(elements);
   }
 
-  Set<T> cast<T>() => _setBase.cast<T>();
+  // TODO: Dart 2.0 requires this method to be implemented.
+  Set<T> cast<T>() {
+    throw new UnimplementedError('cast');
+  }
 
   void clear() {
     _setBase.clear();
@@ -301,7 +333,10 @@ class DelegatingSet<E> extends DelegatingIterable<E> implements Set<E> {
     _setBase.retainAll(elements);
   }
 
-  Set<T> retype<T>() => _setBase.retype<T>();
+  // TODO: Dart 2.0 requires this method to be implemented.
+  Set<T> retype<T>() {
+    throw new UnimplementedError('retype');
+  }
 
   void retainWhere(bool test(E element)) {
     _setBase.retainWhere(test);
@@ -331,8 +366,8 @@ class DelegatingQueue<E> extends DelegatingIterable<E> implements Queue<E> {
   /// This forwards all operations to [base], so any changes in [base] will be
   /// reflected in [this]. If [base] is already a `Queue<E>`, it's returned
   /// unmodified.
-  @Deprecated('Use queue.cast<E> instead.')
-  static Queue<E> typed<E>(Queue base) => base.cast<E>();
+  static Queue<E> typed<E>(Queue base) =>
+      base is Queue<E> ? base : new TypeSafeQueue<E>(base);
 
   Queue<E> get _baseQueue => _base;
 
@@ -352,7 +387,10 @@ class DelegatingQueue<E> extends DelegatingIterable<E> implements Queue<E> {
     _baseQueue.addLast(value);
   }
 
-  Queue<T> cast<T>() => _baseQueue.cast<T>();
+  // TODO: Dart 2.0 requires this method to be implemented.
+  Queue<T> cast<T>() {
+    throw new UnimplementedError('cast');
+  }
 
   void clear() {
     _baseQueue.clear();
@@ -368,7 +406,10 @@ class DelegatingQueue<E> extends DelegatingIterable<E> implements Queue<E> {
     _baseQueue.retainWhere(test);
   }
 
-  Queue<T> retype<T>() => _baseQueue.retype<T>();
+  // TODO: Dart 2.0 requires this method to be implemented.
+  Queue<T> retype<T>() {
+    throw new UnimplementedError('retype');
+  }
 
   E removeFirst() => _baseQueue.removeFirst();
 
@@ -396,8 +437,8 @@ class DelegatingMap<K, V> implements Map<K, V> {
   /// This forwards all operations to [base], so any changes in [base] will be
   /// reflected in [this]. If [base] is already a `Map<K, V>`, it's returned
   /// unmodified.
-  @Deprecated('Use map.cast<K, V> instead.')
-  static Map<K, V> typed<K, V>(Map base) => base.cast<K, V>();
+  static Map<K, V> typed<K, V>(Map base) =>
+      base is Map<K, V> ? base : new TypeSafeMap<K, V>(base);
 
   V operator [](Object key) => _base[key];
 
@@ -409,21 +450,32 @@ class DelegatingMap<K, V> implements Map<K, V> {
     _base.addAll(other);
   }
 
-  void addEntries(Iterable<MapEntry<K, V>> entries) {
-    _base.addEntries(entries);
+  // TODO: Dart 2.0 requires this method to be implemented.
+  void addEntries(Iterable<Object> entries) {
+    // Change Iterable<Object> to Iterable<MapEntry<K, V>> when
+    // the MapEntry class has been added.
+    throw new UnimplementedError('addEntries');
   }
 
   void clear() {
     _base.clear();
   }
 
-  Map<K2, V2> cast<K2, V2>() => _base.cast<K2, V2>();
+  // TODO: Dart 2.0 requires this method to be implemented.
+  Map<K2, V2> cast<K2, V2>() {
+    throw new UnimplementedError('cast');
+  }
 
   bool containsKey(Object key) => _base.containsKey(key);
 
   bool containsValue(Object value) => _base.containsValue(value);
 
-  Iterable<MapEntry<K, V>> get entries => _base.entries;
+  // TODO: Dart 2.0 requires this method to be implemented.
+  Iterable<Null> get entries {
+    // Change Iterable<Null> to Iterable<MapEntry<K, V>> when
+    // the MapEntry class has been added.
+    throw new UnimplementedError('entries');
+  }
 
   void forEach(void f(K key, V value)) {
     _base.forEach(f);
@@ -437,25 +489,40 @@ class DelegatingMap<K, V> implements Map<K, V> {
 
   int get length => _base.length;
 
-  Map<K2, V2> map<K2, V2>(MapEntry<K2, V2> transform(K key, V value)) =>
-      _base.map(transform);
+  // TODO: Dart 2.0 requires this method to be implemented.
+  Map<K2, V2> map<K2, V2>(Object transform(K key, V value)) {
+    // Change Object to MapEntry<K2, V2> when
+    // the MapEntry class has been added.
+    throw new UnimplementedError('map');
+  }
 
   V putIfAbsent(K key, V ifAbsent()) => _base.putIfAbsent(key, ifAbsent);
 
   V remove(Object key) => _base.remove(key);
 
-  void removeWhere(bool test(K key, V value)) => _base.removeWhere(test);
+  // TODO: Dart 2.0 requires this method to be implemented.
+  void removeWhere(bool test(K key, V value)) {
+    throw new UnimplementedError('removeWhere');
+  }
 
-  Map<K2, V2> retype<K2, V2>() => _base.retype<K2, V2>();
+  // TODO: Dart 2.0 requires this method to be implemented.
+  Map<K2, V2> retype<K2, V2>() {
+    throw new UnimplementedError('retype');
+  }
 
   Iterable<V> get values => _base.values;
 
   String toString() => _base.toString();
 
-  V update(K key, V update(V value), {V ifAbsent()}) =>
-      _base.update(key, update, ifAbsent: ifAbsent);
+  // TODO: Dart 2.0 requires this method to be implemented.
+  V update(K key, V update(V value), {V ifAbsent()}) {
+    throw new UnimplementedError('update');
+  }
 
-  void updateAll(V update(K key, V value)) => _base.updateAll(update);
+  // TODO: Dart 2.0 requires this method to be implemented.
+  void updateAll(V update(K key, V value)) {
+    throw new UnimplementedError('updateAll');
+  }
 }
 
 /// An unmodifiable [Set] view of the keys of a [Map].
@@ -475,11 +542,9 @@ class MapKeySet<E> extends _DelegatingIterableBase<E>
 
   Iterable<E> get _base => _baseMap.keys;
 
+  // TODO: Dart 2.0 requires this method to be implemented.
   Set<T> cast<T>() {
-    if (this is MapKeySet<T>) {
-      return this as MapKeySet<T>;
-    }
-    return Set.castFrom<E, T>(this);
+    throw new UnimplementedError('cast');
   }
 
   bool contains(Object element) => _baseMap.containsKey(element);
@@ -518,7 +583,10 @@ class MapKeySet<E> extends _DelegatingIterableBase<E>
   E lookup(Object element) =>
       throw new UnsupportedError("MapKeySet doesn't support lookup().");
 
-  Set<T> retype<T>() => Set.castFrom<E, T>(this);
+  // TODO: Dart 2.0 requires this method to be implemented.
+  Set<T> retype<T>() {
+    throw new UnimplementedError('retype');
+  }
 
   /// Returns a new set which contains all the elements of [this] and [other].
   ///
@@ -566,11 +634,9 @@ class MapValueSet<K, V> extends _DelegatingIterableBase<V> implements Set<V> {
 
   Iterable<V> get _base => _baseMap.values;
 
+  // TODO: Dart 2.0 requires this method to be implemented.
   Set<T> cast<T>() {
-    if (this is Set<T>) {
-      return this as Set<T>;
-    }
-    return Set.castFrom<V, T>(this);
+    throw new UnimplementedError('cast');
   }
 
   bool contains(Object element) {
@@ -669,7 +735,10 @@ class MapValueSet<K, V> extends _DelegatingIterableBase<V> implements Set<V> {
   void retainWhere(bool test(V element)) =>
       removeWhere((element) => !test(element));
 
-  Set<T> retype<T>() => Set.castFrom<V, T>(this);
+  // TODO: Dart 2.0 requires this method to be implemented.
+  Set<T> retype<T>() {
+    throw new UnimplementedError('retype');
+  }
 
   /// Returns a new set which contains all the elements of [this] and [other].
   ///

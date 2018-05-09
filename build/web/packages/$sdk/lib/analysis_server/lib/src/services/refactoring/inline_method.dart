@@ -10,6 +10,7 @@ import 'package:analysis_server/src/services/correction/strings.dart';
 import 'package:analysis_server/src/services/correction/util.dart';
 import 'package:analysis_server/src/services/refactoring/refactoring.dart';
 import 'package:analysis_server/src/services/refactoring/refactoring_internal.dart';
+import 'package:analysis_server/src/services/search/element_visitors.dart';
 import 'package:analysis_server/src/services/search/hierarchy.dart';
 import 'package:analysis_server/src/services/search/search_engine.dart';
 import 'package:analyzer/dart/ast/ast.dart';
@@ -18,6 +19,7 @@ import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/src/dart/ast/utilities.dart';
 import 'package:analyzer/src/dart/element/ast_provider.dart';
 import 'package:analyzer/src/generated/source.dart';
+import 'package:analyzer/src/generated/utilities_dart.dart';
 import 'package:analyzer_plugin/utilities/range_factory.dart';
 
 /**
@@ -72,7 +74,7 @@ String _getMethodSourceForInvocation(
       argumentSource = utils.getNodeText(argument);
     } else {
       // report about a missing required parameter
-      if (parameter.isNotOptional) {
+      if (parameter.parameterKind == ParameterKind.REQUIRED) {
         status.addError('No argument for the parameter "${parameter.name}".',
             newLocation_fromNode(contextNode));
         return;
@@ -153,13 +155,17 @@ Set<String> _getNamesConflictingAt(AstNode node) {
   // local variables and functions
   {
     SourceRange localsRange = _getLocalsConflictingRange(node);
-    AstNode enclosingExecutable = getEnclosingExecutableNode(node);
-    List<LocalElement> elements = getDefinedLocalElements(enclosingExecutable);
-    for (LocalElement element in elements) {
-      SourceRange elementRange = element.visibleRange;
-      if (elementRange != null && elementRange.intersects(localsRange)) {
-        result.add(element.displayName);
-      }
+    ExecutableElement enclosingExecutable = getEnclosingExecutableElement(node);
+    if (enclosingExecutable != null) {
+      visitChildren(enclosingExecutable, (element) {
+        if (element is LocalElement) {
+          SourceRange elementRange = element.visibleRange;
+          if (elementRange != null && elementRange.intersects(localsRange)) {
+            result.add(element.displayName);
+          }
+        }
+        return true;
+      });
     }
   }
   // fields

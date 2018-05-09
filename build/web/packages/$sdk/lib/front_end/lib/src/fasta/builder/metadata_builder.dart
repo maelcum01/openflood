@@ -22,7 +22,7 @@ abstract class MetadataBuilder<T extends TypeBuilder> extends Builder {
   }
 
   factory MetadataBuilder.fromExpression(
-      Object expression, String postfix, Builder parent, int charOffset) {
+      String expression, String postfix, Builder parent, int charOffset) {
     return new ExpressionMetadataBuilder(
         expression, postfix, parent, charOffset);
   }
@@ -49,7 +49,7 @@ class ConstructorMetadataBuilder<T extends TypeBuilder>
 ///    '@' qualified (‘.’ identifier)?
 class ExpressionMetadataBuilder<T extends TypeBuilder>
     extends MetadataBuilder<T> {
-  final Object qualified;
+  final String qualified;
 
   final String identifier;
 

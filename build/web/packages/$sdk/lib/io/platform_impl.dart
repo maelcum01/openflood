@@ -8,7 +8,6 @@ class _Platform {
   external static int _numberOfProcessors();
   external static String _pathSeparator();
   external static String _operatingSystem();
-  external static _operatingSystemVersion();
   external static _localHostname();
   external static _executable();
   external static _resolvedExecutable();
@@ -34,20 +33,22 @@ class _Platform {
   external static String _packageConfig();
   external static String _version();
   external static String _localeName();
-  external static Uri _script();
 
   static String executable = _executable();
   static String resolvedExecutable = _resolvedExecutable();
   static String packageRoot = _packageRoot();
   static String packageConfig = _packageConfig();
 
-  static String Function() _localeClosure;
-  static String localeName() {
-    final result = (_localeClosure == null) ? _localeName() : _localeClosure();
-    if (result is OSError) {
-      throw result;
+  static String _cachedLocaleName;
+  static String get localeName {
+    if (_cachedLocaleName == null) {
+      var result = _localeName();
+      if (result is OSError) {
+        throw result;
+      }
+      _cachedLocaleName = result;
     }
-    return result;
+    return _cachedLocaleName;
   }
 
   // Cache the OS environment. This can be an OSError instance if
@@ -57,26 +58,15 @@ class _Platform {
   static int get numberOfProcessors => _numberOfProcessors();
   static String get pathSeparator => _pathSeparator();
   static String get operatingSystem => _operatingSystem();
-  static Uri get script => _script();
-
-  static String _cachedOSVersion;
-  static String get operatingSystemVersion {
-    if (_cachedOSVersion == null) {
-      var result = _operatingSystemVersion();
-      if (result is OSError) {
-        throw result;
-      }
-      _cachedOSVersion = result;
-    }
-    return _cachedOSVersion;
-  }
+  static Uri script;
 
   static String get localHostname {
     var result = _localHostname();
     if (result is OSError) {
       throw result;
+    } else {
+      return result;
     }
-    return result;
   }
 
   static List<String> get executableArguments => _executableArguments();
@@ -113,7 +103,7 @@ class _Platform {
     if (_environmentCache is OSError) {
       throw _environmentCache;
     } else {
-      return _environmentCache;
+      return _environmentCache as Object/*=Map<String, String>*/;
     }
   }
 
@@ -122,7 +112,7 @@ class _Platform {
 
 // Environment variables are case-insensitive on Windows. In order
 // to reflect that we use a case-insensitive string map on Windows.
-class _CaseInsensitiveStringMap<V> extends MapBase<String, V> {
+class _CaseInsensitiveStringMap<V> implements Map<String, V> {
   final Map<String, V> _map = new Map<String, V>();
 
   bool containsKey(Object key) =>
@@ -142,7 +132,6 @@ class _CaseInsensitiveStringMap<V> extends MapBase<String, V> {
   }
 
   V remove(Object key) => key is String ? _map.remove(key.toUpperCase()) : null;
-
   void clear() {
     _map.clear();
   }
@@ -156,22 +145,5 @@ class _CaseInsensitiveStringMap<V> extends MapBase<String, V> {
   int get length => _map.length;
   bool get isEmpty => _map.isEmpty;
   bool get isNotEmpty => _map.isNotEmpty;
-
-  Iterable<MapEntry<String, V>> get entries => _map.entries;
-
-  Map<K2, V2> map<K2, V2>(MapEntry<K2, V2> transform(String key, V value)) =>
-      _map.map(transform);
-
-  V update(String key, V update(V value), {V ifAbsent()}) =>
-      _map.update(key.toUpperCase(), update, ifAbsent: ifAbsent);
-
-  void updateAll(V update(String key, V value)) {
-    _map.updateAll(update);
-  }
-
-  void removeWhere(bool test(String key, V value)) {
-    _map.removeWhere(test);
-  }
-
   String toString() => _map.toString();
 }

@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+library analyzer.src.task.driver;
+
 import 'dart:async';
 import 'dart:collection';
 
@@ -10,18 +12,15 @@ import 'package:analyzer/src/context/cache.dart';
 import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/resolver.dart';
 import 'package:analyzer/src/generated/utilities_general.dart';
-import 'package:analyzer/src/task/api/model.dart';
 import 'package:analyzer/src/task/inputs.dart';
 import 'package:analyzer/src/task/manager.dart';
+import 'package:analyzer/task/model.dart';
 
 final PerformanceTag analysisDriverProcessOutputs =
-    _taskDriverTag.createChild('processOutputs');
+    new PerformanceTag('AnalysisDriver.processOutputs');
 
 final PerformanceTag workOrderMoveNextPerformanceTag =
-    _taskDriverTag.createChild('workOrderMoveNext');
-
-final PerformanceTag _taskDriverTag =
-    PerformanceStatistics.analyzer.createChild('taskDriver');
+    new PerformanceTag('WorkOrder.moveNext');
 
 /**
  * An object that is used to cause analysis to be performed until all of the
@@ -227,7 +226,7 @@ class AnalysisDriver {
    */
   bool performAnalysisTask() {
     //
-    // TODO(brianwilkerson) This implementation does not allow us to prioritize
+    // TODO(brianwilkerson) This implementaiton does not allow us to prioritize
     // work across contexts. What we need is a way for an external client to ask
     // to have all priority files analyzed for each context, then ask for normal
     // files to be analyzed. There are a couple of ways to do this.

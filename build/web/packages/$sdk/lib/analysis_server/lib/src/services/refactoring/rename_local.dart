@@ -4,8 +4,7 @@
 
 import 'dart:async';
 
-import 'package:analysis_server/src/protocol_server.dart'
-    hide Element, ElementKind;
+import 'package:analysis_server/src/protocol_server.dart' hide Element;
 import 'package:analysis_server/src/services/correction/status.dart';
 import 'package:analysis_server/src/services/correction/util.dart';
 import 'package:analysis_server/src/services/refactoring/naming_conventions.dart';
@@ -18,6 +17,7 @@ import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/src/dart/element/ast_provider.dart';
 import 'package:analyzer/src/generated/source.dart';
+import 'package:analyzer/src/generated/utilities_dart.dart';
 
 /**
  * A [Refactoring] for renaming [LocalElement]s.
@@ -54,7 +54,8 @@ class RenameLocalRefactoringImpl extends RenameRefactoringImpl {
     for (LocalElement element in elements) {
       CompilationUnit unit = await unitCache.getUnit(element);
       if (unit != null) {
-        unit.accept(new _ConflictValidatorVisitor(result, newName, element));
+        SourceRange elementRange = element.visibleRange;
+        unit.accept(new _ConflictValidatorVisitor(this, result, elementRange));
       }
     }
     return result;
@@ -77,14 +78,7 @@ class RenameLocalRefactoringImpl extends RenameRefactoringImpl {
   Future fillChange() async {
     for (Element element in elements) {
       addDeclarationEdit(element);
-      var references = await searchEngine.searchReferences(element);
-
-      // Exclude "implicit" references to optional positional parameters.
-      if (element is ParameterElement && element.isOptionalPositional) {
-        references.removeWhere((match) => match.sourceRange.length == 0);
-      }
-
-      addReferenceEdits(references);
+      await searchEngine.searchReferences(element).then(addReferenceEdits);
     }
   }
 
@@ -95,7 +89,7 @@ class RenameLocalRefactoringImpl extends RenameRefactoringImpl {
     Element enclosing = element.enclosingElement;
     if (enclosing is MethodElement &&
         element is ParameterElement &&
-        (element as ParameterElement).isNamed) {
+        (element as ParameterElement).parameterKind == ParameterKind.NAMED) {
       // prepare hierarchy methods
       Set<ClassMemberElement> methods =
           await getHierarchyMembers(searchEngine, enclosing);
@@ -103,7 +97,8 @@ class RenameLocalRefactoringImpl extends RenameRefactoringImpl {
       for (ClassMemberElement method in methods) {
         if (method is MethodElement) {
           for (ParameterElement parameter in method.parameters) {
-            if (parameter.isNamed && parameter.name == element.name) {
+            if (parameter.parameterKind == ParameterKind.NAMED &&
+                parameter.name == element.name) {
               elements.add(parameter);
             }
           }
@@ -116,19 +111,21 @@ class RenameLocalRefactoringImpl extends RenameRefactoringImpl {
 }
 
 class _ConflictValidatorVisitor extends RecursiveAstVisitor {
+  final RenameLocalRefactoringImpl refactoring;
   final RefactoringStatus result;
-  final String newName;
-  final LocalElement target;
+  final SourceRange elementRange;
   final Set<Element> conflictingLocals = new Set<Element>();
 
-  _ConflictValidatorVisitor(this.result, this.newName, this.target);
+  _ConflictValidatorVisitor(this.refactoring, this.result, this.elementRange);
 
   @override
   visitSimpleIdentifier(SimpleIdentifier node) {
     Element nodeElement = node.bestElement;
+    String newName = refactoring.newName;
     if (nodeElement != null && nodeElement.name == newName) {
-      // Duplicate declaration.
-      if (node.inDeclarationContext() && _isVisibleWithTarget(nodeElement)) {
+      // duplicate declaration
+      if (node.inDeclarationContext() &&
+          haveIntersectingRanges(refactoring.element, nodeElement)) {
         conflictingLocals.add(nodeElement);
         String nodeKind = nodeElement.kind.displayName;
         String message = "Duplicate $nodeKind '$newName'.";
@@ -138,36 +135,21 @@ class _ConflictValidatorVisitor extends RecursiveAstVisitor {
       if (conflictingLocals.contains(nodeElement)) {
         return;
       }
-      // Shadowing by the target element.
-      SourceRange targetRange = target.visibleRange;
-      if (targetRange != null &&
-          targetRange.contains(node.offset) &&
+      // shadowing referenced element
+      if (elementRange != null &&
+          elementRange.contains(node.offset) &&
           !node.isQualified &&
           !_isNamedExpressionName(node)) {
         nodeElement = getSyntheticAccessorVariable(nodeElement);
         String nodeKind = nodeElement.kind.displayName;
         String nodeName = getElementQualifiedName(nodeElement);
         String nameElementSourceName = nodeElement.source.shortName;
-        String refKind = target.kind.displayName;
+        String refKind = refactoring.element.kind.displayName;
         String message = 'Usage of $nodeKind "$nodeName" declared in '
             '"$nameElementSourceName" will be shadowed by renamed $refKind.';
         result.addError(message, newLocation_fromNode(node));
       }
     }
-  }
-
-  /**
-   * Returns whether [element] and [target] are visible together.
-   */
-  bool _isVisibleWithTarget(Element element) {
-    if (element is LocalElement) {
-      SourceRange targetRange = target.visibleRange;
-      SourceRange elementRange = element.visibleRange;
-      return targetRange != null &&
-          elementRange != null &&
-          elementRange.intersects(targetRange);
-    }
-    return false;
   }
 
   static bool _isNamedExpressionName(SimpleIdentifier node) {

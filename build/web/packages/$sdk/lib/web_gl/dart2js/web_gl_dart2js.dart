@@ -1,13 +1,10 @@
 /**
  * 3D programming in the browser.
- *
- * {@category Web}
  */
 library dart.dom.web_gl;
 
-import 'dart:async';
-import 'dart:collection' hide LinkedList, LinkedListEntry;
-import 'dart:_internal' show FixedLengthListMixin;
+import 'dart:collection';
+import 'dart:_internal';
 import 'dart:html';
 import 'dart:html_common';
 import 'dart:_native_typed_data';
@@ -256,6 +253,7 @@ const int STENCIL_BUFFER_BIT = RenderingContext.STENCIL_BUFFER_BIT;
 const int STENCIL_CLEAR_VALUE = RenderingContext.STENCIL_CLEAR_VALUE;
 const int STENCIL_FAIL = RenderingContext.STENCIL_FAIL;
 const int STENCIL_FUNC = RenderingContext.STENCIL_FUNC;
+const int STENCIL_INDEX = RenderingContext.STENCIL_INDEX;
 const int STENCIL_INDEX8 = RenderingContext.STENCIL_INDEX8;
 const int STENCIL_PASS_DEPTH_FAIL = RenderingContext.STENCIL_PASS_DEPTH_FAIL;
 const int STENCIL_PASS_DEPTH_PASS = RenderingContext.STENCIL_PASS_DEPTH_PASS;
@@ -430,44 +428,72 @@ class Buffer extends Interceptor {
     throw new UnsupportedError("Not supported");
   }
 }
-// Copyright (c) 2013, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-@DocsEditable()
-@DomName('WebGLCanvas')
-@Experimental() // untriaged
-@Native("WebGLCanvas")
-class Canvas extends Interceptor {
-  // To suppress missing implicit constructor warnings.
-  factory Canvas._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @JSName('canvas')
-  @DomName('WebGLCanvas.canvas')
-  @DocsEditable()
-  final CanvasElement canvas;
-
-  @JSName('canvas')
-  @DomName('WebGLCanvas.offscreenCanvas')
-  @DocsEditable()
-  final OffscreenCanvas offscreenCanvas;
-}
-
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
 @DocsEditable()
-@DomName('WebGLColorBufferFloat')
+@DomName('CHROMIUMSubscribeUniform')
 @Experimental() // untriaged
-@Native("WebGLColorBufferFloat")
-class ColorBufferFloat extends Interceptor {
+@Native("CHROMIUMSubscribeUniform")
+class ChromiumSubscribeUniform extends Interceptor {
   // To suppress missing implicit constructor warnings.
-  factory ColorBufferFloat._() {
+  factory ChromiumSubscribeUniform._() {
     throw new UnsupportedError("Not supported");
   }
+
+  @DomName('CHROMIUMSubscribeUniform.MOUSE_POSITION_CHROMIUM')
+  @DocsEditable()
+  @Experimental() // untriaged
+  static const int MOUSE_POSITION_CHROMIUM = 0x924C;
+
+  @DomName('CHROMIUMSubscribeUniform.SUBSCRIBED_VALUES_BUFFER_CHROMIUM')
+  @DocsEditable()
+  @Experimental() // untriaged
+  static const int SUBSCRIBED_VALUES_BUFFER_CHROMIUM = 0x924B;
+
+  @JSName('bindValuebufferCHROMIUM')
+  @DomName('CHROMIUMSubscribeUniform.bindValuebufferCHROMIUM')
+  @DocsEditable()
+  @Experimental() // untriaged
+  void bindValuebufferChromium(int target, ChromiumValuebuffer buffer) native;
+
+  @JSName('createValuebufferCHROMIUM')
+  @DomName('CHROMIUMSubscribeUniform.createValuebufferCHROMIUM')
+  @DocsEditable()
+  @Experimental() // untriaged
+  ChromiumValuebuffer createValuebufferChromium() native;
+
+  @JSName('deleteValuebufferCHROMIUM')
+  @DomName('CHROMIUMSubscribeUniform.deleteValuebufferCHROMIUM')
+  @DocsEditable()
+  @Experimental() // untriaged
+  void deleteValuebufferChromium(ChromiumValuebuffer buffer) native;
+
+  @JSName('isValuebufferCHROMIUM')
+  @DomName('CHROMIUMSubscribeUniform.isValuebufferCHROMIUM')
+  @DocsEditable()
+  @Experimental() // untriaged
+  bool isValuebufferChromium(ChromiumValuebuffer buffer) native;
+
+  @JSName('populateSubscribedValuesCHROMIUM')
+  @DomName('CHROMIUMSubscribeUniform.populateSubscribedValuesCHROMIUM')
+  @DocsEditable()
+  @Experimental() // untriaged
+  void populateSubscribedValuesChromium(int target) native;
+
+  @JSName('subscribeValueCHROMIUM')
+  @DomName('CHROMIUMSubscribeUniform.subscribeValueCHROMIUM')
+  @DocsEditable()
+  @Experimental() // untriaged
+  void subscribeValueChromium(int target, int subscriptions) native;
+
+  @JSName('uniformValuebufferCHROMIUM')
+  @DomName('CHROMIUMSubscribeUniform.uniformValuebufferCHROMIUM')
+  @DocsEditable()
+  @Experimental() // untriaged
+  void uniformValuebufferChromium(
+      UniformLocation location, int target, int subscription) native;
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
@@ -675,71 +701,6 @@ class CompressedTextureETC1 extends Interceptor {
 // BSD-style license that can be found in the LICENSE file.
 
 @DocsEditable()
-@DomName('WebGLCompressedTextureETC')
-@Experimental() // untriaged
-@Native("WebGLCompressedTextureETC")
-class CompressedTextureEtc extends Interceptor {
-  // To suppress missing implicit constructor warnings.
-  factory CompressedTextureEtc._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('WebGLCompressedTextureETC.COMPRESSED_R11_EAC')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_R11_EAC = 0x9270;
-
-  @DomName('WebGLCompressedTextureETC.COMPRESSED_RG11_EAC')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_RG11_EAC = 0x9272;
-
-  @DomName('WebGLCompressedTextureETC.COMPRESSED_RGB8_ETC2')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_RGB8_ETC2 = 0x9274;
-
-  @DomName('WebGLCompressedTextureETC.COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2 = 0x9276;
-
-  @DomName('WebGLCompressedTextureETC.COMPRESSED_RGBA8_ETC2_EAC')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_RGBA8_ETC2_EAC = 0x9278;
-
-  @DomName('WebGLCompressedTextureETC.COMPRESSED_SIGNED_R11_EAC')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SIGNED_R11_EAC = 0x9271;
-
-  @DomName('WebGLCompressedTextureETC.COMPRESSED_SIGNED_RG11_EAC')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SIGNED_RG11_EAC = 0x9273;
-
-  @DomName('WebGLCompressedTextureETC.COMPRESSED_SRGB8_ALPHA8_ETC2_EAC')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB8_ALPHA8_ETC2_EAC = 0x9279;
-
-  @DomName('WebGLCompressedTextureETC.COMPRESSED_SRGB8_ETC2')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB8_ETC2 = 0x9275;
-
-  @DomName(
-      'WebGLCompressedTextureETC.COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2 = 0x9277;
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-@DocsEditable()
 @DomName('WebGLCompressedTexturePVRTC')
 // http://www.khronos.org/registry/webgl/extensions/WEBGL_compressed_texture_pvrtc/
 @Experimental() // experimental
@@ -796,40 +757,6 @@ class CompressedTextureS3TC extends Interceptor {
   @DomName('WebGLCompressedTextureS3TC.COMPRESSED_RGB_S3TC_DXT1_EXT')
   @DocsEditable()
   static const int COMPRESSED_RGB_S3TC_DXT1_EXT = 0x83F0;
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-@DocsEditable()
-@DomName('WebGLCompressedTextureS3TCsRGB')
-@Experimental() // untriaged
-@Native("WebGLCompressedTextureS3TCsRGB")
-class CompressedTextureS3TCsRgb extends Interceptor {
-  // To suppress missing implicit constructor warnings.
-  factory CompressedTextureS3TCsRgb._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('WebGLCompressedTextureS3TCsRGB.COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT = 0x8C4D;
-
-  @DomName('WebGLCompressedTextureS3TCsRGB.COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT = 0x8C4E;
-
-  @DomName('WebGLCompressedTextureS3TCsRGB.COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT = 0x8C4F;
-
-  @DomName('WebGLCompressedTextureS3TCsRGB.COMPRESSED_SRGB_S3TC_DXT1_EXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB_S3TC_DXT1_EXT = 0x8C4C;
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
@@ -1157,20 +1084,6 @@ class ExtColorBufferFloat extends Interceptor {
 // BSD-style license that can be found in the LICENSE file.
 
 @DocsEditable()
-@DomName('EXTColorBufferHalfFloat')
-@Experimental() // untriaged
-@Native("EXTColorBufferHalfFloat")
-class ExtColorBufferHalfFloat extends Interceptor {
-  // To suppress missing implicit constructor warnings.
-  factory ExtColorBufferHalfFloat._() {
-    throw new UnsupportedError("Not supported");
-  }
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-@DocsEditable()
 @DomName('EXTDisjointTimerQuery')
 @Experimental() // untriaged
 @Native("EXTDisjointTimerQuery")
@@ -1268,46 +1181,6 @@ class ExtDisjointTimerQuery extends Interceptor {
 // BSD-style license that can be found in the LICENSE file.
 
 @DocsEditable()
-@DomName('EXTDisjointTimerQueryWebGL2')
-@Experimental() // untriaged
-@Native("EXTDisjointTimerQueryWebGL2")
-class ExtDisjointTimerQueryWebGL2 extends Interceptor {
-  // To suppress missing implicit constructor warnings.
-  factory ExtDisjointTimerQueryWebGL2._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('EXTDisjointTimerQueryWebGL2.GPU_DISJOINT_EXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int GPU_DISJOINT_EXT = 0x8FBB;
-
-  @DomName('EXTDisjointTimerQueryWebGL2.QUERY_COUNTER_BITS_EXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int QUERY_COUNTER_BITS_EXT = 0x8864;
-
-  @DomName('EXTDisjointTimerQueryWebGL2.TIMESTAMP_EXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int TIMESTAMP_EXT = 0x8E28;
-
-  @DomName('EXTDisjointTimerQueryWebGL2.TIME_ELAPSED_EXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int TIME_ELAPSED_EXT = 0x88BF;
-
-  @JSName('queryCounterEXT')
-  @DomName('EXTDisjointTimerQueryWebGL2.queryCounterEXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void queryCounterExt(Query query, int target) native;
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-@DocsEditable()
 @DomName('EXTFragDepth')
 // http://www.khronos.org/registry/webgl/extensions/EXT_frag_depth/
 @Experimental()
@@ -1368,26 +1241,6 @@ class Framebuffer extends Interceptor {
   factory Framebuffer._() {
     throw new UnsupportedError("Not supported");
   }
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-@DocsEditable()
-@DomName('WebGLGetBufferSubDataAsync')
-@Experimental() // untriaged
-@Native("WebGLGetBufferSubDataAsync")
-class GetBufferSubDataAsync extends Interceptor {
-  // To suppress missing implicit constructor warnings.
-  factory GetBufferSubDataAsync._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('WebGLGetBufferSubDataAsync.getBufferSubDataAsync')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future getBufferSubDataAsync(int target, int srcByteOffset, TypedData dstData,
-      [int dstOffset, int length]) native;
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
@@ -1609,11 +1462,6 @@ class RenderingContext extends Interceptor implements CanvasRenderingContext {
 
   /// Checks if this type is supported on the current platform.
   static bool get supported => JS('bool', '!!(window.WebGLRenderingContext)');
-
-  @DomName('WebGLRenderingContext.canvas')
-  @DocsEditable()
-  @Experimental() // untriaged
-  final CanvasElement canvas;
 
   @DomName('WebGLRenderingContext.ACTIVE_ATTRIBUTES')
   @DocsEditable()
@@ -2473,6 +2321,10 @@ class RenderingContext extends Interceptor implements CanvasRenderingContext {
   @DocsEditable()
   static const int STENCIL_FUNC = 0x0B92;
 
+  @DomName('WebGLRenderingContext.STENCIL_INDEX')
+  @DocsEditable()
+  static const int STENCIL_INDEX = 0x1901;
+
   @DomName('WebGLRenderingContext.STENCIL_INDEX8')
   @DocsEditable()
   static const int STENCIL_INDEX8 = 0x8D48;
@@ -2803,6 +2655,11 @@ class RenderingContext extends Interceptor implements CanvasRenderingContext {
 
   // From WebGLRenderingContextBase
 
+  @DomName('WebGLRenderingContext.canvas')
+  @DocsEditable()
+  @Experimental() // untriaged
+  final CanvasElement canvas;
+
   @DomName('WebGLRenderingContext.drawingBufferHeight')
   @DocsEditable()
   final int drawingBufferHeight;
@@ -2891,11 +2748,6 @@ class RenderingContext extends Interceptor implements CanvasRenderingContext {
   @DomName('WebGLRenderingContext.colorMask')
   @DocsEditable()
   void colorMask(bool red, bool green, bool blue, bool alpha) native;
-
-  @DomName('WebGLRenderingContext.commit')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future commit() native;
 
   @DomName('WebGLRenderingContext.compileShader')
   @DocsEditable()
@@ -3216,10 +3068,9 @@ class RenderingContext extends Interceptor implements CanvasRenderingContext {
   @DocsEditable()
   void polygonOffset(num factor, num units) native;
 
-  @JSName('readPixels')
   @DomName('WebGLRenderingContext.readPixels')
   @DocsEditable()
-  void _readPixels(int x, int y, int width, int height, int format, int type,
+  void readPixels(int x, int y, int width, int height, int format, int type,
       TypedData pixels) native;
 
   @DomName('WebGLRenderingContext.renderbufferStorage')
@@ -3290,7 +3141,8 @@ class RenderingContext extends Interceptor implements CanvasRenderingContext {
           pixels);
       return;
     }
-    if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video is ImageData) &&
+    if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video is ImageData ||
+            bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video == null) &&
         format == null &&
         type == null &&
         pixels == null) {
@@ -3424,7 +3276,8 @@ class RenderingContext extends Interceptor implements CanvasRenderingContext {
           pixels);
       return;
     }
-    if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video is ImageData) &&
+    if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video is ImageData ||
+            bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video == null) &&
         type == null &&
         pixels == null) {
       var pixels_1 = convertDartToNative_ImageData(
@@ -3648,13 +3501,6 @@ class RenderingContext extends Interceptor implements CanvasRenderingContext {
   @DocsEditable()
   void viewport(int x, int y, int width, int height) native;
 
-  @DomName('WebGLRenderingContext.readPixels')
-  @DocsEditable()
-  void readPixels(int x, int y, int width, int height, int format, int type,
-      TypedData pixels) {
-    _readPixels(x, y, width, height, format, type, pixels);
-  }
-
   /**
    * Sets the currently bound texture to [data].
    *
@@ -3731,7 +3577,7 @@ class RenderingContext extends Interceptor implements CanvasRenderingContext {
     bufferSubData(target, offset, data);
   }
 }
-// Copyright (c) 2013, the Dart project authors.  Please see the AUTHORS file
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
@@ -3745,11 +3591,6 @@ class RenderingContext2 extends Interceptor
   factory RenderingContext2._() {
     throw new UnsupportedError("Not supported");
   }
-
-  @DomName('WebGL2RenderingContext.canvas')
-  @DocsEditable()
-  @Experimental() // untriaged
-  final Canvas canvas;
 
   @DomName('WebGL2RenderingContext.ACTIVE_ATTRIBUTES')
   @DocsEditable()
@@ -4822,6 +4663,11 @@ class RenderingContext2 extends Interceptor
   @Experimental() // untriaged
   static const int STENCIL_FUNC = 0x0B92;
 
+  @DomName('WebGL2RenderingContext.STENCIL_INDEX')
+  @DocsEditable()
+  @Experimental() // untriaged
+  static const int STENCIL_INDEX = 0x1901;
+
   @DomName('WebGL2RenderingContext.STENCIL_INDEX8')
   @DocsEditable()
   @Experimental() // untriaged
@@ -5276,21 +5122,6 @@ class RenderingContext2 extends Interceptor
   void blitFramebuffer(int srcX0, int srcY0, int srcX1, int srcY1, int dstX0,
       int dstY0, int dstX1, int dstY1, int mask, int filter) native;
 
-  @JSName('bufferData')
-  @DomName('WebGL2RenderingContext.bufferData')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void bufferData2(int target, TypedData srcData, int usage, int srcOffset,
-      [int length]) native;
-
-  @JSName('bufferSubData')
-  @DomName('WebGL2RenderingContext.bufferSubData')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void bufferSubData2(
-      int target, int dstByteOffset, TypedData srcData, int srcOffset,
-      [int length]) native;
-
   @DomName('WebGL2RenderingContext.clearBufferfi')
   @DocsEditable()
   @Experimental() // untriaged
@@ -5299,88 +5130,33 @@ class RenderingContext2 extends Interceptor
   @DomName('WebGL2RenderingContext.clearBufferfv')
   @DocsEditable()
   @Experimental() // untriaged
-  void clearBufferfv(int buffer, int drawbuffer, value, [int srcOffset]) native;
+  void clearBufferfv(int buffer, int drawbuffer, value) native;
 
   @DomName('WebGL2RenderingContext.clearBufferiv')
   @DocsEditable()
   @Experimental() // untriaged
-  void clearBufferiv(int buffer, int drawbuffer, value, [int srcOffset]) native;
+  void clearBufferiv(int buffer, int drawbuffer, value) native;
 
   @DomName('WebGL2RenderingContext.clearBufferuiv')
   @DocsEditable()
   @Experimental() // untriaged
-  void clearBufferuiv(int buffer, int drawbuffer, value, [int srcOffset])
-      native;
+  void clearBufferuiv(int buffer, int drawbuffer, value) native;
 
   @DomName('WebGL2RenderingContext.clientWaitSync')
   @DocsEditable()
   @Experimental() // untriaged
   int clientWaitSync(Sync sync, int flags, int timeout) native;
 
-  @JSName('compressedTexImage2D')
-  @DomName('WebGL2RenderingContext.compressedTexImage2D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void compressedTexImage2D2(int target, int level, int internalformat,
-      int width, int height, int border, TypedData data, int srcOffset,
-      [int srcLengthOverride]) native;
-
-  @JSName('compressedTexImage2D')
-  @DomName('WebGL2RenderingContext.compressedTexImage2D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void compressedTexImage2D3(int target, int level, int internalformat,
-      int width, int height, int border, int imageSize, int offset) native;
-
   @DomName('WebGL2RenderingContext.compressedTexImage3D')
   @DocsEditable()
   @Experimental() // untriaged
   void compressedTexImage3D(int target, int level, int internalformat,
-      int width, int height, int depth, int border, TypedData data,
-      [int srcOffset, int srcLengthOverride]) native;
-
-  @JSName('compressedTexImage3D')
-  @DomName('WebGL2RenderingContext.compressedTexImage3D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void compressedTexImage3D2(
-      int target,
-      int level,
-      int internalformat,
-      int width,
-      int height,
-      int depth,
-      int border,
-      int imageSize,
-      int offset) native;
-
-  @JSName('compressedTexSubImage2D')
-  @DomName('WebGL2RenderingContext.compressedTexSubImage2D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void compressedTexSubImage2D2(int target, int level, int xoffset, int yoffset,
-      int width, int height, int format, TypedData data, int srcOffset,
-      [int srcLengthOverride]) native;
-
-  @JSName('compressedTexSubImage2D')
-  @DomName('WebGL2RenderingContext.compressedTexSubImage2D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void compressedTexSubImage2D3(int target, int level, int xoffset, int yoffset,
-      int width, int height, int format, int imageSize, int offset) native;
+      int width, int height, int depth, int border, TypedData data) native;
 
   @DomName('WebGL2RenderingContext.compressedTexSubImage3D')
   @DocsEditable()
   @Experimental() // untriaged
-  void compressedTexSubImage3D(int target, int level, int xoffset, int yoffset,
-      int zoffset, int width, int height, int depth, int format, TypedData data,
-      [int srcOffset, int srcLengthOverride]) native;
-
-  @JSName('compressedTexSubImage3D')
-  @DomName('WebGL2RenderingContext.compressedTexSubImage3D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void compressedTexSubImage3D2(
+  void compressedTexSubImage3D(
       int target,
       int level,
       int xoffset,
@@ -5390,8 +5166,7 @@ class RenderingContext2 extends Interceptor
       int height,
       int depth,
       int format,
-      int imageSize,
-      int offset) native;
+      TypedData data) native;
 
   @DomName('WebGL2RenderingContext.copyBufferSubData')
   @DocsEditable()
@@ -5515,8 +5290,7 @@ class RenderingContext2 extends Interceptor
   @DomName('WebGL2RenderingContext.getBufferSubData')
   @DocsEditable()
   @Experimental() // untriaged
-  void getBufferSubData(int target, int srcByteOffset, TypedData dstData,
-      [int dstOffset, int length]) native;
+  void getBufferSubData(int target, int offset, ByteBuffer returnedData) native;
 
   @DomName('WebGL2RenderingContext.getFragDataLocation')
   @DocsEditable()
@@ -5537,7 +5311,7 @@ class RenderingContext2 extends Interceptor
   @DomName('WebGL2RenderingContext.getQuery')
   @DocsEditable()
   @Experimental() // untriaged
-  Object getQuery(int target, int pname) native;
+  Query getQuery(int target, int pname) native;
 
   @DomName('WebGL2RenderingContext.getQueryParameter')
   @DocsEditable()
@@ -5629,8 +5403,7 @@ class RenderingContext2 extends Interceptor
   @DocsEditable()
   @Experimental() // untriaged
   void readPixels2(int x, int y, int width, int height, int format, int type,
-      dstData_OR_offset,
-      [int offset]) native;
+      int offset) native;
 
   @DomName('WebGL2RenderingContext.renderbufferStorageMultisample')
   @DocsEditable()
@@ -5653,165 +5426,12 @@ class RenderingContext2 extends Interceptor
   @Experimental() // untriaged
   void samplerParameteri(Sampler sampler, int pname, int param) native;
 
-  @DomName('WebGL2RenderingContext.texImage2D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void texImage2D2(
-      int target,
-      int level,
-      int internalformat,
-      int width,
-      int height,
-      int border,
-      int format,
-      int type,
-      bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video,
-      [int srcOffset]) {
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video
-            is int) &&
-        srcOffset == null) {
-      _texImage2D2_1(
-          target,
-          level,
-          internalformat,
-          width,
-          height,
-          border,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video);
-      return;
-    }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video
-            is ImageData) &&
-        srcOffset == null) {
-      var data_1 = convertDartToNative_ImageData(
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video);
-      _texImage2D2_2(target, level, internalformat, width, height, border,
-          format, type, data_1);
-      return;
-    }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video
-            is ImageElement) &&
-        srcOffset == null) {
-      _texImage2D2_3(
-          target,
-          level,
-          internalformat,
-          width,
-          height,
-          border,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video);
-      return;
-    }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video
-            is CanvasElement) &&
-        srcOffset == null) {
-      _texImage2D2_4(
-          target,
-          level,
-          internalformat,
-          width,
-          height,
-          border,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video);
-      return;
-    }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video
-            is VideoElement) &&
-        srcOffset == null) {
-      _texImage2D2_5(
-          target,
-          level,
-          internalformat,
-          width,
-          height,
-          border,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video);
-      return;
-    }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video
-            is ImageBitmap) &&
-        srcOffset == null) {
-      _texImage2D2_6(
-          target,
-          level,
-          internalformat,
-          width,
-          height,
-          border,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video);
-      return;
-    }
-    if (srcOffset != null &&
-        (bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video
-            is TypedData)) {
-      _texImage2D2_7(
-          target,
-          level,
-          internalformat,
-          width,
-          height,
-          border,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video,
-          srcOffset);
-      return;
-    }
-    throw new ArgumentError("Incorrect number or type of arguments");
-  }
-
   @JSName('texImage2D')
   @DomName('WebGL2RenderingContext.texImage2D')
   @DocsEditable()
   @Experimental() // untriaged
-  void _texImage2D2_1(target, level, internalformat, width, height, border,
-      format, type, int offset) native;
-  @JSName('texImage2D')
-  @DomName('WebGL2RenderingContext.texImage2D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texImage2D2_2(target, level, internalformat, width, height, border,
-      format, type, data) native;
-  @JSName('texImage2D')
-  @DomName('WebGL2RenderingContext.texImage2D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texImage2D2_3(target, level, internalformat, width, height, border,
-      format, type, ImageElement image) native;
-  @JSName('texImage2D')
-  @DomName('WebGL2RenderingContext.texImage2D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texImage2D2_4(target, level, internalformat, width, height, border,
-      format, type, CanvasElement canvas) native;
-  @JSName('texImage2D')
-  @DomName('WebGL2RenderingContext.texImage2D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texImage2D2_5(target, level, internalformat, width, height, border,
-      format, type, VideoElement video) native;
-  @JSName('texImage2D')
-  @DomName('WebGL2RenderingContext.texImage2D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texImage2D2_6(target, level, internalformat, width, height, border,
-      format, type, ImageBitmap bitmap) native;
-  @JSName('texImage2D')
-  @DomName('WebGL2RenderingContext.texImage2D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texImage2D2_7(target, level, internalformat, width, height, border,
-      format, type, TypedData srcData, srcOffset) native;
+  void texImage2D2(int target, int level, int internalformat, int width,
+      int height, int border, int format, int type, int offset) native;
 
   @DomName('WebGL2RenderingContext.texImage3D')
   @DocsEditable()
@@ -5826,183 +5446,7 @@ class RenderingContext2 extends Interceptor
       int border,
       int format,
       int type,
-      bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video,
-      [int srcOffset]) {
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video
-            is int) &&
-        srcOffset == null) {
-      _texImage3D_1(
-          target,
-          level,
-          internalformat,
-          width,
-          height,
-          depth,
-          border,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video);
-      return;
-    }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video
-            is ImageData) &&
-        srcOffset == null) {
-      var data_1 = convertDartToNative_ImageData(
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video);
-      _texImage3D_2(target, level, internalformat, width, height, depth, border,
-          format, type, data_1);
-      return;
-    }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video
-            is ImageElement) &&
-        srcOffset == null) {
-      _texImage3D_3(
-          target,
-          level,
-          internalformat,
-          width,
-          height,
-          depth,
-          border,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video);
-      return;
-    }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video
-            is CanvasElement) &&
-        srcOffset == null) {
-      _texImage3D_4(
-          target,
-          level,
-          internalformat,
-          width,
-          height,
-          depth,
-          border,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video);
-      return;
-    }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video
-            is VideoElement) &&
-        srcOffset == null) {
-      _texImage3D_5(
-          target,
-          level,
-          internalformat,
-          width,
-          height,
-          depth,
-          border,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video);
-      return;
-    }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video
-            is ImageBitmap) &&
-        srcOffset == null) {
-      _texImage3D_6(
-          target,
-          level,
-          internalformat,
-          width,
-          height,
-          depth,
-          border,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video);
-      return;
-    }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video
-                is TypedData ||
-            bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video ==
-                null) &&
-        srcOffset == null) {
-      _texImage3D_7(
-          target,
-          level,
-          internalformat,
-          width,
-          height,
-          depth,
-          border,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video);
-      return;
-    }
-    if (srcOffset != null &&
-        (bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video
-            is TypedData)) {
-      _texImage3D_8(
-          target,
-          level,
-          internalformat,
-          width,
-          height,
-          depth,
-          border,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video,
-          srcOffset);
-      return;
-    }
-    throw new ArgumentError("Incorrect number or type of arguments");
-  }
-
-  @JSName('texImage3D')
-  @DomName('WebGL2RenderingContext.texImage3D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texImage3D_1(target, level, internalformat, width, height, depth,
-      border, format, type, int offset) native;
-  @JSName('texImage3D')
-  @DomName('WebGL2RenderingContext.texImage3D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texImage3D_2(target, level, internalformat, width, height, depth,
-      border, format, type, data) native;
-  @JSName('texImage3D')
-  @DomName('WebGL2RenderingContext.texImage3D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texImage3D_3(target, level, internalformat, width, height, depth,
-      border, format, type, ImageElement image) native;
-  @JSName('texImage3D')
-  @DomName('WebGL2RenderingContext.texImage3D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texImage3D_4(target, level, internalformat, width, height, depth,
-      border, format, type, CanvasElement canvas) native;
-  @JSName('texImage3D')
-  @DomName('WebGL2RenderingContext.texImage3D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texImage3D_5(target, level, internalformat, width, height, depth,
-      border, format, type, VideoElement video) native;
-  @JSName('texImage3D')
-  @DomName('WebGL2RenderingContext.texImage3D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texImage3D_6(target, level, internalformat, width, height, depth,
-      border, format, type, ImageBitmap bitmap) native;
-  @JSName('texImage3D')
-  @DomName('WebGL2RenderingContext.texImage3D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texImage3D_7(target, level, internalformat, width, height, depth,
-      border, format, type, TypedData pixels) native;
-  @JSName('texImage3D')
-  @DomName('WebGL2RenderingContext.texImage3D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texImage3D_8(target, level, internalformat, width, height, depth,
-      border, format, type, TypedData pixels, srcOffset) native;
+      offset_OR_pixels) native;
 
   @DomName('WebGL2RenderingContext.texStorage2D')
   @DocsEditable()
@@ -6016,166 +5460,6 @@ class RenderingContext2 extends Interceptor
   void texStorage3D(int target, int levels, int internalformat, int width,
       int height, int depth) native;
 
-  @DomName('WebGL2RenderingContext.texSubImage2D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void texSubImage2D2(
-      int target,
-      int level,
-      int xoffset,
-      int yoffset,
-      int width,
-      int height,
-      int format,
-      int type,
-      bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video,
-      [int srcOffset]) {
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video
-            is int) &&
-        srcOffset == null) {
-      _texSubImage2D2_1(
-          target,
-          level,
-          xoffset,
-          yoffset,
-          width,
-          height,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video);
-      return;
-    }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video
-            is ImageData) &&
-        srcOffset == null) {
-      var data_1 = convertDartToNative_ImageData(
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video);
-      _texSubImage2D2_2(
-          target, level, xoffset, yoffset, width, height, format, type, data_1);
-      return;
-    }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video
-            is ImageElement) &&
-        srcOffset == null) {
-      _texSubImage2D2_3(
-          target,
-          level,
-          xoffset,
-          yoffset,
-          width,
-          height,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video);
-      return;
-    }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video
-            is CanvasElement) &&
-        srcOffset == null) {
-      _texSubImage2D2_4(
-          target,
-          level,
-          xoffset,
-          yoffset,
-          width,
-          height,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video);
-      return;
-    }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video
-            is VideoElement) &&
-        srcOffset == null) {
-      _texSubImage2D2_5(
-          target,
-          level,
-          xoffset,
-          yoffset,
-          width,
-          height,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video);
-      return;
-    }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video
-            is ImageBitmap) &&
-        srcOffset == null) {
-      _texSubImage2D2_6(
-          target,
-          level,
-          xoffset,
-          yoffset,
-          width,
-          height,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video);
-      return;
-    }
-    if (srcOffset != null &&
-        (bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video
-            is TypedData)) {
-      _texSubImage2D2_7(
-          target,
-          level,
-          xoffset,
-          yoffset,
-          width,
-          height,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_srcData_OR_video,
-          srcOffset);
-      return;
-    }
-    throw new ArgumentError("Incorrect number or type of arguments");
-  }
-
-  @JSName('texSubImage2D')
-  @DomName('WebGL2RenderingContext.texSubImage2D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texSubImage2D2_1(target, level, xoffset, yoffset, width, height, format,
-      type, int offset) native;
-  @JSName('texSubImage2D')
-  @DomName('WebGL2RenderingContext.texSubImage2D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texSubImage2D2_2(target, level, xoffset, yoffset, width, height, format,
-      type, data) native;
-  @JSName('texSubImage2D')
-  @DomName('WebGL2RenderingContext.texSubImage2D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texSubImage2D2_3(target, level, xoffset, yoffset, width, height, format,
-      type, ImageElement image) native;
-  @JSName('texSubImage2D')
-  @DomName('WebGL2RenderingContext.texSubImage2D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texSubImage2D2_4(target, level, xoffset, yoffset, width, height, format,
-      type, CanvasElement canvas) native;
-  @JSName('texSubImage2D')
-  @DomName('WebGL2RenderingContext.texSubImage2D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texSubImage2D2_5(target, level, xoffset, yoffset, width, height, format,
-      type, VideoElement video) native;
-  @JSName('texSubImage2D')
-  @DomName('WebGL2RenderingContext.texSubImage2D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texSubImage2D2_6(target, level, xoffset, yoffset, width, height, format,
-      type, ImageBitmap bitmap) native;
-  @JSName('texSubImage2D')
-  @DomName('WebGL2RenderingContext.texSubImage2D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texSubImage2D2_7(target, level, xoffset, yoffset, width, height, format,
-      type, TypedData srcData, srcOffset) native;
-
   @DomName('WebGL2RenderingContext.texSubImage3D')
   @DocsEditable()
   @Experimental() // untriaged
@@ -6185,140 +5469,102 @@ class RenderingContext2 extends Interceptor
       int xoffset,
       int yoffset,
       int zoffset,
-      int width,
-      int height,
-      int depth,
-      int format,
+      int format_OR_width,
+      int height_OR_type,
+      bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video,
+      [int format,
       int type,
-      bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video,
-      [int srcOffset]) {
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video
-            is int) &&
-        srcOffset == null) {
+      TypedData pixels]) {
+    if (type != null &&
+        format != null &&
+        (bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video is int)) {
       _texSubImage3D_1(
           target,
           level,
           xoffset,
           yoffset,
           zoffset,
-          width,
-          height,
-          depth,
+          format_OR_width,
+          height_OR_type,
+          bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video,
           format,
           type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video);
+          pixels);
       return;
     }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video
-            is ImageData) &&
-        srcOffset == null) {
+    if ((bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video is ImageData ||
+            bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video == null) &&
+        format == null &&
+        type == null &&
+        pixels == null) {
       var data_1 = convertDartToNative_ImageData(
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video);
-      _texSubImage3D_2(target, level, xoffset, yoffset, zoffset, width, height,
-          depth, format, type, data_1);
+          bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video);
+      _texSubImage3D_2(target, level, xoffset, yoffset, zoffset,
+          format_OR_width, height_OR_type, data_1);
       return;
     }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video
-            is ImageElement) &&
-        srcOffset == null) {
+    if ((bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video is ImageElement ||
+            bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video == null) &&
+        format == null &&
+        type == null &&
+        pixels == null) {
       _texSubImage3D_3(
           target,
           level,
           xoffset,
           yoffset,
           zoffset,
-          width,
-          height,
-          depth,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video);
+          format_OR_width,
+          height_OR_type,
+          bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video);
       return;
     }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video
-            is CanvasElement) &&
-        srcOffset == null) {
+    if ((bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video is CanvasElement ||
+            bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video == null) &&
+        format == null &&
+        type == null &&
+        pixels == null) {
       _texSubImage3D_4(
           target,
           level,
           xoffset,
           yoffset,
           zoffset,
-          width,
-          height,
-          depth,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video);
+          format_OR_width,
+          height_OR_type,
+          bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video);
       return;
     }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video
-            is VideoElement) &&
-        srcOffset == null) {
+    if ((bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video is VideoElement ||
+            bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video == null) &&
+        format == null &&
+        type == null &&
+        pixels == null) {
       _texSubImage3D_5(
           target,
           level,
           xoffset,
           yoffset,
           zoffset,
-          width,
-          height,
-          depth,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video);
+          format_OR_width,
+          height_OR_type,
+          bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video);
       return;
     }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video
-            is ImageBitmap) &&
-        srcOffset == null) {
+    if ((bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video is ImageBitmap ||
+            bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video == null) &&
+        format == null &&
+        type == null &&
+        pixels == null) {
       _texSubImage3D_6(
           target,
           level,
           xoffset,
           yoffset,
           zoffset,
-          width,
-          height,
-          depth,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video);
-      return;
-    }
-    if ((bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video
-            is TypedData) &&
-        srcOffset == null) {
-      _texSubImage3D_7(
-          target,
-          level,
-          xoffset,
-          yoffset,
-          zoffset,
-          width,
-          height,
-          depth,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video);
-      return;
-    }
-    if (srcOffset != null &&
-        (bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video
-            is TypedData)) {
-      _texSubImage3D_8(
-          target,
-          level,
-          xoffset,
-          yoffset,
-          zoffset,
-          width,
-          height,
-          depth,
-          format,
-          type,
-          bitmap_OR_canvas_OR_data_OR_image_OR_offset_OR_pixels_OR_video,
-          srcOffset);
+          format_OR_width,
+          height_OR_type,
+          bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video);
       return;
     }
     throw new ArgumentError("Incorrect number or type of arguments");
@@ -6329,49 +5575,37 @@ class RenderingContext2 extends Interceptor
   @DocsEditable()
   @Experimental() // untriaged
   void _texSubImage3D_1(target, level, xoffset, yoffset, zoffset, width, height,
-      depth, format, type, int offset) native;
+      int depth, format, type, TypedData pixels) native;
   @JSName('texSubImage3D')
   @DomName('WebGL2RenderingContext.texSubImage3D')
   @DocsEditable()
   @Experimental() // untriaged
-  void _texSubImage3D_2(target, level, xoffset, yoffset, zoffset, width, height,
-      depth, format, type, data) native;
+  void _texSubImage3D_2(
+      target, level, xoffset, yoffset, zoffset, format, type, data) native;
   @JSName('texSubImage3D')
   @DomName('WebGL2RenderingContext.texSubImage3D')
   @DocsEditable()
   @Experimental() // untriaged
-  void _texSubImage3D_3(target, level, xoffset, yoffset, zoffset, width, height,
-      depth, format, type, ImageElement image) native;
+  void _texSubImage3D_3(target, level, xoffset, yoffset, zoffset, format, type,
+      ImageElement image) native;
   @JSName('texSubImage3D')
   @DomName('WebGL2RenderingContext.texSubImage3D')
   @DocsEditable()
   @Experimental() // untriaged
-  void _texSubImage3D_4(target, level, xoffset, yoffset, zoffset, width, height,
-      depth, format, type, CanvasElement canvas) native;
+  void _texSubImage3D_4(target, level, xoffset, yoffset, zoffset, format, type,
+      CanvasElement canvas) native;
   @JSName('texSubImage3D')
   @DomName('WebGL2RenderingContext.texSubImage3D')
   @DocsEditable()
   @Experimental() // untriaged
-  void _texSubImage3D_5(target, level, xoffset, yoffset, zoffset, width, height,
-      depth, format, type, VideoElement video) native;
+  void _texSubImage3D_5(target, level, xoffset, yoffset, zoffset, format, type,
+      VideoElement video) native;
   @JSName('texSubImage3D')
   @DomName('WebGL2RenderingContext.texSubImage3D')
   @DocsEditable()
   @Experimental() // untriaged
-  void _texSubImage3D_6(target, level, xoffset, yoffset, zoffset, width, height,
-      depth, format, type, ImageBitmap bitmap) native;
-  @JSName('texSubImage3D')
-  @DomName('WebGL2RenderingContext.texSubImage3D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texSubImage3D_7(target, level, xoffset, yoffset, zoffset, width, height,
-      depth, format, type, TypedData pixels) native;
-  @JSName('texSubImage3D')
-  @DomName('WebGL2RenderingContext.texSubImage3D')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _texSubImage3D_8(target, level, xoffset, yoffset, zoffset, width, height,
-      depth, format, type, TypedData pixels, srcOffset) native;
+  void _texSubImage3D_6(target, level, xoffset, yoffset, zoffset, format, type,
+      ImageBitmap bitmap) native;
 
   @DomName('WebGL2RenderingContext.transformFeedbackVaryings')
   @DocsEditable()
@@ -6390,20 +5624,6 @@ class RenderingContext2 extends Interceptor
   void _transformFeedbackVaryings_1(Program program, List varyings, bufferMode)
       native;
 
-  @JSName('uniform1fv')
-  @DomName('WebGL2RenderingContext.uniform1fv')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void uniform1fv2(UniformLocation location, v, int srcOffset, [int srcLength])
-      native;
-
-  @JSName('uniform1iv')
-  @DomName('WebGL2RenderingContext.uniform1iv')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void uniform1iv2(UniformLocation location, v, int srcOffset, [int srcLength])
-      native;
-
   @DomName('WebGL2RenderingContext.uniform1ui')
   @DocsEditable()
   @Experimental() // untriaged
@@ -6412,22 +5632,7 @@ class RenderingContext2 extends Interceptor
   @DomName('WebGL2RenderingContext.uniform1uiv')
   @DocsEditable()
   @Experimental() // untriaged
-  void uniform1uiv(UniformLocation location, v, [int srcOffset, int srcLength])
-      native;
-
-  @JSName('uniform2fv')
-  @DomName('WebGL2RenderingContext.uniform2fv')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void uniform2fv2(UniformLocation location, v, int srcOffset, [int srcLength])
-      native;
-
-  @JSName('uniform2iv')
-  @DomName('WebGL2RenderingContext.uniform2iv')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void uniform2iv2(UniformLocation location, v, int srcOffset, [int srcLength])
-      native;
+  void uniform1uiv(UniformLocation location, v) native;
 
   @DomName('WebGL2RenderingContext.uniform2ui')
   @DocsEditable()
@@ -6437,22 +5642,7 @@ class RenderingContext2 extends Interceptor
   @DomName('WebGL2RenderingContext.uniform2uiv')
   @DocsEditable()
   @Experimental() // untriaged
-  void uniform2uiv(UniformLocation location, v, [int srcOffset, int srcLength])
-      native;
-
-  @JSName('uniform3fv')
-  @DomName('WebGL2RenderingContext.uniform3fv')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void uniform3fv2(UniformLocation location, v, int srcOffset, [int srcLength])
-      native;
-
-  @JSName('uniform3iv')
-  @DomName('WebGL2RenderingContext.uniform3iv')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void uniform3iv2(UniformLocation location, v, int srcOffset, [int srcLength])
-      native;
+  void uniform2uiv(UniformLocation location, v) native;
 
   @DomName('WebGL2RenderingContext.uniform3ui')
   @DocsEditable()
@@ -6462,22 +5652,7 @@ class RenderingContext2 extends Interceptor
   @DomName('WebGL2RenderingContext.uniform3uiv')
   @DocsEditable()
   @Experimental() // untriaged
-  void uniform3uiv(UniformLocation location, v, [int srcOffset, int srcLength])
-      native;
-
-  @JSName('uniform4fv')
-  @DomName('WebGL2RenderingContext.uniform4fv')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void uniform4fv2(UniformLocation location, v, int srcOffset, [int srcLength])
-      native;
-
-  @JSName('uniform4iv')
-  @DomName('WebGL2RenderingContext.uniform4iv')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void uniform4iv2(UniformLocation location, v, int srcOffset, [int srcLength])
-      native;
+  void uniform3uiv(UniformLocation location, v) native;
 
   @DomName('WebGL2RenderingContext.uniform4ui')
   @DocsEditable()
@@ -6488,8 +5663,7 @@ class RenderingContext2 extends Interceptor
   @DomName('WebGL2RenderingContext.uniform4uiv')
   @DocsEditable()
   @Experimental() // untriaged
-  void uniform4uiv(UniformLocation location, v, [int srcOffset, int srcLength])
-      native;
+  void uniform4uiv(UniformLocation location, v) native;
 
   @DomName('WebGL2RenderingContext.uniformBlockBinding')
   @DocsEditable()
@@ -6497,65 +5671,41 @@ class RenderingContext2 extends Interceptor
   void uniformBlockBinding(
       Program program, int uniformBlockIndex, int uniformBlockBinding) native;
 
-  @JSName('uniformMatrix2fv')
-  @DomName('WebGL2RenderingContext.uniformMatrix2fv')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void uniformMatrix2fv2(
-      UniformLocation location, bool transpose, array, int srcOffset,
-      [int srcLength]) native;
-
   @DomName('WebGL2RenderingContext.uniformMatrix2x3fv')
   @DocsEditable()
   @Experimental() // untriaged
-  void uniformMatrix2x3fv(UniformLocation location, bool transpose, value,
-      [int srcOffset, int srcLength]) native;
+  void uniformMatrix2x3fv(UniformLocation location, bool transpose, value)
+      native;
 
   @DomName('WebGL2RenderingContext.uniformMatrix2x4fv')
   @DocsEditable()
   @Experimental() // untriaged
-  void uniformMatrix2x4fv(UniformLocation location, bool transpose, value,
-      [int srcOffset, int srcLength]) native;
-
-  @JSName('uniformMatrix3fv')
-  @DomName('WebGL2RenderingContext.uniformMatrix3fv')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void uniformMatrix3fv2(
-      UniformLocation location, bool transpose, array, int srcOffset,
-      [int srcLength]) native;
+  void uniformMatrix2x4fv(UniformLocation location, bool transpose, value)
+      native;
 
   @DomName('WebGL2RenderingContext.uniformMatrix3x2fv')
   @DocsEditable()
   @Experimental() // untriaged
-  void uniformMatrix3x2fv(UniformLocation location, bool transpose, value,
-      [int srcOffset, int srcLength]) native;
+  void uniformMatrix3x2fv(UniformLocation location, bool transpose, value)
+      native;
 
   @DomName('WebGL2RenderingContext.uniformMatrix3x4fv')
   @DocsEditable()
   @Experimental() // untriaged
-  void uniformMatrix3x4fv(UniformLocation location, bool transpose, value,
-      [int srcOffset, int srcLength]) native;
-
-  @JSName('uniformMatrix4fv')
-  @DomName('WebGL2RenderingContext.uniformMatrix4fv')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void uniformMatrix4fv2(
-      UniformLocation location, bool transpose, array, int srcOffset,
-      [int srcLength]) native;
+  void uniformMatrix3x4fv(UniformLocation location, bool transpose, value)
+      native;
 
   @DomName('WebGL2RenderingContext.uniformMatrix4x2fv')
   @DocsEditable()
   @Experimental() // untriaged
-  void uniformMatrix4x2fv(UniformLocation location, bool transpose, value,
-      [int srcOffset, int srcLength]) native;
+  void uniformMatrix4x2fv(UniformLocation location, bool transpose, value)
+      native;
 
   @DomName('WebGL2RenderingContext.uniformMatrix4x3fv')
   @DocsEditable()
   @Experimental() // untriaged
-  void uniformMatrix4x3fv(UniformLocation location, bool transpose, value,
-      [int srcOffset, int srcLength]) native;
+  void uniformMatrix4x3fv(UniformLocation location, bool transpose, value)
+      native;
 
   @DomName('WebGL2RenderingContext.vertexAttribDivisor')
   @DocsEditable()
@@ -6594,6 +5744,11 @@ class RenderingContext2 extends Interceptor
   void waitSync(Sync sync, int flags, int timeout) native;
 
   // From WebGLRenderingContextBase
+
+  @DomName('WebGL2RenderingContext.canvas')
+  @DocsEditable()
+  @Experimental() // untriaged
+  final CanvasElement canvas;
 
   @DomName('WebGL2RenderingContext.drawingBufferHeight')
   @DocsEditable()
@@ -6705,11 +5860,6 @@ class RenderingContext2 extends Interceptor
   @DocsEditable()
   @Experimental() // untriaged
   void colorMask(bool red, bool green, bool blue, bool alpha) native;
-
-  @DomName('WebGL2RenderingContext.commit')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future commit() native;
 
   @DomName('WebGL2RenderingContext.compileShader')
   @DocsEditable()
@@ -7077,11 +6227,10 @@ class RenderingContext2 extends Interceptor
   @Experimental() // untriaged
   void polygonOffset(num factor, num units) native;
 
-  @JSName('readPixels')
   @DomName('WebGL2RenderingContext.readPixels')
   @DocsEditable()
   @Experimental() // untriaged
-  void _readPixels(int x, int y, int width, int height, int format, int type,
+  void readPixels(int x, int y, int width, int height, int format, int type,
       TypedData pixels) native;
 
   @DomName('WebGL2RenderingContext.renderbufferStorage')
@@ -7163,7 +6312,8 @@ class RenderingContext2 extends Interceptor
           pixels);
       return;
     }
-    if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video is ImageData) &&
+    if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video is ImageData ||
+            bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video == null) &&
         format == null &&
         type == null &&
         pixels == null) {
@@ -7306,7 +6456,8 @@ class RenderingContext2 extends Interceptor
           pixels);
       return;
     }
-    if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video is ImageData) &&
+    if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video is ImageData ||
+            bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video == null) &&
         type == null &&
         pixels == null) {
       var pixels_1 = convertDartToNative_ImageData(
@@ -7566,15 +6717,7 @@ class RenderingContext2 extends Interceptor
   @DocsEditable()
   @Experimental() // untriaged
   void viewport(int x, int y, int width, int height) native;
-
-  @DomName('WebGLRenderingContext2.readPixels')
-  @DocsEditable()
-  void readPixels(int x, int y, int width, int height, int format, int type,
-      TypedData pixels) {
-    _readPixels(x, y, width, height, format, type, pixels);
-  }
 }
-
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
@@ -7653,26 +6796,6 @@ class Texture extends Interceptor {
   factory Texture._() {
     throw new UnsupportedError("Not supported");
   }
-
-  @DomName('WebGLTexture.lastUploadedVideoFrameWasSkipped')
-  @DocsEditable()
-  @Experimental() // untriaged
-  final bool lastUploadedVideoFrameWasSkipped;
-
-  @DomName('WebGLTexture.lastUploadedVideoHeight')
-  @DocsEditable()
-  @Experimental() // untriaged
-  final int lastUploadedVideoHeight;
-
-  @DomName('WebGLTexture.lastUploadedVideoTimestamp')
-  @DocsEditable()
-  @Experimental() // untriaged
-  final num lastUploadedVideoTimestamp;
-
-  @DomName('WebGLTexture.lastUploadedVideoWidth')
-  @DocsEditable()
-  @Experimental() // untriaged
-  final int lastUploadedVideoWidth;
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a

@@ -100,15 +100,13 @@ class RenameConstructorRefactoringImpl extends RenameRefactoringImpl {
       sourceRange = new SourceRange(element.nameEnd, 0);
     }
     return new SourceReference(new SearchMatchImpl(
-        element.source.fullName,
-        element.library.source,
-        element.source,
-        element.library,
-        element,
-        true,
-        true,
+        element.context,
+        element.library.source.uri.toString(),
+        element.source.uri.toString(),
         MatchKind.DECLARATION,
-        sourceRange));
+        sourceRange,
+        true,
+        true));
   }
 
   Future<Null> _replaceSynthetic() async {

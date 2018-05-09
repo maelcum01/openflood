@@ -175,34 +175,23 @@ const CLASS_FIELDS_EXTRACTOR = 'classFieldsExtractor';
 /// This embedded global is used for deserialization in the isolate-library.
 const INITIALIZE_EMPTY_INSTANCE = "initializeEmptyInstance";
 
-/// Contains a map from load-ids to lists of part indexes.
+/// Returns a map from load-ids to URIs.
 ///
 /// To load the deferred library that is represented by the load-id, the runtime
-/// must load all associated URIs (named in DEFERRED_PART_URIS) and initialize
-/// all the loaded hunks (DEFERRED_PART_HASHES).
+/// must load all associated URIs.
 ///
 /// This embedded global is only used for deferred loading.
-const DEFERRED_LIBRARY_PARTS = 'deferredLibraryParts';
+const DEFERRED_LIBRARY_URIS = 'deferredLibraryUris';
 
-/// Contains a list of URIs (Strings), indexed by part.
-///
-/// The lists in the DEFERRED_LIBRARY_PARTS map contain indexes into this list.
-///
-/// This embedded global is only used for deferred loading.
-const DEFERRED_PART_URIS = 'deferredPartUris';
-
-/// Contains a list of hashes, indexed by part.
-///
-/// The lists in the DEFERRED_LIBRARY_PARTS map contain indexes into this list.
+/// Returns a map from load-ids to hashes.
 ///
 /// The hashes are associated with the URIs of the load-ids (see
-/// [DEFERRED_PART_URIS]). They are SHA1 (or similar) hashes of the code that
-/// must be loaded. By using cryptographic hashes we can (1) handle loading in
-/// the same web page the parts from multiple Dart applications (2) avoid
-/// loading similar code multiple times.
+/// [DEFERRED_LIBRARY_URIS]). They are MD5 (or similar) hashes of the code that
+/// must be loaded. By using cryptographic hashes we can avoid loading similar
+/// code multiple times.
 ///
 /// This embedded global is only used for deferred loading.
-const DEFERRED_PART_HASHES = 'deferredPartHashes';
+const DEFERRED_LIBRARY_HASHES = 'deferredLibraryHashes';
 
 /// Initialize a loaded hunk.
 ///
@@ -338,11 +327,6 @@ enum JsGetName {
   /// Name used to tag a function type.
   FUNCTION_TYPE_TAG,
 
-  /// Name used to tag bounds of a generic function type. If bounds are present,
-  /// the property value is an Array of bounds (the length gives the number of
-  /// type parameters). If absent, the type is not a generic function type.
-  FUNCTION_TYPE_GENERIC_BOUNDS_TAG,
-
   /// Name used to tag void return in function type representations in
   /// JavaScript.
   FUNCTION_TYPE_VOID_RETURN_TAG,
@@ -362,16 +346,6 @@ enum JsGetName {
   /// Name used to tag named parameters in function type representations in
   /// JavaScript.
   FUNCTION_TYPE_NAMED_PARAMETERS_TAG,
-
-  /// Name used to tag a FutureOr type.
-  FUTURE_OR_TAG,
-
-  /// Name used to tag type arguments types in FutureOr type representations in
-  /// JavaScript.
-  FUTURE_OR_TYPE_ARGUMENT_TAG,
-
-  /// String representation of the type of the Future class.
-  FUTURE_CLASS_TYPE_NAME,
 
   /// Field name used for determining if an object or its interceptor has
   /// JavaScript indexing behavior.
@@ -413,20 +387,10 @@ enum JsBuiltin {
   ///     JS_BUILTIN('bool', JsBuiltin.isFunctionType, o)
   isFunctionType,
 
-  /// Returns true if the given type is a FutureOr type.
+  /// Returns a new function type object.
   ///
-  ///     JS_BUILTIN('bool', JsBuiltin.isFutureOrType, o)
-  isFutureOrType,
-
-  /// Returns true if the given type is the `void` type.
-  ///
-  ///     JS_BUILTIN('bool', JsBuiltin.isVoidType, o)
-  isVoidType,
-
-  /// Returns true if the given type is the `dynamic` type.
-  ///
-  ///     JS_BUILTIN('bool', JsBuiltin.isDynamicType, o)
-  isDynamicType,
+  ///     JS_BUILTIN('=Object', JsBuiltin.createFunctionType)
+  createFunctionTypeRti,
 
   /// Returns the JavaScript-constructor name given an rti encoding.
   ///

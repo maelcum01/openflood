@@ -6,8 +6,8 @@ library kernel.checks;
 import 'ast.dart';
 import 'transformations/flags.dart';
 
-void verifyComponent(Component component) {
-  VerifyingVisitor.check(component);
+void verifyProgram(Program program) {
+  VerifyingVisitor.check(program);
 }
 
 class VerificationError {
@@ -40,7 +40,7 @@ class VerificationError {
 
 enum TypedefState { Done, BeingChecked }
 
-/// Checks that a kernel component is well-formed.
+/// Checks that a kernel program is well-formed.
 ///
 /// This does not include any kind of type checking.
 class VerifyingVisitor extends RecursiveVisitor {
@@ -57,18 +57,14 @@ class VerifyingVisitor extends RecursiveVisitor {
 
   bool inCatchBlock = false;
 
-  Library currentLibrary;
-
   Member currentMember;
-
   Class currentClass;
-
   TreeNode currentParent;
 
   TreeNode get context => currentMember ?? currentClass;
 
-  static void check(Component component) {
-    component.accept(new VerifyingVisitor());
+  static void check(Program program) {
+    program.accept(new VerifyingVisitor());
   }
 
   defaultTreeNode(TreeNode node) {
@@ -85,8 +81,8 @@ class VerifyingVisitor extends RecursiveVisitor {
       problem(
           node,
           "Incorrect parent pointer on ${node.runtimeType}:"
-          " expected '${currentParent.runtimeType}',"
-          " but found: '${node.parent.runtimeType}'.");
+          " expected '${node.parent.runtimeType}',"
+          " but found: '${currentParent.runtimeType}'.");
     }
     var oldParent = currentParent;
     currentParent = node;
@@ -145,10 +141,6 @@ class VerifyingVisitor extends RecursiveVisitor {
   void declareTypeParameters(List<TypeParameter> parameters) {
     for (int i = 0; i < parameters.length; ++i) {
       var parameter = parameters[i];
-      if (parameter.bound == null) {
-        problem(
-            currentParent, "Missing bound for type parameter '$parameter'.");
-      }
       if (!typeParametersInScope.add(parameter)) {
         problem(parameter, "Type parameter '$parameter' redeclared.");
       }
@@ -165,9 +157,9 @@ class VerifyingVisitor extends RecursiveVisitor {
     }
   }
 
-  visitComponent(Component component) {
+  visitProgram(Program program) {
     try {
-      for (var library in component.libraries) {
+      for (var library in program.libraries) {
         for (var class_ in library.classes) {
           if (!classes.add(class_)) {
             problem(class_, "Class '$class_' declared more than once.");
@@ -183,9 +175,9 @@ class VerifyingVisitor extends RecursiveVisitor {
           class_.members.forEach(declareMember);
         }
       }
-      visitChildren(component);
+      visitChildren(program);
     } finally {
-      for (var library in component.libraries) {
+      for (var library in program.libraries) {
         library.members.forEach(undeclareMember);
         for (var class_ in library.classes) {
           class_.members.forEach(undeclareMember);
@@ -193,12 +185,6 @@ class VerifyingVisitor extends RecursiveVisitor {
       }
       variableStack.forEach(undeclareVariable);
     }
-  }
-
-  void visitLibrary(Library node) {
-    currentLibrary = node;
-    super.visitLibrary(node);
-    currentLibrary = null;
   }
 
   void checkTypedef(Typedef node) {
@@ -230,15 +216,6 @@ class VerifyingVisitor extends RecursiveVisitor {
   visitField(Field node) {
     currentMember = node;
     var oldParent = enterParent(node);
-    bool isTopLevel = node.parent == currentLibrary;
-    if (isTopLevel && !node.isStatic) {
-      problem(node, "The top-level field '${node.name.name}' should be static",
-          context: node);
-    }
-    if (node.isConst && !node.isStatic) {
-      problem(node, "The const field '${node.name.name}' should be static",
-          context: node);
-    }
     classTypeParametersAreInScope = !node.isStatic;
     node.initializer?.accept(this);
     node.type.accept(this);
@@ -386,15 +363,7 @@ class VerifyingVisitor extends RecursiveVisitor {
     if (node.target == null) {
       problem(node, "StaticGet without target.");
     }
-    // Currently Constructor.hasGetter returns `false` even though fasta uses it
-    // as a getter for internal purposes:
-    //
-    // Fasta is letting all call site of a redirecting constructor be resolved
-    // to the real target.  In order to resolve it, it seems to add a body into
-    // the redirecting-factory constructor which caches the target constructor.
-    // That cache is via a `StaticGet(real-constructor)` node, which we make
-    // here pass the verifier.
-    if (!node.target.hasGetter && node.target is! Constructor) {
+    if (!node.target.hasGetter) {
       problem(node, "StaticGet of '${node.target}' without getter.");
     }
     if (node.target.isInstanceMember) {
@@ -581,7 +550,7 @@ class VerifyingVisitor extends RecursiveVisitor {
       problem(
           currentParent,
           "Type parameter '$parameter' referenced from"
-          " static context, parent is: '${parameter.parent}'.");
+          " static context, parent is '${parameter.parent}'.");
     }
   }
 

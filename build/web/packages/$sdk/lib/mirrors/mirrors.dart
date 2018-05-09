@@ -52,8 +52,6 @@
  * result of user feedback. This library is platform dependent and therefore it
  * has implementations for both dart2js and the Dart VM. Both are under
  * development and may not support all operations yet.
- *
- * {@category VM}
  */
 library dart.mirrors;
 
@@ -175,7 +173,7 @@ external ClassMirror reflectClass(Type key);
  *
  * Optionally takes a list of [typeArguments] for generic classes. If the list
  * is provided, then the [key] must be a generic class type, and the number of
- * the provided type arguments must be equal to the number of type variables
+ * the provided type arguments must be equal to the number of type variables 
  * declared by the class.
  *
  * Note that since one cannot obtain a [Type] object from another isolate, this
@@ -454,7 +452,7 @@ abstract class ObjectMirror implements Mirror {
   InstanceMirror setField(Symbol fieldName, Object value);
 
   /**
-   * Performs [invocation] on the reflectee of this [ObjectMirror].
+   * Performs [invocation] on [reflectee].
    *
    * Equivalent to
    *
@@ -462,7 +460,7 @@ abstract class ObjectMirror implements Mirror {
    *       return this.getField(invocation.memberName).reflectee;
    *     } else if (invocation.isSetter) {
    *       return this.setField(invocation.memberName,
-   *                            invocation.positionalArguments[0]).reflectee;
+   *                            invocation.positionArguments[0]).reflectee;
    *     } else {
    *       return this.invoke(invocation.memberName,
    *                          invocation.positionalArguments,
@@ -822,7 +820,7 @@ abstract class ClassMirror implements TypeMirror, ObjectMirror {
    *
    * If this class is the result of a mixin application of the form S with M,
    * returns a class mirror on M. Otherwise returns a class mirror on
-   * the reflectee.
+   * [reflectee].
    */
   ClassMirror get mixin;
 

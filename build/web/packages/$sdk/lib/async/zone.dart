@@ -8,21 +8,28 @@ typedef R ZoneCallback<R>();
 typedef R ZoneUnaryCallback<R, T>(T arg);
 typedef R ZoneBinaryCallback<R, T1, T2>(T1 arg1, T2 arg2);
 
-typedef HandleUncaughtErrorHandler = void Function(Zone self,
-    ZoneDelegate parent, Zone zone, Object error, StackTrace stackTrace);
-typedef RunHandler = R Function<R>(
-    Zone self, ZoneDelegate parent, Zone zone, R Function() f);
-typedef RunUnaryHandler = R Function<R, T>(
-    Zone self, ZoneDelegate parent, Zone zone, R Function(T arg) f, T arg);
-typedef RunBinaryHandler = R Function<R, T1, T2>(Zone self, ZoneDelegate parent,
-    Zone zone, R Function(T1 arg1, T2 arg2) f, T1 arg1, T2 arg2);
-typedef RegisterCallbackHandler = ZoneCallback<R> Function<R>(
-    Zone self, ZoneDelegate parent, Zone zone, R Function() f);
-typedef RegisterUnaryCallbackHandler = ZoneUnaryCallback<R, T> Function<R, T>(
-    Zone self, ZoneDelegate parent, Zone zone, R Function(T arg) f);
-typedef RegisterBinaryCallbackHandler
-    = ZoneBinaryCallback<R, T1, T2> Function<R, T1, T2>(Zone self,
-        ZoneDelegate parent, Zone zone, R Function(T1 arg1, T2 arg2) f);
+// TODO(floitsch): we are abusing generic typedefs as typedefs for generic
+// functions.
+/*ABUSE*/
+typedef R HandleUncaughtErrorHandler<R>(
+    Zone self, ZoneDelegate parent, Zone zone, error, StackTrace stackTrace);
+/*ABUSE*/
+typedef R RunHandler<R>(Zone self, ZoneDelegate parent, Zone zone, R f());
+/*ABUSE*/
+typedef R RunUnaryHandler<R, T>(
+    Zone self, ZoneDelegate parent, Zone zone, R f(T arg), T arg);
+/*ABUSE*/
+typedef R RunBinaryHandler<R, T1, T2>(Zone self, ZoneDelegate parent, Zone zone,
+    R f(T1 arg1, T2 arg2), T1 arg1, T2 arg2);
+/*ABUSE*/
+typedef ZoneCallback<R> RegisterCallbackHandler<R>(
+    Zone self, ZoneDelegate parent, Zone zone, R f());
+/*ABUSE*/
+typedef ZoneUnaryCallback<R, T> RegisterUnaryCallbackHandler<R, T>(
+    Zone self, ZoneDelegate parent, Zone zone, R f(T arg));
+/*ABUSE*/
+typedef ZoneBinaryCallback<R, T1, T2> RegisterBinaryCallbackHandler<R, T1, T2>(
+    Zone self, ZoneDelegate parent, Zone zone, R f(T1 arg1, T2 arg2));
 typedef AsyncError ErrorCallbackHandler(Zone self, ZoneDelegate parent,
     Zone zone, Object error, StackTrace stackTrace);
 typedef void ScheduleMicrotaskHandler(
@@ -202,7 +209,7 @@ class _ZoneSpecification implements ZoneSpecification {
  *   to skip zones that would just delegate to their parents.
  */
 abstract class ZoneDelegate {
-  void handleUncaughtError(Zone zone, error, StackTrace stackTrace);
+  R handleUncaughtError<R>(Zone zone, error, StackTrace stackTrace);
   R run<R>(Zone zone, R f());
   R runUnary<R, T>(Zone zone, R f(T arg), T arg);
   R runBinary<R, T1, T2>(Zone zone, R f(T1 arg1, T2 arg2), T1 arg1, T2 arg2);
@@ -224,7 +231,7 @@ abstract class ZoneDelegate {
  *
  * Code is always executed in the context of a zone, available as
  * [Zone.current]. The initial `main` function runs in the context of the
- * default zone ([Zone.root]). Code can be run in a different zone using either
+ * default zone ([Zone.ROOT]). Code can be run in a different zone using either
  * [runZoned], to create a new zone, or [Zone.run] to run code in the context of
  * an existing zone likely created using [Zone.fork].
  *
@@ -256,14 +263,10 @@ abstract class ZoneDelegate {
  * the protocol to be zone compatible.
  *
  * For convenience, zones provide [bindCallback] (and the corresponding
- * [bindUnaryCallback] and [bindBinaryCallback]) to make it easier to respect
- * the zone contract: these functions first invoke the corresponding `register`
+ * [bindUnaryCallback] or [bindBinaryCallback]) to make it easier to respect the
+ * zone contract: these functions first invoke the corresponding `register`
  * functions and then wrap the returned function so that it runs in the current
  * zone when it is later asynchronously invoked.
- *
- * Similarly, zones provide [bindCallbackGuarded] (and the corresponding
- * [bindUnaryCallbackGuarded] and [bindBinaryCallbackGuarded]), when the
- * callback should be invoked through [Zone.runGuarded].
  */
 abstract class Zone {
   // Private constructor so that it is not possible instantiate a Zone class.
@@ -273,7 +276,7 @@ abstract class Zone {
    * The root zone.
    *
    * All isolate entry functions (`main` or spawned functions) start running in
-   * the root zone (that is, [Zone.current] is identical to [Zone.root] when the
+   * the root zone (that is, [Zone.current] is identical to [Zone.ROOT] when the
    * entry function is called). If no custom zone is created, the rest of the
    * program always runs in the root zone.
    *
@@ -283,12 +286,10 @@ abstract class Zone {
    * [scheduleMicrotask], interact with the underlying system to implement the
    * desired behavior.
    */
-  static const Zone root = _rootZone;
-  @Deprecated("Use root instead")
-  static const Zone ROOT = root;
+  static const Zone ROOT = _ROOT_ZONE;
 
   /** The currently running zone. */
-  static Zone _current = _rootZone;
+  static Zone _current = _ROOT_ZONE;
 
   /** The zone that is currently active. */
   static Zone get current => _current;
@@ -311,12 +312,12 @@ abstract class Zone {
    * By default, when handled by the root zone, uncaught asynchronous errors are
    * treated like uncaught synchronous exceptions.
    */
-  void handleUncaughtError(error, StackTrace stackTrace);
+  R handleUncaughtError<R>(error, StackTrace stackTrace);
 
   /**
    * The parent zone of the this zone.
    *
-   * Is `null` if `this` is the [root] zone.
+   * Is `null` if `this` is the [ROOT] zone.
    *
    * Zones are created by [fork] on an existing zone, or by [runZoned] which
    * forks the [current] zone. The new zone's parent zone is the zone it was
@@ -388,7 +389,7 @@ abstract class Zone {
    * the current's zone behavior. All specification entries that are `null`
    * inherit the behavior from the parent zone (`this`).
    *
-   * The new zone inherits the stored values (accessed through [operator []])
+   * The new zone inherits the stored values (accessed through [[]])
    * of this zone and updates them with values from [zoneValues], which either
    * adds new values or overrides existing ones.
    *
@@ -401,7 +402,7 @@ abstract class Zone {
   /**
    * Executes [action] in this zone.
    *
-   * By default (as implemented in the [root] zone), runs [action]
+   * By default (as implemented in the [ROOT] zone), runs [action]
    * with [current] set to this zone.
    *
    * If [action] throws, the synchronous exception is not caught by the zone's
@@ -437,15 +438,15 @@ abstract class Zone {
    * This function is equivalent to:
    * ```
    * try {
-   *   this.run(action);
+   *   return this.run(action);
    * } catch (e, s) {
-   *   this.handleUncaughtError(e, s);
+   *   return this.handleUncaughtError(e, s);
    * }
    * ```
    *
    * See [run].
    */
-  void runGuarded(void action());
+  R runGuarded<R>(R action());
 
   /**
    * Executes the given [action] with [argument] in this zone and
@@ -453,7 +454,7 @@ abstract class Zone {
    *
    * See [runGuarded].
    */
-  void runUnaryGuarded<T>(void action(T argument), T argument);
+  R runUnaryGuarded<R, T>(R action(T argument), T argument);
 
   /**
    * Executes the given [action] with [argument1] and [argument2] in this
@@ -461,8 +462,8 @@ abstract class Zone {
    *
    * See [runGuarded].
    */
-  void runBinaryGuarded<T1, T2>(
-      void action(T1 argument1, T2 argument2), T1 argument1, T2 argument2);
+  R runBinaryGuarded<R, T1, T2>(
+      R action(T1 argument1, T2 argument2), T1 argument1, T2 argument2);
 
   /**
    * Registers the given callback in this zone.
@@ -480,7 +481,7 @@ abstract class Zone {
    * [callback]. Frequently zones simply return the original callback.
    *
    * Custom zones may intercept this operation. The default implementation in
-   * [Zone.root] returns the original callback unchanged.
+   * [Zone.ROOT] returns the original callback unchanged.
    */
   ZoneCallback<R> registerCallback<R>(R callback());
 
@@ -500,83 +501,40 @@ abstract class Zone {
       R callback(T1 arg1, T2 arg2));
 
   /**
-   *  Registers the provided [callback] and returns a function that will
-   *  execute in this zone.
-   *
    *  Equivalent to:
    *
-   *      ZoneCallback registered = this.registerCallback(callback);
+   *      ZoneCallback registered = this.registerCallback(action);
+   *      if (runGuarded) return () => this.runGuarded(registered);
    *      return () => this.run(registered);
    *
    */
-  ZoneCallback<R> bindCallback<R>(R callback());
+  ZoneCallback<R> bindCallback<R>(R action(), {bool runGuarded: true});
 
   /**
-   *  Registers the provided [callback] and returns a function that will
-   *  execute in this zone.
-   *
    *  Equivalent to:
    *
-   *      ZoneCallback registered = this.registerUnaryCallback(callback);
+   *      ZoneCallback registered = this.registerUnaryCallback(action);
+   *      if (runGuarded) return (arg) => this.runUnaryGuarded(registered, arg);
    *      return (arg) => thin.runUnary(registered, arg);
    */
-  ZoneUnaryCallback<R, T> bindUnaryCallback<R, T>(R callback(T argument));
+  ZoneUnaryCallback<R, T> bindUnaryCallback<R, T>(R action(T argument),
+      {bool runGuarded: true});
 
   /**
-   *  Registers the provided [callback] and returns a function that will
-   *  execute in this zone.
-   *
    *  Equivalent to:
    *
-   *      ZoneCallback registered = registerBinaryCallback(callback);
+   *      ZoneCallback registered = registerBinaryCallback(action);
+   *      if (runGuarded) {
+   *        return (arg1, arg2) => this.runBinaryGuarded(registered, arg);
+   *      }
    *      return (arg1, arg2) => thin.runBinary(registered, arg1, arg2);
    */
   ZoneBinaryCallback<R, T1, T2> bindBinaryCallback<R, T1, T2>(
-      R callback(T1 argument1, T2 argument2));
+      R action(T1 argument1, T2 argument2),
+      {bool runGuarded: true});
 
   /**
-   * Registers the provided [callback] and returns a function that will
-   * execute in this zone.
-   *
-   * When the function executes, errors are caught and treated as uncaught
-   * errors.
-   *
-   * Equivalent to:
-   *
-   *     ZoneCallback registered = this.registerCallback(callback);
-   *     return () => this.runGuarded(registered);
-   *
-   */
-  void Function() bindCallbackGuarded(void callback());
-
-  /**
-   * Registers the provided [callback] and returns a function that will
-   * execute in this zone.
-   *
-   * When the function executes, errors are caught and treated as uncaught
-   * errors.
-   *
-   * Equivalent to:
-   *
-   *     ZoneCallback registered = this.registerUnaryCallback(callback);
-   *     return (arg) => this.runUnaryGuarded(registered, arg);
-   */
-  void Function(T) bindUnaryCallbackGuarded<T>(void callback(T argument));
-
-  /**
-   *  Registers the provided [callback] and returns a function that will
-   *  execute in this zone.
-   *
-   *  Equivalent to:
-   *
-   *      ZoneCallback registered = registerBinaryCallback(callback);
-   *      return (arg1, arg2) => this.runBinaryGuarded(registered, arg1, arg2);
-   */
-  void Function(T1, T2) bindBinaryCallbackGuarded<T1, T2>(
-      void callback(T1 argument1, T2 argument2));
-
-  /**
-   * Intercepts errors when added programmatically to a `Future` or `Stream`.
+   * Intercepts errors when added programatically to a `Future` or `Stream`.
    *
    * When calling [Completer.completeError], [StreamController.addError],
    * or some [Future] constructors, the current zone is allowed to intercept
@@ -607,16 +565,16 @@ abstract class Zone {
   AsyncError errorCallback(Object error, StackTrace stackTrace);
 
   /**
-   * Runs [callback] asynchronously in this zone.
+   * Runs [action] asynchronously in this zone.
    *
    * The global `scheduleMicrotask` delegates to the current zone's
    * [scheduleMicrotask]. The root zone's implementation interacts with the
    * underlying system to schedule the given callback as a microtask.
    *
    * Custom zones may intercept this operation (for example to wrap the given
-   * [callback]).
+   * callback [action]).
    */
-  void scheduleMicrotask(void callback());
+  void scheduleMicrotask(void action());
 
   /**
    * Creates a Timer where the callback is executed in this zone.
@@ -698,47 +656,64 @@ class _ZoneDelegate implements ZoneDelegate {
 
   _ZoneDelegate(this._delegationTarget);
 
-  void handleUncaughtError(Zone zone, error, StackTrace stackTrace) {
+  R handleUncaughtError<R>(Zone zone, error, StackTrace stackTrace) {
     var implementation = _delegationTarget._handleUncaughtError;
     _Zone implZone = implementation.zone;
     HandleUncaughtErrorHandler handler = implementation.function;
-    return handler(
-        implZone, _parentDelegate(implZone), zone, error, stackTrace);
+    // TODO(floitsch): make this a generic method call on '<R>' once it's
+    // supported. Remove the unnecessary cast.
+    return handler(implZone, _parentDelegate(implZone), zone, error, stackTrace)
+        as Object/*=R*/;
   }
 
   R run<R>(Zone zone, R f()) {
     var implementation = _delegationTarget._run;
     _Zone implZone = implementation.zone;
     RunHandler handler = implementation.function;
-    return handler(implZone, _parentDelegate(implZone), zone, f);
+    // TODO(floitsch): make this a generic method call on '<R>' once it's
+    // supported. Remove the unnecessary cast.
+    return handler(implZone, _parentDelegate(implZone), zone, f)
+        as Object/*=R*/;
   }
 
   R runUnary<R, T>(Zone zone, R f(T arg), T arg) {
     var implementation = _delegationTarget._runUnary;
     _Zone implZone = implementation.zone;
     RunUnaryHandler handler = implementation.function;
-    return handler(implZone, _parentDelegate(implZone), zone, f, arg);
+    // TODO(floitsch): make this a generic method call on '<R, T>' once it's
+    // supported. Remove the unnecessary cast.
+    return handler(implZone, _parentDelegate(implZone), zone, f, arg)
+        as Object/*=R*/;
   }
 
   R runBinary<R, T1, T2>(Zone zone, R f(T1 arg1, T2 arg2), T1 arg1, T2 arg2) {
     var implementation = _delegationTarget._runBinary;
     _Zone implZone = implementation.zone;
     RunBinaryHandler handler = implementation.function;
-    return handler(implZone, _parentDelegate(implZone), zone, f, arg1, arg2);
+    // TODO(floitsch): make this a generic method call on '<R, T1, T2>' once
+    // it's supported. Remove the unnecessary cast.
+    return handler(implZone, _parentDelegate(implZone), zone, f, arg1, arg2)
+        as Object/*=R*/;
   }
 
   ZoneCallback<R> registerCallback<R>(Zone zone, R f()) {
     var implementation = _delegationTarget._registerCallback;
     _Zone implZone = implementation.zone;
     RegisterCallbackHandler handler = implementation.function;
-    return handler(implZone, _parentDelegate(implZone), zone, f);
+    // TODO(floitsch): make this a generic method call on '<R>' once it's
+    // supported. Remove the unnecessary cast.
+    return handler(implZone, _parentDelegate(implZone), zone, f)
+        as Object/*=ZoneCallback<R>*/;
   }
 
   ZoneUnaryCallback<R, T> registerUnaryCallback<R, T>(Zone zone, R f(T arg)) {
     var implementation = _delegationTarget._registerUnaryCallback;
     _Zone implZone = implementation.zone;
     RegisterUnaryCallbackHandler handler = implementation.function;
-    return handler(implZone, _parentDelegate(implZone), zone, f);
+    // TODO(floitsch): make this a generic method call on '<R, T>' once it's
+    // supported. Remove the unnecessary cast.
+    return handler(implZone, _parentDelegate(implZone), zone, f)
+        as Object/*=ZoneUnaryCallback<R, T>*/;
   }
 
   ZoneBinaryCallback<R, T1, T2> registerBinaryCallback<R, T1, T2>(
@@ -746,13 +721,16 @@ class _ZoneDelegate implements ZoneDelegate {
     var implementation = _delegationTarget._registerBinaryCallback;
     _Zone implZone = implementation.zone;
     RegisterBinaryCallbackHandler handler = implementation.function;
-    return handler(implZone, _parentDelegate(implZone), zone, f);
+    // TODO(floitsch): make this a generic method call on '<R, T1, T2>' once
+    // it's supported. Remove the unnecessary cast.
+    return handler(implZone, _parentDelegate(implZone), zone, f)
+        as Object/*=ZoneBinaryCallback<R, T1, T2>*/;
   }
 
   AsyncError errorCallback(Zone zone, Object error, StackTrace stackTrace) {
     var implementation = _delegationTarget._errorCallback;
     _Zone implZone = implementation.zone;
-    if (identical(implZone, _rootZone)) return null;
+    if (identical(implZone, _ROOT_ZONE)) return null;
     ErrorCallbackHandler handler = implementation.function;
     return handler(
         implZone, _parentDelegate(implZone), zone, error, stackTrace);
@@ -801,14 +779,12 @@ class _ZoneDelegate implements ZoneDelegate {
 abstract class _Zone implements Zone {
   const _Zone();
 
-  // TODO(floitsch): the types of the `_ZoneFunction`s should have a type for
-  // all fields.
-  _ZoneFunction<Function> get _run;
-  _ZoneFunction<Function> get _runUnary;
-  _ZoneFunction<Function> get _runBinary;
-  _ZoneFunction<Function> get _registerCallback;
-  _ZoneFunction<Function> get _registerUnaryCallback;
-  _ZoneFunction<Function> get _registerBinaryCallback;
+  _ZoneFunction<RunHandler> get _run;
+  _ZoneFunction<RunUnaryHandler> get _runUnary;
+  _ZoneFunction<RunBinaryHandler> get _runBinary;
+  _ZoneFunction<RegisterCallbackHandler> get _registerCallback;
+  _ZoneFunction<RegisterUnaryCallbackHandler> get _registerUnaryCallback;
+  _ZoneFunction<RegisterBinaryCallbackHandler> get _registerBinaryCallback;
   _ZoneFunction<ErrorCallbackHandler> get _errorCallback;
   _ZoneFunction<ScheduleMicrotaskHandler> get _scheduleMicrotask;
   _ZoneFunction<CreateTimerHandler> get _createTimer;
@@ -829,14 +805,12 @@ abstract class _Zone implements Zone {
 class _CustomZone extends _Zone {
   // The actual zone and implementation of each of these
   // inheritable zone functions.
-  // TODO(floitsch): the types of the `_ZoneFunction`s should have a type for
-  // all fields.
-  _ZoneFunction<Function> _run;
-  _ZoneFunction<Function> _runUnary;
-  _ZoneFunction<Function> _runBinary;
-  _ZoneFunction<Function> _registerCallback;
-  _ZoneFunction<Function> _registerUnaryCallback;
-  _ZoneFunction<Function> _registerBinaryCallback;
+  _ZoneFunction<RunHandler> _run;
+  _ZoneFunction<RunUnaryHandler> _runUnary;
+  _ZoneFunction<RunBinaryHandler> _runBinary;
+  _ZoneFunction<RegisterCallbackHandler> _registerCallback;
+  _ZoneFunction<RegisterUnaryCallbackHandler> _registerUnaryCallback;
+  _ZoneFunction<RegisterBinaryCallbackHandler> _registerBinaryCallback;
   _ZoneFunction<ErrorCallbackHandler> _errorCallback;
   _ZoneFunction<ScheduleMicrotaskHandler> _scheduleMicrotask;
   _ZoneFunction<CreateTimerHandler> _createTimer;
@@ -867,22 +841,24 @@ class _CustomZone extends _Zone {
     // specification, so it will never try to access the (null) parent.
     // All other zones have a non-null parent.
     _run = (specification.run != null)
-        ? new _ZoneFunction<Function>(this, specification.run)
+        ? new _ZoneFunction<RunHandler>(this, specification.run)
         : parent._run;
     _runUnary = (specification.runUnary != null)
-        ? new _ZoneFunction<Function>(this, specification.runUnary)
+        ? new _ZoneFunction<RunUnaryHandler>(this, specification.runUnary)
         : parent._runUnary;
     _runBinary = (specification.runBinary != null)
-        ? new _ZoneFunction<Function>(this, specification.runBinary)
+        ? new _ZoneFunction<RunBinaryHandler>(this, specification.runBinary)
         : parent._runBinary;
     _registerCallback = (specification.registerCallback != null)
-        ? new _ZoneFunction<Function>(this, specification.registerCallback)
+        ? new _ZoneFunction<RegisterCallbackHandler>(
+            this, specification.registerCallback)
         : parent._registerCallback;
     _registerUnaryCallback = (specification.registerUnaryCallback != null)
-        ? new _ZoneFunction<Function>(this, specification.registerUnaryCallback)
+        ? new _ZoneFunction<RegisterUnaryCallbackHandler>(
+            this, specification.registerUnaryCallback)
         : parent._registerUnaryCallback;
     _registerBinaryCallback = (specification.registerBinaryCallback != null)
-        ? new _ZoneFunction<Function>(
+        ? new _ZoneFunction<RegisterBinaryCallbackHandler>(
             this, specification.registerBinaryCallback)
         : parent._registerBinaryCallback;
     _errorCallback = (specification.errorCallback != null)
@@ -920,60 +896,58 @@ class _CustomZone extends _Zone {
    */
   Zone get errorZone => _handleUncaughtError.zone;
 
-  void runGuarded(void f()) {
+  R runGuarded<R>(R f()) {
     try {
-      run(f);
+      return run(f);
     } catch (e, s) {
-      handleUncaughtError(e, s);
+      return handleUncaughtError(e, s);
     }
   }
 
-  void runUnaryGuarded<T>(void f(T arg), T arg) {
+  R runUnaryGuarded<R, T>(R f(T arg), T arg) {
     try {
-      runUnary(f, arg);
+      return runUnary(f, arg);
     } catch (e, s) {
-      handleUncaughtError(e, s);
+      return handleUncaughtError(e, s);
     }
   }
 
-  void runBinaryGuarded<T1, T2>(void f(T1 arg1, T2 arg2), T1 arg1, T2 arg2) {
+  R runBinaryGuarded<R, T1, T2>(R f(T1 arg1, T2 arg2), T1 arg1, T2 arg2) {
     try {
-      runBinary(f, arg1, arg2);
+      return runBinary(f, arg1, arg2);
     } catch (e, s) {
-      handleUncaughtError(e, s);
+      return handleUncaughtError(e, s);
     }
   }
 
-  ZoneCallback<R> bindCallback<R>(R f()) {
+  ZoneCallback<R> bindCallback<R>(R f(), {bool runGuarded: true}) {
     var registered = registerCallback(f);
-    return () => this.run(registered);
+    if (runGuarded) {
+      return () => this.runGuarded(registered);
+    } else {
+      return () => this.run(registered);
+    }
   }
 
-  ZoneUnaryCallback<R, T> bindUnaryCallback<R, T>(R f(T arg)) {
+  ZoneUnaryCallback<R, T> bindUnaryCallback<R, T>(R f(T arg),
+      {bool runGuarded: true}) {
     var registered = registerUnaryCallback(f);
-    return (arg) => this.runUnary(registered, arg);
+    if (runGuarded) {
+      return (arg) => this.runUnaryGuarded(registered, arg);
+    } else {
+      return (arg) => this.runUnary(registered, arg);
+    }
   }
 
   ZoneBinaryCallback<R, T1, T2> bindBinaryCallback<R, T1, T2>(
-      R f(T1 arg1, T2 arg2)) {
+      R f(T1 arg1, T2 arg2),
+      {bool runGuarded: true}) {
     var registered = registerBinaryCallback(f);
-    return (arg1, arg2) => this.runBinary(registered, arg1, arg2);
-  }
-
-  void Function() bindCallbackGuarded(void f()) {
-    var registered = registerCallback(f);
-    return () => this.runGuarded(registered);
-  }
-
-  void Function(T) bindUnaryCallbackGuarded<T>(void f(T arg)) {
-    var registered = registerUnaryCallback(f);
-    return (arg) => this.runUnaryGuarded(registered, arg);
-  }
-
-  void Function(T1, T2) bindBinaryCallbackGuarded<T1, T2>(
-      void f(T1 arg1, T2 arg2)) {
-    var registered = registerBinaryCallback(f);
-    return (arg1, arg2) => this.runBinaryGuarded(registered, arg1, arg2);
+    if (runGuarded) {
+      return (arg1, arg2) => this.runBinaryGuarded(registered, arg1, arg2);
+    } else {
+      return (arg1, arg2) => this.runBinary(registered, arg1, arg2);
+    }
   }
 
   operator [](Object key) {
@@ -991,19 +965,21 @@ class _CustomZone extends _Zone {
       }
       return value;
     }
-    assert(this == _rootZone);
+    assert(this == _ROOT_ZONE);
     return null;
   }
 
   // Methods that can be customized by the zone specification.
 
-  void handleUncaughtError(error, StackTrace stackTrace) {
+  R handleUncaughtError<R>(error, StackTrace stackTrace) {
     var implementation = this._handleUncaughtError;
     assert(implementation != null);
     ZoneDelegate parentDelegate = _parentDelegate(implementation.zone);
     HandleUncaughtErrorHandler handler = implementation.function;
-    return handler(
-        implementation.zone, parentDelegate, this, error, stackTrace);
+    // TODO(floitsch): make this a generic method call on '<R>' once it's
+    // supported. Remove the unnecessary cast.
+    return handler(implementation.zone, parentDelegate, this, error, stackTrace)
+        as Object/*=R*/;
   }
 
   Zone fork({ZoneSpecification specification, Map zoneValues}) {
@@ -1020,7 +996,10 @@ class _CustomZone extends _Zone {
     assert(implementation != null);
     ZoneDelegate parentDelegate = _parentDelegate(implementation.zone);
     RunHandler handler = implementation.function;
-    return handler(implementation.zone, parentDelegate, this, f);
+    // TODO(floitsch): make this a generic method call on '<R>' once it's
+    // supported. Remove the unnecessary cast.
+    return handler(implementation.zone, parentDelegate, this, f)
+        as Object/*=R*/;
   }
 
   R runUnary<R, T>(R f(T arg), T arg) {
@@ -1028,7 +1007,10 @@ class _CustomZone extends _Zone {
     assert(implementation != null);
     ZoneDelegate parentDelegate = _parentDelegate(implementation.zone);
     RunUnaryHandler handler = implementation.function;
-    return handler(implementation.zone, parentDelegate, this, f, arg);
+    // TODO(floitsch): make this a generic method call on '<R, T>' once it's
+    // supported. Remove the unnecessary cast.
+    return handler(implementation.zone, parentDelegate, this, f, arg)
+        as Object/*=R*/;
   }
 
   R runBinary<R, T1, T2>(R f(T1 arg1, T2 arg2), T1 arg1, T2 arg2) {
@@ -1036,7 +1018,10 @@ class _CustomZone extends _Zone {
     assert(implementation != null);
     ZoneDelegate parentDelegate = _parentDelegate(implementation.zone);
     RunBinaryHandler handler = implementation.function;
-    return handler(implementation.zone, parentDelegate, this, f, arg1, arg2);
+    // TODO(floitsch): make this a generic method call on '<R, T1, T2>' once
+    // it's supported. Remove the unnecessary cast.
+    return handler(implementation.zone, parentDelegate, this, f, arg1, arg2)
+        as Object/*=R*/;
   }
 
   ZoneCallback<R> registerCallback<R>(R callback()) {
@@ -1044,7 +1029,10 @@ class _CustomZone extends _Zone {
     assert(implementation != null);
     ZoneDelegate parentDelegate = _parentDelegate(implementation.zone);
     RegisterCallbackHandler handler = implementation.function;
-    return handler(implementation.zone, parentDelegate, this, callback);
+    // TODO(floitsch): make this a generic method call on '<R>' once it's
+    // supported. Remove the unnecessary cast.
+    return handler(implementation.zone, parentDelegate, this, callback)
+        as Object/*=ZoneCallback<R>*/;
   }
 
   ZoneUnaryCallback<R, T> registerUnaryCallback<R, T>(R callback(T arg)) {
@@ -1052,7 +1040,10 @@ class _CustomZone extends _Zone {
     assert(implementation != null);
     ZoneDelegate parentDelegate = _parentDelegate(implementation.zone);
     RegisterUnaryCallbackHandler handler = implementation.function;
-    return handler(implementation.zone, parentDelegate, this, callback);
+    // TODO(floitsch): make this a generic method call on '<R, T>' once it's
+    // supported. Remove the unnecessary cast.
+    return handler(implementation.zone, parentDelegate, this, callback)
+        as Object/*=ZoneUnaryCallback<R, T>*/;
   }
 
   ZoneBinaryCallback<R, T1, T2> registerBinaryCallback<R, T1, T2>(
@@ -1061,14 +1052,17 @@ class _CustomZone extends _Zone {
     assert(implementation != null);
     ZoneDelegate parentDelegate = _parentDelegate(implementation.zone);
     RegisterBinaryCallbackHandler handler = implementation.function;
-    return handler(implementation.zone, parentDelegate, this, callback);
+    // TODO(floitsch): make this a generic method call on '<R, T1, T2>' once
+    // it's supported. Remove the unnecessary cast.
+    return handler(implementation.zone, parentDelegate, this, callback)
+        as Object/*=ZoneBinaryCallback<R, T1, T2>*/;
   }
 
   AsyncError errorCallback(Object error, StackTrace stackTrace) {
     var implementation = this._errorCallback;
     assert(implementation != null);
     final Zone implementationZone = implementation.zone;
-    if (identical(implementationZone, _rootZone)) return null;
+    if (identical(implementationZone, _ROOT_ZONE)) return null;
     final ZoneDelegate parentDelegate = _parentDelegate(implementationZone);
     ErrorCallbackHandler handler = implementation.function;
     return handler(implementationZone, parentDelegate, this, error, stackTrace);
@@ -1107,7 +1101,7 @@ class _CustomZone extends _Zone {
   }
 }
 
-void _rootHandleUncaughtError(
+R _rootHandleUncaughtError<R>(
     Zone self, ZoneDelegate parent, Zone zone, error, StackTrace stackTrace) {
   _schedulePriorityAsyncCallback(() {
     if (error == null) error = new NullThrownError();
@@ -1172,24 +1166,19 @@ AsyncError _rootErrorCallback(Zone self, ZoneDelegate parent, Zone zone,
         Object error, StackTrace stackTrace) =>
     null;
 
-void _rootScheduleMicrotask(
-    Zone self, ZoneDelegate parent, Zone zone, void f()) {
-  if (!identical(_rootZone, zone)) {
-    bool hasErrorHandler = !_rootZone.inSameErrorZone(zone);
-    if (hasErrorHandler) {
-      f = zone.bindCallbackGuarded(f);
-    } else {
-      f = zone.bindCallback(f);
-    }
+void _rootScheduleMicrotask(Zone self, ZoneDelegate parent, Zone zone, f()) {
+  if (!identical(_ROOT_ZONE, zone)) {
+    bool hasErrorHandler = !_ROOT_ZONE.inSameErrorZone(zone);
+    f = zone.bindCallback(f, runGuarded: hasErrorHandler);
     // Use root zone as event zone if the function is already bound.
-    zone = _rootZone;
+    zone = _ROOT_ZONE;
   }
   _scheduleAsyncCallback(f);
 }
 
 Timer _rootCreateTimer(Zone self, ZoneDelegate parent, Zone zone,
     Duration duration, void callback()) {
-  if (!identical(_rootZone, zone)) {
+  if (!identical(_ROOT_ZONE, zone)) {
     callback = zone.bindCallback(callback);
   }
   return Timer._createTimer(duration, callback);
@@ -1197,7 +1186,7 @@ Timer _rootCreateTimer(Zone self, ZoneDelegate parent, Zone zone,
 
 Timer _rootCreatePeriodicTimer(Zone self, ZoneDelegate parent, Zone zone,
     Duration duration, void callback(Timer timer)) {
-  if (!identical(_rootZone, zone)) {
+  if (!identical(_ROOT_ZONE, zone)) {
     // TODO(floitsch): the return type should be 'void'.
     callback = zone.bindUnaryCallback<dynamic, Timer>(callback);
   }
@@ -1241,35 +1230,38 @@ Zone _rootFork(Zone self, ZoneDelegate parent, Zone zone,
 class _RootZone extends _Zone {
   const _RootZone();
 
-  _ZoneFunction<Function> get _run =>
-      const _ZoneFunction<Function>(_rootZone, _rootRun);
-  _ZoneFunction<Function> get _runUnary =>
-      const _ZoneFunction<Function>(_rootZone, _rootRunUnary);
-  _ZoneFunction<Function> get _runBinary =>
-      const _ZoneFunction<Function>(_rootZone, _rootRunBinary);
-  _ZoneFunction<Function> get _registerCallback =>
-      const _ZoneFunction<Function>(_rootZone, _rootRegisterCallback);
-  _ZoneFunction<Function> get _registerUnaryCallback =>
-      const _ZoneFunction<Function>(_rootZone, _rootRegisterUnaryCallback);
-  _ZoneFunction<Function> get _registerBinaryCallback =>
-      const _ZoneFunction<Function>(_rootZone, _rootRegisterBinaryCallback);
+  _ZoneFunction<RunHandler> get _run =>
+      const _ZoneFunction<RunHandler>(_ROOT_ZONE, _rootRun);
+  _ZoneFunction<RunUnaryHandler> get _runUnary =>
+      const _ZoneFunction<RunUnaryHandler>(_ROOT_ZONE, _rootRunUnary);
+  _ZoneFunction<RunBinaryHandler> get _runBinary =>
+      const _ZoneFunction<RunBinaryHandler>(_ROOT_ZONE, _rootRunBinary);
+  _ZoneFunction<RegisterCallbackHandler> get _registerCallback =>
+      const _ZoneFunction<RegisterCallbackHandler>(
+          _ROOT_ZONE, _rootRegisterCallback);
+  _ZoneFunction<RegisterUnaryCallbackHandler> get _registerUnaryCallback =>
+      const _ZoneFunction<RegisterUnaryCallbackHandler>(
+          _ROOT_ZONE, _rootRegisterUnaryCallback);
+  _ZoneFunction<RegisterBinaryCallbackHandler> get _registerBinaryCallback =>
+      const _ZoneFunction<RegisterBinaryCallbackHandler>(
+          _ROOT_ZONE, _rootRegisterBinaryCallback);
   _ZoneFunction<ErrorCallbackHandler> get _errorCallback =>
-      const _ZoneFunction<ErrorCallbackHandler>(_rootZone, _rootErrorCallback);
+      const _ZoneFunction<ErrorCallbackHandler>(_ROOT_ZONE, _rootErrorCallback);
   _ZoneFunction<ScheduleMicrotaskHandler> get _scheduleMicrotask =>
       const _ZoneFunction<ScheduleMicrotaskHandler>(
-          _rootZone, _rootScheduleMicrotask);
+          _ROOT_ZONE, _rootScheduleMicrotask);
   _ZoneFunction<CreateTimerHandler> get _createTimer =>
-      const _ZoneFunction<CreateTimerHandler>(_rootZone, _rootCreateTimer);
+      const _ZoneFunction<CreateTimerHandler>(_ROOT_ZONE, _rootCreateTimer);
   _ZoneFunction<CreatePeriodicTimerHandler> get _createPeriodicTimer =>
       const _ZoneFunction<CreatePeriodicTimerHandler>(
-          _rootZone, _rootCreatePeriodicTimer);
+          _ROOT_ZONE, _rootCreatePeriodicTimer);
   _ZoneFunction<PrintHandler> get _print =>
-      const _ZoneFunction<PrintHandler>(_rootZone, _rootPrint);
+      const _ZoneFunction<PrintHandler>(_ROOT_ZONE, _rootPrint);
   _ZoneFunction<ForkHandler> get _fork =>
-      const _ZoneFunction<ForkHandler>(_rootZone, _rootFork);
+      const _ZoneFunction<ForkHandler>(_ROOT_ZONE, _rootFork);
   _ZoneFunction<HandleUncaughtErrorHandler> get _handleUncaughtError =>
       const _ZoneFunction<HandleUncaughtErrorHandler>(
-          _rootZone, _rootHandleUncaughtError);
+          _ROOT_ZONE, _rootHandleUncaughtError);
 
   // The parent zone.
   _Zone get parent => null;
@@ -1298,74 +1290,72 @@ class _RootZone extends _Zone {
 
   // Zone interface.
 
-  void runGuarded(void f()) {
+  R runGuarded<R>(R f()) {
     try {
-      if (identical(_rootZone, Zone._current)) {
-        f();
-        return;
+      if (identical(_ROOT_ZONE, Zone._current)) {
+        return f();
       }
-      _rootRun(null, null, this, f);
+      return _rootRun<R>(null, null, this, f);
     } catch (e, s) {
-      handleUncaughtError(e, s);
+      return handleUncaughtError<R>(e, s);
     }
   }
 
-  void runUnaryGuarded<T>(void f(T arg), T arg) {
+  R runUnaryGuarded<R, T>(R f(T arg), T arg) {
     try {
-      if (identical(_rootZone, Zone._current)) {
-        f(arg);
-        return;
+      if (identical(_ROOT_ZONE, Zone._current)) {
+        return f(arg);
       }
-      _rootRunUnary(null, null, this, f, arg);
+      return _rootRunUnary<R, T>(null, null, this, f, arg);
     } catch (e, s) {
-      handleUncaughtError(e, s);
+      return handleUncaughtError<R>(e, s);
     }
   }
 
-  void runBinaryGuarded<T1, T2>(void f(T1 arg1, T2 arg2), T1 arg1, T2 arg2) {
+  R runBinaryGuarded<R, T1, T2>(R f(T1 arg1, T2 arg2), T1 arg1, T2 arg2) {
     try {
-      if (identical(_rootZone, Zone._current)) {
-        f(arg1, arg2);
-        return;
+      if (identical(_ROOT_ZONE, Zone._current)) {
+        return f(arg1, arg2);
       }
-      _rootRunBinary(null, null, this, f, arg1, arg2);
+      return _rootRunBinary<R, T1, T2>(null, null, this, f, arg1, arg2);
     } catch (e, s) {
-      handleUncaughtError(e, s);
+      return handleUncaughtError<R>(e, s);
     }
   }
 
-  ZoneCallback<R> bindCallback<R>(R f()) {
-    return () => this.run<R>(f);
+  ZoneCallback<R> bindCallback<R>(R f(), {bool runGuarded: true}) {
+    if (runGuarded) {
+      return () => this.runGuarded<R>(f);
+    } else {
+      return () => this.run<R>(f);
+    }
   }
 
-  ZoneUnaryCallback<R, T> bindUnaryCallback<R, T>(R f(T arg)) {
-    return (arg) => this.runUnary<R, T>(f, arg);
+  ZoneUnaryCallback<R, T> bindUnaryCallback<R, T>(R f(T arg),
+      {bool runGuarded: true}) {
+    if (runGuarded) {
+      return (arg) => this.runUnaryGuarded<R, T>(f, arg);
+    } else {
+      return (arg) => this.runUnary<R, T>(f, arg);
+    }
   }
 
   ZoneBinaryCallback<R, T1, T2> bindBinaryCallback<R, T1, T2>(
-      R f(T1 arg1, T2 arg2)) {
-    return (arg1, arg2) => this.runBinary<R, T1, T2>(f, arg1, arg2);
-  }
-
-  void Function() bindCallbackGuarded(void f()) {
-    return () => this.runGuarded(f);
-  }
-
-  void Function(T) bindUnaryCallbackGuarded<T>(void f(T arg)) {
-    return (arg) => this.runUnaryGuarded(f, arg);
-  }
-
-  void Function(T1, T2) bindBinaryCallbackGuarded<T1, T2>(
-      void f(T1 arg1, T2 arg2)) {
-    return (arg1, arg2) => this.runBinaryGuarded(f, arg1, arg2);
+      R f(T1 arg1, T2 arg2),
+      {bool runGuarded: true}) {
+    if (runGuarded) {
+      return (arg1, arg2) => this.runBinaryGuarded<R, T1, T2>(f, arg1, arg2);
+    } else {
+      return (arg1, arg2) => this.runBinary<R, T1, T2>(f, arg1, arg2);
+    }
   }
 
   operator [](Object key) => null;
 
   // Methods that can be customized by the zone specification.
 
-  void handleUncaughtError(error, StackTrace stackTrace) {
-    _rootHandleUncaughtError(null, null, this, error, stackTrace);
+  R handleUncaughtError<R>(error, StackTrace stackTrace) {
+    return _rootHandleUncaughtError(null, null, this, error, stackTrace);
   }
 
   Zone fork({ZoneSpecification specification, Map zoneValues}) {
@@ -1373,17 +1363,17 @@ class _RootZone extends _Zone {
   }
 
   R run<R>(R f()) {
-    if (identical(Zone._current, _rootZone)) return f();
+    if (identical(Zone._current, _ROOT_ZONE)) return f();
     return _rootRun(null, null, this, f);
   }
 
   R runUnary<R, T>(R f(T arg), T arg) {
-    if (identical(Zone._current, _rootZone)) return f(arg);
+    if (identical(Zone._current, _ROOT_ZONE)) return f(arg);
     return _rootRunUnary(null, null, this, f, arg);
   }
 
   R runBinary<R, T1, T2>(R f(T1 arg1, T2 arg2), T1 arg1, T2 arg2) {
-    if (identical(Zone._current, _rootZone)) return f(arg1, arg2);
+    if (identical(Zone._current, _ROOT_ZONE)) return f(arg1, arg2);
     return _rootRunBinary(null, null, this, f, arg1, arg2);
   }
 
@@ -1414,20 +1404,14 @@ class _RootZone extends _Zone {
   }
 }
 
-const _rootZone = const _RootZone();
+const _ROOT_ZONE = const _RootZone();
 
 /**
  * Runs [body] in its own zone.
  *
- * Returns the result of invoking [body].
- *
  * If [onError] is non-null the zone is considered an error zone. All uncaught
  * errors, synchronous or asynchronous, in the zone are caught and handled
- * by the callback. When the error is synchronous, throwing in the [onError]
- * handler, leads to a synchronous exception.
- *
- * Returns `null` when [body] threw, and a provided [onError] function completed
- * without throwing.
+ * by the callback.
  *
  * Errors may never cross error-zone boundaries. This is intuitive for leaving
  * a zone, but it also applies for errors that would enter an error-zone.
@@ -1449,29 +1433,21 @@ const _rootZone = const _RootZone();
  */
 R runZoned<R>(R body(),
     {Map zoneValues, ZoneSpecification zoneSpecification, Function onError}) {
-  // TODO(floitsch): the return type should be `void` here.
-  if (onError != null &&
-      onError is! ZoneBinaryCallback<dynamic, Object, StackTrace> &&
-      onError is! ZoneUnaryCallback<dynamic, Object>) {
-    throw new ArgumentError("onError callback must take an Object (the error), "
-        "or an Object (the error) and a StackTrace");
-  }
   HandleUncaughtErrorHandler errorHandler;
   if (onError != null) {
     errorHandler = (Zone self, ZoneDelegate parent, Zone zone, error,
         StackTrace stackTrace) {
       try {
-        if (onError is void Function(Object, StackTrace)) {
-          self.parent.runBinary(onError, error, stackTrace);
-          return;
+        // TODO(floitsch): the return type should be 'void'.
+        if (onError is ZoneBinaryCallback<dynamic, Object, StackTrace>) {
+          return self.parent.runBinary(onError, error, stackTrace);
         }
-        assert(onError is void Function(Object));
-        self.parent.runUnary(onError, error);
+        return self.parent.runUnary(onError, error);
       } catch (e, s) {
         if (identical(e, error)) {
-          parent.handleUncaughtError(zone, error, stackTrace);
+          return parent.handleUncaughtError(zone, error, stackTrace);
         } else {
-          parent.handleUncaughtError(zone, e, s);
+          return parent.handleUncaughtError(zone, e, s);
         }
       }
     };
@@ -1486,17 +1462,7 @@ R runZoned<R>(R body(),
   Zone zone = Zone.current
       .fork(specification: zoneSpecification, zoneValues: zoneValues);
   if (onError != null) {
-    try {
-      return zone.run(body);
-    } catch (e, stackTrace) {
-      if (onError is ZoneBinaryCallback<R, Object, StackTrace>) {
-        zone.runBinary(onError, e, stackTrace);
-        return null;
-      }
-      assert(onError is ZoneUnaryCallback<R, Object>);
-      zone.runUnary(onError, e);
-      return null;
-    }
+    return zone.runGuarded(body);
   } else {
     return zone.run(body);
   }

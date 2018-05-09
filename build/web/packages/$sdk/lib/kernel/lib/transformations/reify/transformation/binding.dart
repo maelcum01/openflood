@@ -4,7 +4,7 @@
 
 library kernel.transformations.reify.transformation.binding;
 
-import '../../../ast.dart';
+import 'package:kernel/ast.dart';
 
 class RuntimeLibrary {
   final Library typesLibrary;

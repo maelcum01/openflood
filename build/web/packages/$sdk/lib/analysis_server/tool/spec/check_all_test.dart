@@ -13,11 +13,8 @@ import 'generate_all.dart';
  * Check that all targets have been code generated.  If they haven't tell the
  * user to run generate_all.dart.
  */
-main() async {
+main() {
   String script = Platform.script.toFilePath(windows: Platform.isWindows);
-  List<String> components = split(script);
-  int index = components.indexOf('analysis_server');
-  String pkgPath = joinAll(components.sublist(0, index + 1));
-  await GeneratedContent.checkAll(
-      pkgPath, join('tool', 'spec', 'generate_all.dart'), allTargets);
+  String pkgPath = normalize(join(dirname(script), '..', '..'));
+  GeneratedContent.checkAll(pkgPath, 'tool/spec/generate_all.dart', allTargets);
 }

@@ -2,12 +2,12 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'package:front_end/src/fasta/problems.dart'
-    show internalProblem, unsupported;
-import 'package:front_end/src/fasta/messages.dart' show Message;
-import 'package:front_end/src/fasta/parser.dart';
-import 'package:front_end/src/fasta/source/stack_listener.dart';
+import 'package:front_end/src/fasta/errors.dart';
+import 'package:front_end/src/fasta/parser/identifier_context.dart';
+import 'package:front_end/src/fasta/parser/parser.dart';
 import 'package:front_end/src/scanner/token.dart';
+import 'package:front_end/src/fasta/source/stack_listener.dart';
+import 'package:front_end/src/scanner/token.dart' as analyzer;
 
 /// "Mini AST" representation of a declaration which can accept annotations.
 class AnnotatedNode {
@@ -55,7 +55,7 @@ class Comment {
 
   final List<Token> tokens;
 
-  factory Comment(Token commentToken) {
+  factory Comment(analyzer.Token commentToken) {
     var tokens = <Token>[];
     bool isDocumentation = false;
     while (commentToken != null) {
@@ -156,11 +156,6 @@ class MiniAstBuilder extends StackListener {
   Uri get uri => null;
 
   @override
-  void addCompileTimeError(Message message, int offset, int length) {
-    internalProblem(message, offset, uri);
-  }
-
-  @override
   void beginMetadata(Token token) {
     inMetadata = true;
   }
@@ -187,12 +182,13 @@ class MiniAstBuilder extends StackListener {
     push(popList(memberCount));
   }
 
-  @override
-  void handleRecoverClassHeader() {
-    pop(); // superclass
-  }
-
-  void endClassDeclaration(Token beginToken, Token endToken) {
+  void endClassDeclaration(
+      int interfacesCount,
+      Token beginToken,
+      Token classKeyword,
+      Token extendsKeyword,
+      Token implementsKeyword,
+      Token endToken) {
     debugEvent("ClassDeclaration");
     List<ClassMember> members = pop();
     TypeName superclass = pop();
@@ -213,7 +209,7 @@ class MiniAstBuilder extends StackListener {
   void endConditionalUris(int count) {
     debugEvent("ConditionalUris");
     if (count != 0) {
-      unsupported("Conditional URIs", -1, null);
+      internalError('Conditional URIs are not supported by summary codegen');
     }
   }
 
@@ -227,7 +223,7 @@ class MiniAstBuilder extends StackListener {
     push(new ConstructorReference(name, constructorName));
   }
 
-  void endEnum(Token enumKeyword, Token leftBrace, int count) {
+  void endEnum(Token enumKeyword, Token endBrace, int count) {
     debugEvent("Enum");
     List<EnumConstantDeclaration> constants = popList(count);
     String name = pop();
@@ -255,8 +251,8 @@ class MiniAstBuilder extends StackListener {
   }
 
   @override
-  void endFormalParameter(Token thisKeyword, Token periodAfterThis,
-      Token nameToken, FormalParameterKind kind, MemberKind memberKind) {
+  void endFormalParameter(Token thisKeyword, Token nameToken,
+      FormalParameterType kind, MemberKind memberKind) {
     debugEvent("FormalParameter");
     pop(); // Name
     pop(); // Type
@@ -271,30 +267,19 @@ class MiniAstBuilder extends StackListener {
   }
 
   @override
-  void handleIdentifierList(int count) {
+  void endIdentifierList(int count) {
     debugEvent("IdentifierList");
     push(popList(count));
   }
 
   @override
-  void handleImportPrefix(Token deferredKeyword, Token asKeyword) {
-    debugEvent("ImportPrefix");
-    pushIfNull(asKeyword, NullValue.Prefix);
-  }
-
-  @override
-  void endImport(Token importKeyword, Token semicolon) {
+  void endImport(Token importKeyword, Token deferredKeyword, Token asKeyword,
+      Token semicolon) {
     debugEvent("Import");
-    pop(NullValue.Prefix); // Prefix identifier
+    popIfNotNull(asKeyword); // Prefix identifier
     pop(); // URI
     pop(); // Metadata
     pop(); // Comment
-  }
-
-  @override
-  void handleRecoverImport(Token semicolon) {
-    debugEvent("RecoverImport");
-    pop(NullValue.Prefix); // Prefix identifier
   }
 
   @override
@@ -310,20 +295,6 @@ class MiniAstBuilder extends StackListener {
     super.endLiteralString(interpolationCount, endToken);
     String value = pop();
     push(new StringLiteral(value));
-  }
-
-  @override
-  void handleNativeClause(Token nativeToken, bool hasName) {
-    debugEvent("NativeClause");
-    if (hasName) {
-      pop(); // Pop the native name which is a StringLiteral.
-    }
-  }
-
-  @override
-  void handleInvalidMember(Token endToken) {
-    debugEvent("InvalidMember");
-    pop(); // metadata star
   }
 
   @override
@@ -343,13 +314,12 @@ class MiniAstBuilder extends StackListener {
   }
 
   @override
-  void endMetadataStar(int count) {
+  void endMetadataStar(int count, bool forParameter) {
     debugEvent("MetadataStar");
     push(popList(count) ?? NullValue.Metadata);
   }
 
-  void endMethod(
-      Token getOrSet, Token beginToken, Token beginParam, Token endToken) {
+  void endMethod(Token getOrSet, Token beginToken, Token endToken) {
     debugEvent("Method");
     pop(); // Body
     pop(); // Initializers
@@ -364,7 +334,7 @@ class MiniAstBuilder extends StackListener {
   }
 
   @override
-  void handleSend(Token beginToken, Token endToken) {
+  void endSend(Token beginToken, Token endToken) {
     debugEvent("Send");
     pop(); // Arguments
     pop(); // Type arguments
@@ -379,8 +349,7 @@ class MiniAstBuilder extends StackListener {
   }
 
   @override
-  void endTopLevelFields(Token staticToken, Token covariantToken,
-      Token varFinalOrConst, int count, Token beginToken, Token endToken) {
+  void endTopLevelFields(int count, Token beginToken, Token endToken) {
     // We ignore top level variable declarations; they are present just to make
     // the IDL analyze without warnings.
     debugEvent("TopLevelFields");
@@ -402,7 +371,7 @@ class MiniAstBuilder extends StackListener {
   }
 
   @override
-  void endBinaryExpression(Token token) {
+  void handleBinaryExpression(Token token) {
     debugEvent("BinaryExpression");
     pop(); // RHS
     pop(); // LHS
@@ -420,31 +389,13 @@ class MiniAstBuilder extends StackListener {
     push(NullValue.FunctionBody);
   }
 
-  @override
-  void handleNativeFunctionBodyIgnored(Token nativeToken, Token semicolon) {
-    debugEvent("NativeFunctionBodyIgnored");
-  }
-
-  @override
-  void handleNativeFunctionBodySkipped(Token nativeToken, Token semicolon) {
-    debugEvent("NativeFunctionBodySkipped");
-    push(NullValue.FunctionBody);
-  }
-
   void handleIdentifier(Token token, IdentifierContext context) {
     if (context == IdentifierContext.enumValueDeclaration) {
-      List<Annotation> metadata = pop();
-      Comment comment = pop();
-      push(new EnumConstantDeclaration(comment, metadata, token.lexeme));
+      var comment = new Comment(token.precedingComments);
+      push(new EnumConstantDeclaration(comment, null, token.lexeme));
     } else {
       push(token.lexeme);
     }
-  }
-
-  @override
-  void handleInvalidTopLevelDeclaration(Token endToken) {
-    debugEvent("InvalidTopLevelDeclaration");
-    pop(); // metadata star
   }
 
   void handleLiteralInt(Token token) {
@@ -455,6 +406,16 @@ class MiniAstBuilder extends StackListener {
   void handleLiteralNull(Token token) {
     debugEvent("LiteralNull");
     push(new UnknownExpression());
+  }
+
+  @override
+  void handleModifier(Token token) {
+    debugEvent("Modifier");
+  }
+
+  @override
+  void handleModifiers(int count) {
+    debugEvent("Modifiers");
   }
 
   @override
@@ -490,9 +451,6 @@ class MiniAstParser extends Parser {
   Token parseFunctionBody(Token token, bool isExpression, bool allowAbstract) {
     return skipFunctionBody(token, isExpression, allowAbstract);
   }
-
-  @override
-  Token parseInvalidBlock(Token token) => skipBlock(token);
 }
 
 /// "Mini AST" representation of a string literal.

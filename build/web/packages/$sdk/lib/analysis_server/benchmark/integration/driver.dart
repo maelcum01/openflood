@@ -91,8 +91,7 @@ class Driver extends IntegrationTestMixin {
    * field from the response.  If the server acknowledges the command with an
    * error response, the future will be completed with an error.
    */
-  Future<Map<String, dynamic>> send(
-      String method, Map<String, dynamic> params) {
+  Future send(String method, Map<String, dynamic> params) {
     return server.send(method, params);
   }
 

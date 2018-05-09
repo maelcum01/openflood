@@ -12,13 +12,7 @@ abstract class Link implements FileSystemEntity {
   /**
    * Creates a Link object.
    */
-  factory Link(String path) {
-    final IOOverrides overrides = IOOverrides.current;
-    if (overrides == null) {
-      return new _Link(path);
-    }
-    return overrides.createLink(path);
-  }
+  factory Link(String path) => new _Link(path);
 
   /**
    * Creates a [Link] object.
@@ -174,8 +168,7 @@ class _Link extends FileSystemEntity implements Link {
     var result =
         recursive ? parent.create(recursive: true) : new Future.value(null);
     return result
-        .then((_) => _File
-            ._dispatchWithNamespace(_FILE_CREATE_LINK, [null, path, target]))
+        .then((_) => _IOService._dispatch(_FILE_CREATE_LINK, [path, target]))
         .then((response) {
       if (_isErrorResponse(response)) {
         throw _exceptionFromResponse(
@@ -192,7 +185,7 @@ class _Link extends FileSystemEntity implements Link {
     if (Platform.isWindows) {
       target = _makeWindowsLinkTarget(target);
     }
-    var result = _File._createLink(_Namespace._namespace, path, target);
+    var result = _File._createLink(path, target);
     throwIfError(result, "Cannot create link", path);
   }
 
@@ -232,8 +225,7 @@ class _Link extends FileSystemEntity implements Link {
     if (recursive) {
       return new Directory(path).delete(recursive: true).then((_) => this);
     }
-    return _File._dispatchWithNamespace(_FILE_DELETE_LINK, [null, path]).then(
-        (response) {
+    return _IOService._dispatch(_FILE_DELETE_LINK, [path]).then((response) {
       if (_isErrorResponse(response)) {
         throw _exceptionFromResponse(response, "Cannot delete link", path);
       }
@@ -245,13 +237,13 @@ class _Link extends FileSystemEntity implements Link {
     if (recursive) {
       return new Directory(path).deleteSync(recursive: true);
     }
-    var result = _File._deleteLinkNative(_Namespace._namespace, path);
+    var result = _File._deleteLinkNative(path);
     throwIfError(result, "Cannot delete link", path);
   }
 
   Future<Link> rename(String newPath) {
-    return _File._dispatchWithNamespace(
-        _FILE_RENAME_LINK, [null, path, newPath]).then((response) {
+    return _IOService
+        ._dispatch(_FILE_RENAME_LINK, [path, newPath]).then((response) {
       if (_isErrorResponse(response)) {
         throw _exceptionFromResponse(
             response, "Cannot rename link to '$newPath'", path);
@@ -261,14 +253,13 @@ class _Link extends FileSystemEntity implements Link {
   }
 
   Link renameSync(String newPath) {
-    var result = _File._renameLink(_Namespace._namespace, path, newPath);
+    var result = _File._renameLink(path, newPath);
     throwIfError(result, "Cannot rename link '$path' to '$newPath'");
     return new Link(newPath);
   }
 
   Future<String> target() {
-    return _File._dispatchWithNamespace(_FILE_LINK_TARGET, [null, path]).then(
-        (response) {
+    return _IOService._dispatch(_FILE_LINK_TARGET, [path]).then((response) {
       if (_isErrorResponse(response)) {
         throw _exceptionFromResponse(
             response, "Cannot get target of link", path);
@@ -278,7 +269,7 @@ class _Link extends FileSystemEntity implements Link {
   }
 
   String targetSync() {
-    var result = _File._linkTarget(_Namespace._namespace, path);
+    var result = _File._linkTarget(path);
     throwIfError(result, "Cannot read link", path);
     return result;
   }

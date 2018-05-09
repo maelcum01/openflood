@@ -651,13 +651,7 @@ class FolderBasedDartSdk extends AbstractDartSdk {
     try {
       File file = libraryDirectory.getChildAssumingFile(library.path);
       if (!relativePath.isEmpty) {
-        File relativeFile = file.parent.getChildAssumingFile(relativePath);
-        if (relativeFile.path == file.path) {
-          // The relative file is the library, so return a Source for the
-          // library rather than the part format.
-          return file.createSource(Uri.parse(library.shortName));
-        }
-        file = relativeFile;
+        file = file.parent.getChildAssumingFile(relativePath);
       }
       return file.createSource(Uri.parse(dartUri));
     } on FormatException {
@@ -797,7 +791,7 @@ class SdkExtensionFinder {
   void _processSdkExt(String sdkExtJSON, Folder libDir) {
     var sdkExt;
     try {
-      sdkExt = json.decode(sdkExtJSON);
+      sdkExt = JSON.decode(sdkExtJSON);
     } catch (e) {
       return;
     }

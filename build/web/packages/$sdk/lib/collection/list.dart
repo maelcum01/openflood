@@ -53,14 +53,9 @@ abstract class ListBase<E> extends Object with ListMixin<E> {
  */
 abstract class ListMixin<E> implements List<E> {
   // Iterable interface.
-  // TODO(lrn): When we get composable mixins, reuse IterableMixin instead
-  // of redaclating everything.
   Iterator<E> get iterator => new ListIterator<E>(this);
 
   E elementAt(int index) => this[index];
-
-  Iterable<E> followedBy(Iterable<E> other) =>
-      new FollowedByIterable<E>.firstEfficient(this, other);
 
   void forEach(void action(E element)) {
     int length = this.length;
@@ -81,19 +76,9 @@ abstract class ListMixin<E> implements List<E> {
     return this[0];
   }
 
-  void set first(E value) {
-    if (length == 0) throw IterableElementError.noElement();
-    this[0] = value;
-  }
-
   E get last {
     if (length == 0) throw IterableElementError.noElement();
     return this[length - 1];
-  }
-
-  void set last(E value) {
-    if (length == 0) throw IterableElementError.noElement();
-    this[length - 1] = value;
   }
 
   E get single {
@@ -104,7 +89,7 @@ abstract class ListMixin<E> implements List<E> {
 
   bool contains(Object element) {
     int length = this.length;
-    for (int i = 0; i < length; i++) {
+    for (int i = 0; i < this.length; i++) {
       if (this[i] == element) return true;
       if (length != this.length) {
         throw new ConcurrentModificationError(this);
@@ -161,7 +146,7 @@ abstract class ListMixin<E> implements List<E> {
     throw IterableElementError.noElement();
   }
 
-  E singleWhere(bool test(E element), {E orElse()}) {
+  E singleWhere(bool test(E element)) {
     int length = this.length;
     E match = null;
     bool matchFound = false;
@@ -179,7 +164,6 @@ abstract class ListMixin<E> implements List<E> {
       }
     }
     if (matchFound) return match;
-    if (orElse != null) return orElse();
     throw IterableElementError.noElement();
   }
 
@@ -190,12 +174,6 @@ abstract class ListMixin<E> implements List<E> {
   }
 
   Iterable<E> where(bool test(E element)) => new WhereIterable<E>(this, test);
-
-  // TODO(leafp): Restore this functionality once generic methods are enabled
-  // in the VM and dart2js.
-  // https://github.com/dart-lang/sdk/issues/32463
-  Iterable<T> whereType<T>() =>
-      throw new UnimplementedError("whereType is not yet supported");
 
   Iterable<T> map<T>(T f(E element)) => new MappedListIterable<E, T>(this, f);
 
@@ -242,7 +220,7 @@ abstract class ListMixin<E> implements List<E> {
   List<E> toList({bool growable: true}) {
     List<E> result;
     if (growable) {
-      result = <E>[]..length = length;
+      result = new List<E>()..length = length;
     } else {
       result = new List<E>(length);
     }
@@ -260,7 +238,7 @@ abstract class ListMixin<E> implements List<E> {
     return result;
   }
 
-  // List interface.
+  // Collection interface.
   void add(E element) {
     this[this.length++] = element;
   }
@@ -278,25 +256,12 @@ abstract class ListMixin<E> implements List<E> {
   bool remove(Object element) {
     for (int i = 0; i < this.length; i++) {
       if (this[i] == element) {
-        this._closeGap(i, i + 1);
+        this.setRange(i, this.length - 1, this, i + 1);
+        this.length -= 1;
         return true;
       }
     }
     return false;
-  }
-
-  /// Removes elements from the list starting at [start] up to but not including
-  /// [end].  Arguments are pre-validated.
-  void _closeGap(int start, int end) {
-    int length = this.length;
-    assert(0 <= start);
-    assert(start < end);
-    assert(end <= length);
-    int size = end - start;
-    for (int i = end; i < length; i++) {
-      this[i - size] = this[i];
-    }
-    this.length = length - size;
   }
 
   void removeWhere(bool test(E element)) {
@@ -307,7 +272,7 @@ abstract class ListMixin<E> implements List<E> {
     _filter(test, true);
   }
 
-  void _filter(bool test(E element), bool retainMatching) {
+  void _filter(bool test(var element), bool retainMatching) {
     List<E> retained = <E>[];
     int length = this.length;
     for (int i = 0; i < length; i++) {
@@ -329,12 +294,7 @@ abstract class ListMixin<E> implements List<E> {
     this.length = 0;
   }
 
-  List<R> cast<R>() {
-    List<Object> self = this;
-    return self is List<R> ? self : List.castFrom<E, R>(this);
-  }
-
-  List<R> retype<R>() => List.castFrom<E, R>(this);
+  // List interface.
 
   E removeLast() {
     if (length == 0) {
@@ -371,19 +331,12 @@ abstract class ListMixin<E> implements List<E> {
     return new ListMapView<E>(this);
   }
 
-  List<E> operator +(List<E> other) {
-    var result = <E>[]..length = (this.length + other.length);
-    result.setRange(0, this.length, this);
-    result.setRange(this.length, result.length, other);
-    return result;
-  }
-
   List<E> sublist(int start, [int end]) {
     int listLength = this.length;
     if (end == null) end = listLength;
     RangeError.checkValidRange(start, end, listLength);
     int length = end - start;
-    List<E> result = <E>[]..length = length;
+    List<E> result = new List<E>()..length = length;
     for (int i = 0; i < length; i++) {
       result[i] = this[start + i];
     }
@@ -397,9 +350,9 @@ abstract class ListMixin<E> implements List<E> {
 
   void removeRange(int start, int end) {
     RangeError.checkValidRange(start, end, this.length);
-    if (end > start) {
-      _closeGap(start, end);
-    }
+    int length = end - start;
+    setRange(start, this.length - length, this, end);
+    this.length -= length;
   }
 
   void fillRange(int start, int end, [E fill]) {
@@ -448,10 +401,13 @@ abstract class ListMixin<E> implements List<E> {
     int removeLength = end - start;
     int insertLength = newContents.length;
     if (removeLength >= insertLength) {
+      int delta = removeLength - insertLength;
       int insertEnd = start + insertLength;
+      int newLength = this.length - delta;
       this.setRange(start, insertEnd, newContents);
-      if (removeLength > insertLength) {
-        _closeGap(insertEnd, end);
+      if (delta != 0) {
+        this.setRange(insertEnd, newLength, this, end);
+        this.length = newLength;
       }
     } else {
       int delta = insertLength - removeLength;
@@ -463,34 +419,41 @@ abstract class ListMixin<E> implements List<E> {
     }
   }
 
-  int indexOf(Object element, [int start = 0]) {
-    if (start < 0) start = 0;
-    for (int i = start; i < this.length; i++) {
-      if (this[i] == element) return i;
+  int indexOf(Object element, [int startIndex = 0]) {
+    if (startIndex >= this.length) {
+      return -1;
+    }
+    if (startIndex < 0) {
+      startIndex = 0;
+    }
+    for (int i = startIndex; i < this.length; i++) {
+      if (this[i] == element) {
+        return i;
+      }
     }
     return -1;
   }
 
-  int indexWhere(bool test(E element), [int start = 0]) {
-    if (start < 0) start = 0;
-    for (int i = start; i < this.length; i++) {
-      if (test(this[i])) return i;
+  /**
+   * Returns the last index in the list [a] of the given [element], starting
+   * the search at index [startIndex] to 0.
+   * Returns -1 if [element] is not found.
+   */
+  int lastIndexOf(Object element, [int startIndex]) {
+    if (startIndex == null) {
+      startIndex = this.length - 1;
+    } else {
+      if (startIndex < 0) {
+        return -1;
+      }
+      if (startIndex >= this.length) {
+        startIndex = this.length - 1;
+      }
     }
-    return -1;
-  }
-
-  int lastIndexOf(Object element, [int start]) {
-    if (start == null || start >= this.length) start = this.length - 1;
-    for (int i = start; i >= 0; i--) {
-      if (this[i] == element) return i;
-    }
-    return -1;
-  }
-
-  int lastIndexWhere(bool test(E element), [int start]) {
-    if (start == null || start >= this.length) start = this.length - 1;
-    for (int i = start; i >= 0; i--) {
-      if (test(this[i])) return i;
+    for (int i = startIndex; i >= 0; i--) {
+      if (this[i] == element) {
+        return i;
+      }
     }
     return -1;
   }
@@ -512,7 +475,8 @@ abstract class ListMixin<E> implements List<E> {
 
   E removeAt(int index) {
     E result = this[index];
-    _closeGap(index, index + 1);
+    setRange(index, this.length - 1, this, index + 1);
+    length--;
     return result;
   }
 

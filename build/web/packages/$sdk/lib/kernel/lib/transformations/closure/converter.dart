@@ -6,7 +6,6 @@ library kernel.transformations.closure.converter;
 
 import '../../ast.dart'
     show
-        AsyncMarker,
         Arguments,
         Block,
         Catch,
@@ -14,12 +13,12 @@ import '../../ast.dart'
         ClosureCreation,
         Constructor,
         DartType,
-        DoStatement,
         DynamicType,
         EmptyStatement,
         Expression,
         ExpressionStatement,
         Field,
+        FieldInitializer,
         ForInStatement,
         ForStatement,
         FunctionDeclaration,
@@ -30,9 +29,9 @@ import '../../ast.dart'
         InterfaceType,
         InvalidExpression,
         InvocationExpression,
+        Let,
         Library,
         LocalInitializer,
-        RedirectingInitializer,
         Member,
         MethodInvocation,
         Name,
@@ -44,6 +43,7 @@ import '../../ast.dart'
         PropertyGet,
         ReturnStatement,
         Statement,
+        StaticGet,
         StaticInvocation,
         ThisExpression,
         Transformer,
@@ -53,8 +53,7 @@ import '../../ast.dart'
         VariableDeclaration,
         VariableGet,
         VariableSet,
-        VectorCreation,
-        WhileStatement,
+        VectorType,
         transformList;
 
 import '../../frontend/accessors.dart' show VariableAccessor;
@@ -67,29 +66,16 @@ import '../../type_algebra.dart' show substitute;
 
 import 'clone_without_body.dart' show CloneWithoutBody;
 
-import 'context.dart' show Context, NoContext, LocalContext;
+import 'context.dart' show Context, NoContext;
 
 import 'info.dart' show ClosureInfo;
 
-import 'rewriter.dart' show AstRewriter, BlockRewriter, InitializerListRewriter;
-
-bool isLoop(TreeNode node) {
-  return node is WhileStatement ||
-      node is DoStatement ||
-      node is ForStatement ||
-      node is ForInStatement;
-}
+import 'rewriter.dart' show AstRewriter, BlockRewriter, InitializerRewriter;
 
 class ClosureConverter extends Transformer {
   final CoreTypes coreTypes;
-
+  final Class contextClass;
   final Set<VariableDeclaration> capturedVariables;
-
-  // This map pairs variables that are captured with flags indicating whether
-  // they are used inside or outside an initializer. See
-  // [ClosureInfo.parameterUses].
-  final Map<VariableDeclaration, int> parameterUses;
-
   final Map<FunctionNode, Set<TypeParameter>> capturedTypeVariables;
   final Map<FunctionNode, VariableDeclaration> thisAccess;
   final Map<FunctionNode, String> localNames;
@@ -97,6 +83,10 @@ class ClosureConverter extends Transformer {
   /// Records place-holders for cloning contexts. See [visitForStatement].
   final Set<InvalidExpression> contextClonePlaceHolders =
       new Set<InvalidExpression>();
+
+  /// Maps the names of all instance methods that may be torn off (aka
+  /// implicitly closurized) to `${name.name}#get`.
+  final Map<Name, Name> tearOffGetterNames;
 
   final CloneVisitor cloner = new CloneWithoutBody();
 
@@ -146,18 +136,18 @@ class ClosureConverter extends Transformer {
   Map<TypeParameter, DartType> typeSubstitution =
       const <TypeParameter, DartType>{};
 
-  ClosureConverter(this.coreTypes, ClosureInfo info)
+  ClosureConverter(this.coreTypes, ClosureInfo info, this.contextClass)
       : this.capturedVariables = info.variables,
-        this.parameterUses = info.parameterUses,
         this.capturedTypeVariables = info.typeVariables,
         this.thisAccess = info.thisAccess,
-        this.localNames = info.localNames;
+        this.localNames = info.localNames,
+        this.tearOffGetterNames = info.tearOffGetterNames;
 
   bool get isOuterMostContext {
     return currentFunction == null || currentMemberFunction == currentFunction;
   }
 
-  Uri get currentFileUri {
+  String get currentFileUri {
     if (currentMember is Constructor) return currentClass.fileUri;
     if (currentMember is Field) return (currentMember as Field).fileUri;
     if (currentMember is Procedure) return (currentMember as Procedure).fileUri;
@@ -177,6 +167,7 @@ class ClosureConverter extends Transformer {
 
   TreeNode visitLibrary(Library node) {
     assert(newLibraryMembers.isEmpty);
+    if (node == contextClass.enclosingLibrary) return node;
 
     currentLibrary = node;
     node = super.visitLibrary(node);
@@ -202,135 +193,56 @@ class ClosureConverter extends Transformer {
     return node;
   }
 
-  extendContextConditionally({bool inInitializer}) {
-    return (VariableDeclaration parameter) {
-      if (!capturedVariables.contains(parameter)) return 0;
-
-      int flags = parameterUses[parameter];
-      if (flags == null) {
-        context.extend(parameter, new VariableGet(parameter));
-        return 0;
-      }
-
-      // When moving variables into the context while scanning initializers,
-      // we need to add the variable if it's captured in an initializer,
-      // whether or not it's used/captured in the body. However, in the body,
-      // we only need to add the variable into the context if it's *not*
-      // captured in an initializer.
-      if (inInitializer
-          ? (flags & ClosureInfo.INSIDE_INITIALIZER) > 0
-          : flags == ClosureInfo.OUTSIDE_INITIALIZER) {
-        context.extend(parameter, new VariableGet(parameter));
-      }
-
-      return flags;
-    };
+  void extendContextWith(VariableDeclaration parameter) {
+    context.extend(parameter, new VariableGet(parameter));
   }
 
   TreeNode visitConstructor(Constructor node) {
     assert(isEmptyContext);
     currentMember = node;
-
-    // If we created a context for the initializers, we need to re-use that
-    // context in the body of the function. Unfortunately, the context is
-    // declared in a local initializer and local initializers aren't visible
-    // in the body of the constructor. To work around this issue, we move the
-    // body into a new constructor and make this constructor redirect to that
-    // one, passing the context as an argument to the new constructor.
-    var movingCtor = false;
-
     // Transform initializers.
-    if (node.initializers.length > 0) {
-      var initRewriter = new InitializerListRewriter(node);
-      rewriter = initRewriter;
-      context = new NoContext(this);
-
-      final int capturedBoth =
-          ClosureInfo.OUTSIDE_INITIALIZER | ClosureInfo.INSIDE_INITIALIZER;
-
-      // TODO(karlklose): add a fine-grained analysis of captured parameters.
-      handleParam(decl) {
-        if (extendContextConditionally(inInitializer: true)(decl) ==
-            capturedBoth) {
-          movingCtor = true;
+    for (Initializer initializer in node.initializers) {
+      if (initializer is FieldInitializer) {
+        // Create a rewriter and a context for the initializer expression.
+        rewriter = new InitializerRewriter(initializer.value);
+        context = new NoContext(this);
+        // Save the expression to visit it in the extended context, since the
+        // rewriter will modify `initializer.value`.
+        Expression initializerExpression = initializer.value;
+        // Extend the context with all captured parameters of the constructor.
+        // TODO(karlklose): add a fine-grained analysis of captured parameters.
+        node.function.positionalParameters
+            .where(capturedVariables.contains)
+            .forEach(extendContextWith);
+        node.function.namedParameters
+            .where(capturedVariables.contains)
+            .forEach(extendContextWith);
+        // Transform the initializer expression.
+        var parent = initializerExpression.parent;
+        initializerExpression = initializerExpression.accept(this);
+        initializerExpression.parent = parent;
+        if (parent is Let) {
+          parent.body = initializerExpression;
+        } else if (parent is FieldInitializer) {
+          parent.value = initializerExpression;
+        } else {
+          throw "Found unexpected node '${node.runtimeType}, expected a 'Let' "
+              "or a 'FieldInitializer'.";
         }
       }
-
-      node.function.positionalParameters.forEach(handleParam);
-      node.function.namedParameters.forEach(handleParam);
-
-      transformList(node.initializers, this, node);
-      node.initializers.insertAll(0, initRewriter.prefix);
-      rewriter = null;
     }
-
+    rewriter = null;
     // Transform constructor body.
     FunctionNode function = node.function;
     if (function.body != null && function.body is! EmptyStatement) {
-      setupRewriterForFunctionBody(function);
-      if (!movingCtor) context = new NoContext(this);
+      setupContextForFunctionBody(function);
       VariableDeclaration self = thisAccess[currentMemberFunction];
       if (self != null) {
         context.extend(self, new ThisExpression());
       }
       node.function.accept(this);
-
-      if (movingCtor) {
-        var contextDecl = (context as LocalContext).self;
-        var newCtorName = new Name("${node.name.name}#redir");
-        var newCtor = new Constructor(node.function, name: newCtorName);
-        newClassMembers.add(newCtor);
-
-        LocalInitializer contextDeclInit = null;
-        for (var init in node.initializers) {
-          if (init is LocalInitializer && init.variable == contextDecl) {
-            contextDeclInit = init;
-          } else {
-            newCtor.initializers.add(init);
-          }
-        }
-
-        node.initializers = <Initializer>[contextDeclInit];
-
-        var cv = new CloneVisitor();
-        var oldCtorParams = function.positionalParameters
-            .map(cv.visitVariableDeclaration)
-            .toList();
-        var oldCtorNamedParams =
-            function.namedParameters.map(cv.visitVariableDeclaration).toList();
-
-        function.positionalParameters.addAll(function.namedParameters);
-        function.namedParameters = [];
-
-        var args = <Expression>[];
-        args.addAll(oldCtorParams.map((decl) => new VariableGet(decl)));
-        args.addAll(oldCtorNamedParams.map((decl) => new VariableGet(decl)));
-
-        node.function = new FunctionNode(new EmptyStatement(),
-            typeParameters: [],
-            positionalParameters: oldCtorParams,
-            namedParameters: oldCtorNamedParams,
-            requiredParameterCount: function.requiredParameterCount,
-            returnType: function.returnType,
-            asyncMarker: function.asyncMarker,
-            dartAsyncMarker: function.dartAsyncMarker);
-        node.function.parent = node;
-
-        var oldCtorDecl = cv.visitVariableDeclaration(contextDecl);
-        contextDecl.initializer = null;
-        function.positionalParameters.add(contextDecl);
-        function.requiredParameterCount++;
-
-        contextDeclInit.variable = oldCtorDecl;
-        oldCtorDecl.parent = contextDeclInit;
-
-        args.add(new VariableGet(oldCtorDecl));
-        var redirInit =
-            new RedirectingInitializer(newCtor, new Arguments(args));
-        node.initializers.add(redirInit);
-      }
+      resetContext();
     }
-    resetContext();
     return node;
   }
 
@@ -347,20 +259,7 @@ class ClosureConverter extends Transformer {
     return type is InterfaceType && type.classNode.supertype == null;
   }
 
-  TreeNode visitField(Field node) {
-    currentMember = node;
-    context = new NoContext(this);
-    node = super.visitField(node);
-    context = null;
-    currentMember = null;
-    return node;
-  }
-
   Expression handleLocalFunction(FunctionNode function) {
-    if (function.asyncMarker == AsyncMarker.SyncYielding) {
-      function.transformChildren(this);
-      return new FunctionExpression(function);
-    }
     FunctionNode enclosingFunction = currentFunction;
     Map<TypeParameter, DartType> enclosingTypeSubstitution = typeSubstitution;
     currentFunction = function;
@@ -370,17 +269,44 @@ class ClosureConverter extends Transformer {
     rewriter = makeRewriterForBody(function);
 
     VariableDeclaration contextVariable =
-        new VariableDeclaration("#contextParameter", type: const DynamicType());
+        new VariableDeclaration("#contextParameter", type: const VectorType());
     Context parent = context;
     context = context.toNestedContext(
         new VariableAccessor(contextVariable, null, TreeNode.noOffset));
 
-    Set<TypeParameter> captured =
-        capturedTypeVariables[currentFunction] ?? new Set<TypeParameter>();
-    typeSubstitution = copyTypeVariables(captured);
+    Set<TypeParameter> captured = capturedTypeVariables[currentFunction];
+    if (captured != null) {
+      typeSubstitution = copyTypeVariables(captured);
+    } else {
+      typeSubstitution = const <TypeParameter, DartType>{};
+    }
 
+    // TODO(29181): remove replacementTypeSubstitution variable and its usages.
+    // All the type variables used in this function body are replaced with
+    // either dynamic or their bounds. This is to temporarily remove the type
+    // variables from closure conversion. They should be returned after the VM
+    // changes are done to support vectors and closure creation. See #29181.
+    Map<TypeParameter, DartType> replacementTypeSubstitution =
+        <TypeParameter, DartType>{};
+    for (TypeParameter parameter in typeSubstitution.keys) {
+      replacementTypeSubstitution[parameter] = const DynamicType();
+    }
+    for (TypeParameter parameter in typeSubstitution.keys) {
+      if (!isObject(parameter.bound)) {
+        replacementTypeSubstitution[parameter] =
+            substitute(parameter.bound, replacementTypeSubstitution);
+      }
+    }
+    typeSubstitution = replacementTypeSubstitution;
     function.transformChildren(this);
 
+    // TODO(29181): don't replace typeSubstitution with an empty map.
+    // Information about captured type variables is deleted from the closure
+    // class, because the type variables in this function body are already
+    // replaced with either dynamic or their bounds. This change should be
+    // undone after the VM support for vectors and closure creation is
+    // implemented. See #29181.
+    typeSubstitution = <TypeParameter, DartType>{};
     Expression result = addClosure(function, contextVariable, parent.expression,
         typeSubstitution, enclosingTypeSubstitution);
     currentFunction = enclosingFunction;
@@ -392,7 +318,7 @@ class ClosureConverter extends Transformer {
     /// Is this closure itself captured by a closure?
     bool isCaptured = capturedVariables.contains(node.variable);
     if (isCaptured) {
-      context.extend(node.variable, new InvalidExpression(null));
+      context.extend(node.variable, new InvalidExpression());
     }
     Context parent = context;
     return saveContext(() {
@@ -410,7 +336,9 @@ class ClosureConverter extends Transformer {
   }
 
   TreeNode visitFunctionExpression(FunctionExpression node) {
-    return saveContext(() => handleLocalFunction(node.function));
+    return saveContext(() {
+      return handleLocalFunction(node.function);
+    });
   }
 
   /// Add a new procedure to the current library that looks like this:
@@ -432,16 +360,6 @@ class ClosureConverter extends Transformer {
       Expression accessContext,
       Map<TypeParameter, DartType> substitution,
       Map<TypeParameter, DartType> enclosingTypeSubstitution) {
-    var fnTypeParams = <TypeParameter>[];
-    var fnTypeArgs = <TypeParameterType>[];
-    for (TypeParameter t in substitution.keys) {
-      var fnTypeParam = (substitution[t] as TypeParameterType).parameter;
-      fnTypeParams.add(fnTypeParam);
-      fnTypeArgs
-          .add(substitute(new TypeParameterType(t), enclosingTypeSubstitution));
-    }
-
-    function.typeParameters.insertAll(0, fnTypeParams);
     function.positionalParameters.insert(0, contextVariable);
     ++function.requiredParameterCount;
     Procedure closedTopLevelFunction = new Procedure(
@@ -452,36 +370,38 @@ class ClosureConverter extends Transformer {
         fileUri: currentFileUri);
     newLibraryMembers.add(closedTopLevelFunction);
 
-    // We need to again make new type parameters for the function's function
-    // type, and substitute them into the function type's arguments' types.
-    var closureTypeParams = <TypeParameter>[];
-    var closureTypeSubstitutionMap = copyTypeVariables(function.typeParameters);
-    for (DartType d in closureTypeSubstitutionMap.values)
-      closureTypeParams.add((d as TypeParameterType).parameter);
-
     FunctionType closureType = new FunctionType(
         function.positionalParameters
             .skip(1)
-            .map((VariableDeclaration decl) =>
-                substitute(decl.type, closureTypeSubstitutionMap))
+            .map((VariableDeclaration decl) => decl.type)
             .toList(),
-        substitute(function.returnType, closureTypeSubstitutionMap),
+        function.returnType,
         namedParameters: function.namedParameters
-            .map((VariableDeclaration decl) => new NamedType(
-                decl.name, substitute(decl.type, closureTypeSubstitutionMap)))
+            .map((VariableDeclaration decl) =>
+                new NamedType(decl.name, decl.type))
             .toList(),
-        typeParameters: closureTypeParams,
+        typeParameters: function.typeParameters,
         requiredParameterCount: function.requiredParameterCount - 1);
 
-    // If we capture type parameters but not regular variables, we still need to
-    // make a context.
-    if (capturedTypeVariables[function] != null &&
-        accessContext is NullLiteral) {
-      accessContext = new VectorCreation(1);
-    }
-
     return new ClosureCreation(
-        closedTopLevelFunction, accessContext, closureType, fnTypeArgs);
+        closedTopLevelFunction, accessContext, closureType);
+  }
+
+  TreeNode visitField(Field node) {
+    currentMember = node;
+    context = new NoContext(this);
+    if (node.isInstanceMember) {
+      Name tearOffName = tearOffGetterNames[node.name];
+      if (tearOffName != null) {
+        // TODO(ahe): If we rewrite setters, we can rename the field to avoid
+        // an indirection in most cases.
+        addFieldForwarder(tearOffName, node);
+      }
+    }
+    node = super.visitField(node);
+    context = null;
+    currentMember = null;
+    return node;
   }
 
   TreeNode visitProcedure(Procedure node) {
@@ -489,48 +409,43 @@ class ClosureConverter extends Transformer {
 
     currentMember = node;
 
+    if (node.isInstanceMember) {
+      Name tearOffName = tearOffGetterNames[node.name];
+      if (tearOffName != null) {
+        if (node.isGetter) {
+          // We rename the getter to avoid an indirection in most cases.
+          Name oldName = node.name;
+          node.name = tearOffName;
+          addGetterForwarder(oldName, node);
+        } else if (node.kind == ProcedureKind.Method) {
+          addTearOffMethod(tearOffName, node);
+        }
+      }
+    }
+
     FunctionNode function = node.function;
     if (function.body != null) {
-      bool hadSingleStatementBody = function.body is! Block;
-
-      setupRewriterForFunctionBody(function);
-      // Start with no context.  This happens after setting up _currentBlock
-      // so statements can be emitted into _currentBlock if necessary.
-      context = new NoContext(this);
-
+      setupContextForFunctionBody(function);
       VariableDeclaration self = thisAccess[currentMemberFunction];
       if (self != null) {
         context.extend(self, new ThisExpression());
       }
       node.transformChildren(this);
       resetContext();
-
-      // Here a special case is handled: the body of the procedure was a single
-      // statement and after the transformation it is a block with a single
-      // statement inside.  In this case we make this statement the body of the
-      // procedure again.  It is required to follow the conventions imposed by
-      // [addClass] in [DillLibraryBuilder].
-      // See [dill_library_builder.dart]
-      // (../../../../front_end/lib/src/fasta/dill/dill_library_builder.dart)
-      // for details.
-      if (hadSingleStatementBody && function.body is Block) {
-        Block body = function.body;
-        if (body.statements.length == 1) {
-          function.body = body.statements[0];
-          function.body.parent = function;
-        }
-      }
     }
 
     return node;
   }
 
-  void setupRewriterForFunctionBody(FunctionNode function) {
+  void setupContextForFunctionBody(FunctionNode function) {
     Statement body = function.body;
     assert(body != null);
     currentMemberFunction = function;
     // Ensure that the body is a block which becomes the current block.
     rewriter = makeRewriterForBody(function);
+    // Start with no context.  This happens after setting up _currentBlock
+    // so statements can be emitted into _currentBlock if necessary.
+    context = new NoContext(this);
   }
 
   void resetContext() {
@@ -552,13 +467,14 @@ class ClosureConverter extends Transformer {
 
   TreeNode visitFunctionNode(FunctionNode node) {
     transformList(node.typeParameters, this, node);
-    // Initializers for optional parameters must be compile-time constants,
-    // which excludes closures. Therefore, we can avoid looking for closures in
-    // initializers of the parameters.
+    // TODO: Can parameters contain initializers (e.g., for optional ones) that
+    // need to be closure converted?
     node.positionalParameters
-        .forEach(extendContextConditionally(inInitializer: false));
+        .where(capturedVariables.contains)
+        .forEach(extendContextWith);
     node.namedParameters
-        .forEach(extendContextConditionally(inInitializer: false));
+        .where(capturedVariables.contains)
+        .forEach(extendContextWith);
     assert(node.body != null);
     node.body = node.body.accept(this);
     node.body.parent = node;
@@ -568,12 +484,7 @@ class ClosureConverter extends Transformer {
   TreeNode visitBlock(Block node) {
     return saveContext(() {
       BlockRewriter blockRewriter = rewriter = rewriter.forNestedBlock(node);
-      if (node.parent is Statement &&
-          isLoop(node.parent) &&
-          context is! NoContext) {
-        context = context.toNestedContext();
-      }
-      blockRewriter.transformStatements(this);
+      blockRewriter.transformStatements(node, this);
       return node;
     });
   }
@@ -594,8 +505,8 @@ class ClosureConverter extends Transformer {
       return node;
     } else {
       assert(node.parent is Block);
-      // When returning null, the parent block will remove
-      // this node from its list of statements.
+      // When returning null, the parent block will remove this node from its
+      // list of statements.
       return null;
     }
   }
@@ -635,7 +546,7 @@ class ClosureConverter extends Transformer {
   }
 
   Expression cloneContext() {
-    InvalidExpression placeHolder = new InvalidExpression(null);
+    InvalidExpression placeHolder = new InvalidExpression();
     contextClonePlaceHolders.add(placeHolder);
     return placeHolder;
   }
@@ -716,6 +627,30 @@ class ClosureConverter extends Transformer {
         : context.lookup(thisAccess[currentMemberFunction]);
   }
 
+  TreeNode visitStaticGet(StaticGet node) {
+    Member target = node.target;
+    if (target is Procedure && target.kind == ProcedureKind.Method) {
+      VariableDeclaration contextVariable = new VariableDeclaration(
+          "#contextParameter",
+          type: const VectorType());
+      Expression expression = getTearOffExpression(
+          null, node.target, contextVariable, new NullLiteral());
+      expression.transformChildren(this);
+      return expression;
+    }
+    return super.visitStaticGet(node);
+  }
+
+  TreeNode visitPropertyGet(PropertyGet node) {
+    Name tearOffName = tearOffGetterNames[node.name];
+    if (tearOffName != null) {
+      MethodInvocation replacement = new MethodInvocation(
+          node.receiver, tearOffName, new Arguments(<Expression>[]));
+      return super.visitMethodInvocation(replacement);
+    }
+    return super.visitPropertyGet(node);
+  }
+
   TreeNode visitCatch(Catch node) {
     VariableDeclaration exception = node.exception;
     VariableDeclaration stackTrace = node.stackTrace;
@@ -742,6 +677,61 @@ class ClosureConverter extends Transformer {
 
   Block ensureBlock(Statement statement) {
     return statement is Block ? statement : new Block(<Statement>[statement]);
+  }
+
+  /// Creates a closure that will invoke method [procedure] of [receiver] and
+  /// return an expression that instantiates that closure.
+  Expression getTearOffExpression(
+      VariableDeclaration receiver,
+      Procedure procedure,
+      VariableDeclaration contextVariable,
+      Expression accessContext) {
+    Map<TypeParameter, DartType> substitution = procedure.isInstanceMember
+        // Note: we do not attempt to avoid copying type variables that aren't
+        // used in the signature of [procedure]. It might be more economical to
+        // only copy type variables that are used. However, we assume that
+        // passing type arguments that match the enclosing class' type
+        // variables will be handled most efficiently.
+        ? copyTypeVariables(procedure.enclosingClass.typeParameters)
+        : const <TypeParameter, DartType>{};
+
+    // TODO(29181): remove variable `dynamicSubstitution` and replace its usages
+    // with `substitution`.
+
+    Map<TypeParameter, DartType> dynamicSubstitution =
+        <TypeParameter, DartType>{};
+    for (TypeParameter parameter in substitution.keys) {
+      dynamicSubstitution[parameter] = const DynamicType();
+    }
+    for (TypeParameter parameter in substitution.keys) {
+      if (!isObject(parameter.bound)) {
+        dynamicSubstitution[parameter] =
+            substitute(parameter.bound, dynamicSubstitution);
+      }
+    }
+
+    // Find the closure class for the function. If there isn't one, create it.
+    String closedTopLevelFunctionName =
+        createNameForClosedTopLevelFunction(procedure.function);
+    Procedure closedTopLevelFunction = null;
+    for (TreeNode node in newLibraryMembers) {
+      if (node is Procedure && node.name.name == closedTopLevelFunctionName) {
+        closedTopLevelFunction = node;
+      }
+    }
+    if (closedTopLevelFunction == null) {
+      closedTopLevelFunction = new Procedure(
+          new Name(closedTopLevelFunctionName),
+          ProcedureKind.Method,
+          forwardFunction(
+              procedure, receiver, contextVariable, dynamicSubstitution),
+          isStatic: true,
+          fileUri: currentFileUri);
+      newLibraryMembers.add(closedTopLevelFunction);
+    }
+
+    return new ClosureCreation(
+        closedTopLevelFunction, accessContext, procedure.function.functionType);
   }
 
   /// Creates a function that has the same signature as `procedure.function`
@@ -799,16 +789,13 @@ class ClosureConverter extends Transformer {
   /// Creates copies of the type variables in [original] and returns a
   /// substitution that can be passed to [substitute] to substitute all uses of
   /// [original] with their copies.
-  ///
   Map<TypeParameter, DartType> copyTypeVariables(
       Iterable<TypeParameter> original) {
     if (original.isEmpty) return const <TypeParameter, DartType>{};
-
     Map<TypeParameter, DartType> substitution = <TypeParameter, DartType>{};
     for (TypeParameter t in original) {
       substitution[t] = new TypeParameterType(new TypeParameter(t.name));
     }
-
     substitution.forEach((TypeParameter t, DartType copy) {
       if (copy is TypeParameterType) {
         copy.parameter.bound = substitute(t.bound, substitution);
@@ -844,5 +831,56 @@ class ClosureConverter extends Transformer {
     assert(getter.isGetter);
     newClassMembers
         .add(copyWithBody(getter, forwardToThisProperty(getter))..name = name);
+  }
+
+  void addTearOffMethod(Name name, Procedure procedure) {
+    // [addTearOffMethod] generates a method along with a context that captures
+    // `this`. The work with contexts is typically done using the data gathered
+    // by a [ClosureInfo] instance. In absence of this information, we need to
+    // create some variables, like `#self` and `#context`, and manipulate
+    // contexts directly in some cases.
+    //
+    // Also, the tear-off method is generated during a visit to the AST node
+    // of the procedure being torn off, so we need to save and restore some
+    // auxiliary variables like `currentMember` and `currentMemberFunction`
+    // and use [saveContext], so that those variables have proper values when
+    // the procedure itself is being transformed.
+    Member oldCurrentMember = currentMember;
+    FunctionNode oldCurrentMemberFunction = currentMemberFunction;
+    try {
+      saveContext(() {
+        Block body = new Block(<Statement>[]);
+        FunctionNode tearOffMethodFunction = new FunctionNode(body);
+        setupContextForFunctionBody(tearOffMethodFunction);
+
+        // We need a variable that refers to `this` to put it into the context.
+        VariableDeclaration self = new VariableDeclaration("#self",
+            type: procedure.enclosingClass.rawType);
+        context.extend(self, new ThisExpression());
+
+        // The `#context` variable is used to access the context in the closed
+        // top-level function that represents the closure and is generated in
+        // [getTearOffExpression].
+        VariableDeclaration contextVariable = new VariableDeclaration(
+            "#contextParameter",
+            type: const VectorType());
+        Context parent = context;
+        context = context.toNestedContext(
+            new VariableAccessor(contextVariable, null, TreeNode.noOffset));
+
+        body.addStatement(new ReturnStatement(getTearOffExpression(
+            self, procedure, contextVariable, parent.expression)));
+
+        Procedure tearOffMethod = new Procedure(
+            name, ProcedureKind.Method, tearOffMethodFunction,
+            fileUri: currentFileUri);
+        newClassMembers.add(tearOffMethod);
+
+        resetContext();
+      });
+    } finally {
+      currentMember = oldCurrentMember;
+      currentMemberFunction = oldCurrentMemberFunction;
+    }
   }
 }

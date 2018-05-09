@@ -3,10 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 library kernel.target.vmreify;
 
-import '../ast.dart' show Component;
-import '../core_types.dart' show CoreTypes;
+import '../ast.dart' show Program;
 import '../transformations/generic_types_reification.dart' as reify
-    show transformComponent;
+    show transformProgram;
+
 import 'targets.dart' show TargetFlags;
 import 'vmcc.dart' as vmcc_target;
 
@@ -27,18 +27,23 @@ class VmGenericTypesReifiedTarget extends vmcc_target.VmClosureConvertedTarget {
   }
 
   @override
-  void performGlobalTransformations(CoreTypes coreTypes, Component component,
-      {void logger(String msg)}) {
-    super.performGlobalTransformations(coreTypes, component);
+  void performGlobalTransformations(Program program) {
+    super.performGlobalTransformations(program);
     // TODO(dmitryas) this transformation should be made modular
-    reify.transformComponent(coreTypes, component);
+    reify.transformProgram(program);
   }
 
   // Disable tree shaking for Generic Types Reification. There are some runtime
   // libraries that are required for the transformation and are shaken off,
-  // because they aren't invoked from the component being transformed prior to
+  // because they aren't invoked from the program being transformed prior to
   // the transformation.
   // TODO(dmitryas): remove this when the libraries are in dart:_internal
   @override
-  void performTreeShaking(CoreTypes coreTypes, Component component) {}
+  void performTreeShaking(Program program) {}
+
+  // Here we disable Erasure pass of VmTarget class. The information deleted by
+  // the Erasure pass is required for Generic Type Reification. Also, reify
+  // transformation also performs its own Erasure pass.
+  @override
+  void performErasure(Program program) {}
 }

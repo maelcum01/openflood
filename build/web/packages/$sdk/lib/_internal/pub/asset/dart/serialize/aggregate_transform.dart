@@ -136,8 +136,10 @@ class ForeignAggregateTransform extends _ForeignBaseAggregateTransform
             deserializeStream(transform['primaryInputs'], deserializeAsset),
         super(transform);
 
-  Future<Asset> getInput(AssetId id) async => deserializeAsset(
-      await call(_port, {'type': 'getInput', 'id': serializeId(id)}));
+  Future<Asset> getInput(AssetId id) {
+    return call(_port, {'type': 'getInput', 'id': serializeId(id)})
+        .then(deserializeAsset);
+  }
 
   void addOutput(Asset output) {
     call(_port, {'type': 'addOutput', 'output': serializeAsset(output)});

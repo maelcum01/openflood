@@ -4,20 +4,13 @@
 
 library fasta.constructor_reference_builder;
 
-import '../messages.dart' show noLength, templateConstructorNotFound;
-
 import 'builder.dart'
-    show
-        Builder,
-        ClassBuilder,
-        LibraryBuilder,
-        PrefixBuilder,
-        QualifiedName,
-        Scope,
-        TypeBuilder;
+    show Builder, ClassBuilder, PrefixBuilder, Scope, TypeBuilder;
+
+import '../messages.dart' show warning;
 
 class ConstructorReferenceBuilder extends Builder {
-  final Object name;
+  final String name;
 
   final List<TypeBuilder> typeArguments;
 
@@ -32,38 +25,34 @@ class ConstructorReferenceBuilder extends Builder {
 
   String get fullNameForErrors => "$name${suffix == null ? '' : '.$suffix'}";
 
-  void resolveIn(Scope scope, LibraryBuilder accessingLibrary) {
-    final name = this.name;
+  void resolveIn(Scope scope) {
+    int index = name.indexOf(".");
     Builder builder;
-    if (name is QualifiedName) {
-      String prefix = name.prefix;
-      String middle = name.suffix;
+    if (index == -1) {
+      builder = scope.lookup(name, charOffset, fileUri);
+    } else {
+      String prefix = name.substring(0, index);
+      String middle = name.substring(index + 1);
       builder = scope.lookup(prefix, charOffset, fileUri);
       if (builder is PrefixBuilder) {
         PrefixBuilder prefix = builder;
-        builder = prefix.lookup(middle, name.charOffset, fileUri);
+        builder = prefix.lookup(middle, charOffset, fileUri);
       } else if (builder is ClassBuilder) {
         ClassBuilder cls = builder;
-        builder = cls.findConstructorOrFactory(
-            middle, name.charOffset, fileUri, accessingLibrary);
+        builder = cls.findConstructorOrFactory(middle, charOffset, fileUri);
         if (suffix == null) {
           target = builder;
           return;
         }
       }
-    } else {
-      builder = scope.lookup(name, charOffset, fileUri);
     }
     if (builder is ClassBuilder) {
-      target = builder.findConstructorOrFactory(
-          suffix ?? "", charOffset, fileUri, accessingLibrary);
+      target =
+          builder.findConstructorOrFactory(suffix ?? "", charOffset, fileUri);
     }
     if (target == null) {
-      accessingLibrary.addProblem(
-          templateConstructorNotFound.withArguments(fullNameForErrors),
-          charOffset,
-          noLength,
-          fileUri);
+      warning(fileUri, charOffset,
+          "Couldn't find constructor '$fullNameForErrors'.");
     }
   }
 }

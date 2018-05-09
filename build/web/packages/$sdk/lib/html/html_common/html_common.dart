@@ -13,13 +13,12 @@ import 'dart:nativewrappers';
 import 'dart:typed_data';
 import 'dart:web_gl' as gl;
 
-import 'dart:_js_helper';
-
-import 'dart:_metadata';
-export 'dart:_metadata';
+import 'metadata.dart';
+export 'metadata.dart';
 
 part 'css_class_set.dart';
 part 'device.dart';
 part 'filtered_element_list.dart';
 part 'lists.dart';
 part 'conversions.dart';
+part 'conversions_dartium.dart';

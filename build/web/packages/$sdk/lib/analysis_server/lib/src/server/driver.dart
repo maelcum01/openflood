@@ -7,26 +7,51 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:analysis_server/src/analysis_server.dart';
+import 'package:analysis_server/src/plugin/server_plugin.dart';
+import 'package:analysis_server/src/provisional/completion/dart/completion_plugin.dart';
 import 'package:analysis_server/src/server/diagnostic_server.dart';
 import 'package:analysis_server/src/server/http_server.dart';
 import 'package:analysis_server/src/server/stdio_server.dart';
-import 'package:analysis_server/src/services/completion/dart/uri_contributor.dart'
-    show UriContributor;
 import 'package:analysis_server/src/socket_server.dart';
 import 'package:analysis_server/starter.dart';
 import 'package:analyzer/file_system/physical_file_system.dart';
 import 'package:analyzer/instrumentation/file_instrumentation.dart';
 import 'package:analyzer/instrumentation/instrumentation.dart';
-import 'package:analyzer/src/context/builder.dart';
+import 'package:analyzer/plugin/resolver_provider.dart';
 import 'package:analyzer/src/dart/sdk/sdk.dart';
 import 'package:analyzer/src/generated/engine.dart';
+import 'package:analyzer/src/generated/incremental_logger.dart';
 import 'package:analyzer/src/generated/sdk.dart';
-import 'package:analyzer/src/plugin/resolver_provider.dart';
 import 'package:args/args.dart';
 import 'package:linter/src/rules.dart' as linter;
 import 'package:plugin/manager.dart';
-import 'package:telemetry/crash_reporting.dart';
-import 'package:telemetry/telemetry.dart' as telemetry;
+import 'package:plugin/plugin.dart';
+
+/**
+ * Initializes incremental logger.
+ *
+ * Supports following formats of [spec]:
+ *
+ *     "console" - log to the console;
+ *     "file:/some/file/name" - log to the file, overwritten on start.
+ */
+void _initIncrementalLogger(String spec) {
+  logger = NULL_LOGGER;
+  if (spec == null) {
+    return;
+  }
+  // create logger
+  if (spec == 'console') {
+    logger = new StringSinkLogger(stdout);
+  } else if (spec == 'stderr') {
+    logger = new StringSinkLogger(stderr);
+  } else if (spec.startsWith('file:')) {
+    String fileName = spec.substring('file:'.length);
+    File file = new File(fileName);
+    IOSink sink = file.openWrite();
+    logger = new StringSinkLogger(sink);
+  }
+}
 
 /// Commandline argument parser. (Copied from analyzer/lib/options.dart)
 /// TODO(pquitslund): replaces with a simple [ArgParser] instance
@@ -72,7 +97,8 @@ class CommandLineParser {
       List<String> allowed,
       Map<String, String> allowedHelp,
       String defaultsTo,
-      void callback(value)}) {
+      void callback(value),
+      bool allowMultiple: false}) {
     _knownFlags.add(name);
     _parser.addOption(name,
         abbr: abbr,
@@ -80,7 +106,8 @@ class CommandLineParser {
         allowed: allowed,
         allowedHelp: allowedHelp,
         defaultsTo: defaultsTo,
-        callback: callback);
+        callback: callback,
+        allowMultiple: allowMultiple);
   }
 
   /// Generates a string displaying usage information for the defined options.
@@ -125,10 +152,6 @@ class CommandLineParser {
         String arg = args[i];
         if (arg.startsWith('--') && arg.length > 2) {
           String option = arg.substring(2);
-          // remove any leading 'no-'
-          if (option.startsWith('no-')) {
-            option = option.substring(3);
-          }
           // strip the last '=value'
           int equalsOffset = option.lastIndexOf('=');
           if (equalsOffset != -1) {
@@ -184,9 +207,11 @@ class Driver implements ServerStarter {
   static const String CLIENT_VERSION = "client-version";
 
   /**
-   * The name of the option used to enable DartPad specific functionality.
+   * The name of the option used to enable incremental resolution of API
+   * changes.
    */
-  static const String DARTPAD_OPTION = "dartpad";
+  static const String ENABLE_INCREMENTAL_RESOLUTION_API =
+      "enable-incremental-resolution-api";
 
   /**
    * The name of the option used to enable instrumentation.
@@ -199,25 +224,27 @@ class Driver implements ServerStarter {
   static const String FILE_READ_MODE = "file-read-mode";
 
   /**
-   * The name of the flag used when analyzing the flutter repository.
-   * See comments in source for `flutter analyze --watch`.
-   */
-  static const FLUTTER_REPO = "flutter-repo";
-
-  /**
    * The name of the option used to print usage information.
    */
   static const String HELP_OPTION = "help";
 
   /**
-   * The name of the flag used to configure reporting analytics.
+   * The name of the option used to describe the incremental resolution logger.
    */
-  static const String ANALYTICS_FLAG = "analytics";
+  static const String INCREMENTAL_RESOLUTION_LOG = "incremental-resolution-log";
 
   /**
-   * Suppress analytics for this session.
+   * The name of the option used to enable validation of incremental resolution
+   * results.
    */
-  static const String SUPPRESS_ANALYTICS_FLAG = "suppress-analytics";
+  static const String INCREMENTAL_RESOLUTION_VALIDATION =
+      "incremental-resolution-validation";
+
+  /**
+   * The name of the option used to disable using the new analysis driver.
+   */
+  static const String DISABLE_NEW_ANALYSIS_DRIVER =
+      'disable-new-analysis-driver';
 
   /**
    * The name of the option used to cause instrumentation to also be written to
@@ -229,12 +256,24 @@ class Driver implements ServerStarter {
    * The name of the option used to specify if [print] should print to the
    * console instead of being intercepted.
    */
+  static const String INTERNAL_DELAY_FREQUENCY = 'internal-delay-frequency';
+
+  /**
+   * The name of the option used to specify if [print] should print to the
+   * console instead of being intercepted.
+   */
   static const String INTERNAL_PRINT_TO_CONSOLE = "internal-print-to-console";
 
   /**
    * The name of the option used to describe the new analysis driver logger.
    */
   static const String NEW_ANALYSIS_DRIVER_LOG = 'new-analysis-driver-log';
+
+  /**
+   * The name of the option used to enable verbose Flutter completion code generation.
+   */
+  static const String VERBOSE_FLUTTER_COMPLETIONS =
+      'verbose-flutter-completions';
 
   /**
    * The name of the flag used to enable version 2 of semantic highlight
@@ -251,23 +290,10 @@ class Driver implements ServerStarter {
 
   /**
    * The path to the SDK.
+   * TODO(paulberry): get rid of this once the 'analysis.updateSdks' request is
+   * operational.
    */
   static const String SDK_OPTION = "sdk";
-
-  /**
-   * The path to the data cache.
-   */
-  static const String CACHE_FOLDER = "cache";
-
-  /**
-   * Whether to enable the Dart 2.0 preview.
-   */
-  static const String PREVIEW_DART2 = "preview-dart-2";
-
-  /**
-   * Whether to enable the Dart 2.0 Common Front End implementation.
-   */
-  static const String USE_CFE = "use-cfe";
 
   /**
    * The instrumentation server that is to be used by the analysis server.
@@ -286,6 +312,19 @@ class Driver implements ServerStarter {
    */
   ResolverProvider packageResolverProvider;
 
+  /**
+   * If this flag is `true`, then single analysis context should be used for
+   * analysis of multiple analysis roots, special files that could otherwise
+   * cause creating additional contexts, such as `pubspec.yaml`, or `.packages`,
+   * or analysis options are ignored.
+   */
+  bool useSingleContextManager = false;
+
+  /**
+   * The plugins that are defined outside the analysis_server package.
+   */
+  List<Plugin> _userDefinedPlugins = <Plugin>[];
+
   SocketServer socketServer;
 
   HttpAnalysisServer httpServer;
@@ -293,6 +332,13 @@ class Driver implements ServerStarter {
   StdioAnalysisServer stdioServer;
 
   Driver();
+
+  /**
+   * Set the [plugins] that are defined outside the analysis_server package.
+   */
+  void set userDefinedPlugins(List<Plugin> plugins) {
+    _userDefinedPlugins = plugins ?? <Plugin>[];
+  }
 
   /**
    * Use the given command-line [arguments] to start this server.
@@ -304,57 +350,16 @@ class Driver implements ServerStarter {
   AnalysisServer start(List<String> arguments) {
     CommandLineParser parser = _createArgParser();
     ArgResults results = parser.parse(arguments, <String, String>{});
-
-    AnalysisServerOptions analysisServerOptions = new AnalysisServerOptions();
-    analysisServerOptions.useAnalysisHighlight2 =
-        results[USE_ANALYSIS_HIGHLIGHT2];
-    analysisServerOptions.fileReadMode = results[FILE_READ_MODE];
-    analysisServerOptions.newAnalysisDriverLog =
-        results[NEW_ANALYSIS_DRIVER_LOG];
-    analysisServerOptions.clientId = results[CLIENT_ID];
-    analysisServerOptions.clientVersion = results[CLIENT_VERSION];
-    analysisServerOptions.cacheFolder = results[CACHE_FOLDER];
-    if (results.wasParsed(PREVIEW_DART2)) {
-      analysisServerOptions.previewDart2 = results[PREVIEW_DART2];
-    } else {
-      analysisServerOptions.previewDart2 = true;
-    }
-    analysisServerOptions.useCFE = results[USE_CFE];
-
-    ContextBuilderOptions.flutterRepo = results[FLUTTER_REPO];
-
-    telemetry.Analytics analytics = telemetry.createAnalyticsInstance(
-        'UA-26406144-29', 'analysis-server',
-        disableForSession: results[SUPPRESS_ANALYTICS_FLAG]);
-    analysisServerOptions.analytics = analytics;
-
-    if (analysisServerOptions.clientId != null) {
-      // Record the client name as the application installer ID.
-      analytics.setSessionValue('aiid', analysisServerOptions.clientId);
-    }
-    if (analysisServerOptions.clientVersion != null) {
-      analytics.setSessionValue('cd1', analysisServerOptions.clientVersion);
-    }
-
-    // TODO(devoncarew): Replace with the real crash product ID.
-    analysisServerOptions.crashReportSender =
-        new CrashReportSender('Dart_analysis_server', analytics);
-
-    if (telemetry.SHOW_ANALYTICS_UI) {
-      if (results.wasParsed(ANALYTICS_FLAG)) {
-        analytics.enabled = results[ANALYTICS_FLAG];
-        print(telemetry.createAnalyticsStatusMessage(analytics.enabled));
-        return null;
-      }
-    }
-
-    if (results[DARTPAD_OPTION]) {
-      UriContributor.suggestFilePaths = false;
-    }
-
     if (results[HELP_OPTION]) {
-      _printUsage(parser.parser, analytics, fromHelp: true);
+      _printUsage(parser.parser);
       return null;
+    }
+
+    // TODO (danrubel) Remove this workaround
+    // once the underlying VM and dart:io issue has been fixed.
+    if (results[INTERNAL_DELAY_FREQUENCY] != null) {
+      AnalysisServer.performOperationDelayFrequency =
+          int.parse(results[INTERNAL_DELAY_FREQUENCY], onError: (_) => 0);
     }
 
     int port;
@@ -366,17 +371,40 @@ class Driver implements ServerStarter {
       } on FormatException {
         print('Invalid port number: ${results[PORT_OPTION]}');
         print('');
-        _printUsage(parser.parser, analytics);
+        _printUsage(parser.parser);
         exitCode = 1;
         return null;
       }
     }
 
+    AnalysisServerOptions analysisServerOptions = new AnalysisServerOptions();
+    analysisServerOptions.enableIncrementalResolutionApi =
+        results[ENABLE_INCREMENTAL_RESOLUTION_API];
+    analysisServerOptions.enableIncrementalResolutionValidation =
+        results[INCREMENTAL_RESOLUTION_VALIDATION];
+    analysisServerOptions.enableNewAnalysisDriver =
+        !results[DISABLE_NEW_ANALYSIS_DRIVER];
+    analysisServerOptions.useAnalysisHighlight2 =
+        results[USE_ANALYSIS_HIGHLIGHT2];
+    analysisServerOptions.fileReadMode = results[FILE_READ_MODE];
+    analysisServerOptions.newAnalysisDriverLog =
+        results[NEW_ANALYSIS_DRIVER_LOG];
+    analysisServerOptions.enableVerboseFlutterCompletions =
+        results[VERBOSE_FLUTTER_COMPLETIONS];
+
+    _initIncrementalLogger(results[INCREMENTAL_RESOLUTION_LOG]);
+
     //
     // Process all of the plugins so that extensions are registered.
     //
+    ServerPlugin serverPlugin = new ServerPlugin();
+    List<Plugin> plugins = <Plugin>[];
+    plugins.addAll(AnalysisEngine.instance.requiredPlugins);
+    plugins.add(serverPlugin);
+    plugins.add(dartCompletionPlugin);
+    plugins.addAll(_userDefinedPlugins);
     ExtensionManager manager = new ExtensionManager();
-    manager.processPlugins(AnalysisEngine.instance.requiredPlugins);
+    manager.processPlugins(plugins);
     linter.registerLintRules();
 
     String defaultSdkPath;
@@ -384,15 +412,17 @@ class Driver implements ServerStarter {
       defaultSdkPath = results[SDK_OPTION];
     } else {
       // No path to the SDK was provided.
-      // Use FolderBasedDartSdk.defaultSdkDirectory, which will make a guess.
+      // Use DirectoryBasedDartSdk.defaultSdkDirectory, which will make a guess.
       defaultSdkPath = FolderBasedDartSdk
           .defaultSdkDirectory(PhysicalResourceProvider.INSTANCE)
           .path;
     }
+    bool useSummaries = analysisServerOptions.fileReadMode == 'as-is' ||
+        analysisServerOptions.enableNewAnalysisDriver;
     // TODO(brianwilkerson) It would be nice to avoid creating an SDK that
     // cannot be re-used, but the SDK is needed to create a package map provider
     // in the case where we need to run `pub` in order to get the package map.
-    DartSdk defaultSdk = _createDefaultSdk(defaultSdkPath, true);
+    DartSdk defaultSdk = _createDefaultSdk(defaultSdkPath, useSummaries);
     //
     // Initialize the instrumentation service.
     //
@@ -410,30 +440,30 @@ class Driver implements ServerStarter {
         new InstrumentationService(instrumentationServer);
     instrumentationService.logVersion(
         _readUuid(instrumentationService),
-        analysisServerOptions.clientId,
-        analysisServerOptions.clientVersion,
+        results[CLIENT_ID],
+        results[CLIENT_VERSION],
         AnalysisServer.VERSION,
         defaultSdk.sdkVersion);
     AnalysisEngine.instance.instrumentationService = instrumentationService;
 
     _DiagnosticServerImpl diagnosticServer = new _DiagnosticServerImpl();
 
-    // Ping analytics with our initial call.
-    analytics.sendScreenView('home');
-
     //
     // Create the sockets and start listening for requests.
     //
     socketServer = new SocketServer(
         analysisServerOptions,
-        new DartSdkManager(defaultSdkPath, true),
+        new DartSdkManager(defaultSdkPath, useSummaries),
         defaultSdk,
         instrumentationService,
         diagnosticServer,
+        serverPlugin,
         fileResolverProvider,
-        packageResolverProvider);
+        packageResolverProvider,
+        useSingleContextManager);
     httpServer = new HttpAnalysisServer(socketServer);
     stdioServer = new StdioAnalysisServer(socketServer);
+    socketServer.userDefinedPlugins = _userDefinedPlugins;
 
     diagnosticServer.httpServer = httpServer;
     if (serve_http) {
@@ -463,15 +493,14 @@ class Driver implements ServerStarter {
    */
   dynamic _captureExceptions(InstrumentationService service, dynamic callback(),
       {void print(String line)}) {
-    void errorFunction(Zone self, ZoneDelegate parent, Zone zone,
+    var errorFunction = (Zone self, ZoneDelegate parent, Zone zone,
         dynamic exception, StackTrace stackTrace) {
       service.logPriorityException(exception, stackTrace);
       AnalysisServer analysisServer = socketServer.analysisServer;
       analysisServer.sendServerErrorNotification(
           'Captured exception', exception, stackTrace);
       throw exception;
-    }
-
+    };
     var printFunction = print == null
         ? null
         : (Zone self, ZoneDelegate parent, Zone zone, String line) {
@@ -493,40 +522,43 @@ class Driver implements ServerStarter {
     parser.addOption(CLIENT_ID,
         help: "an identifier used to identify the client");
     parser.addOption(CLIENT_VERSION, help: "the version of the client");
-    parser.addFlag(DARTPAD_OPTION,
-        help: 'enable DartPad specific functionality',
+    parser.addFlag(ENABLE_INCREMENTAL_RESOLUTION_API,
+        help: "enable using incremental resolution for API changes",
         defaultsTo: false,
-        hide: true);
+        negatable: false);
     parser.addFlag(ENABLE_INSTRUMENTATION_OPTION,
         help: "enable sending instrumentation information to a server",
         defaultsTo: false,
         negatable: false);
-    parser.addFlag(FLUTTER_REPO,
-        help: 'used by "flutter analyze" to enable specific lints'
-            ' when analyzing the flutter repository',
-        hide: false);
     parser.addFlag(HELP_OPTION,
         help: "print this help message without starting a server",
-        abbr: 'h',
+        defaultsTo: false,
+        negatable: false);
+    parser.addOption(INCREMENTAL_RESOLUTION_LOG,
+        help: "set a destination for the incremental resolver's log");
+    parser.addFlag(INCREMENTAL_RESOLUTION_VALIDATION,
+        help: "enable validation of incremental resolution results (slow)",
+        defaultsTo: false,
+        negatable: false);
+    parser.addFlag(DISABLE_NEW_ANALYSIS_DRIVER,
+        help: "disable using new analysis driver",
         defaultsTo: false,
         negatable: false);
     parser.addOption(INSTRUMENTATION_LOG_FILE,
-        help: "write instrumentation data to the given file");
+        help:
+            "the path of the file to which instrumentation data will be written");
     parser.addFlag(INTERNAL_PRINT_TO_CONSOLE,
         help: "enable sending `print` output to the console",
         defaultsTo: false,
         negatable: false);
     parser.addOption(NEW_ANALYSIS_DRIVER_LOG,
         help: "set a destination for the new analysis driver's log");
-    if (telemetry.SHOW_ANALYTICS_UI) {
-      parser.addFlag(ANALYTICS_FLAG,
-          help: 'enable or disable sending analytics information to Google');
-    }
-    parser.addFlag(SUPPRESS_ANALYTICS_FLAG,
-        negatable: false, help: 'suppress analytics for this session');
+    parser.addFlag(VERBOSE_FLUTTER_COMPLETIONS,
+        help: "enable verbose code completion for Flutter (experimental)");
     parser.addOption(PORT_OPTION,
         help: "the http diagnostic port on which the server provides"
             " status and performance information");
+    parser.addOption(INTERNAL_DELAY_FREQUENCY);
     parser.addOption(SDK_OPTION, help: "[path] the path to the sdk");
     parser.addFlag(USE_ANALYSIS_HIGHLIGHT2,
         help: "enable version 2 of semantic highlight",
@@ -543,11 +575,6 @@ class Driver implements ServerStarter {
               r"eol characters normalized to the single character new line ('\n')"
         },
         defaultsTo: "as-is");
-    parser.addOption(CACHE_FOLDER,
-        help: "[path] path to the location where to cache data");
-    parser.addFlag(PREVIEW_DART2, help: "Enable the Dart 2.0 preview");
-    parser.addFlag(USE_CFE,
-        help: "Enable the Dart 2.0 Common Front End implementation");
 
     return parser;
   }
@@ -564,23 +591,11 @@ class Driver implements ServerStarter {
   /**
    * Print information about how to use the server.
    */
-  void _printUsage(ArgParser parser, telemetry.Analytics analytics,
-      {bool fromHelp: false}) {
+  void _printUsage(ArgParser parser) {
     print('Usage: $BINARY_NAME [flags]');
     print('');
     print('Supported flags are:');
     print(parser.usage);
-
-    if (telemetry.SHOW_ANALYTICS_UI) {
-      // Print analytics status and information.
-      if (fromHelp) {
-        print('');
-        print(telemetry.analyticsNotice);
-      }
-      print('');
-      print(telemetry.createAnalyticsStatusMessage(analytics.enabled,
-          command: ANALYTICS_FLAG));
-    }
   }
 
   /**
@@ -626,7 +641,7 @@ class Driver implements ServerStarter {
     for (int i = numOld - 1; i >= 0; i--) {
       try {
         String oldPath = i == 0 ? path : '$path.$i';
-        new File(oldPath).renameSync('$path.${i + 1}');
+        new File(oldPath).renameSync('$path.${i+1}');
       } catch (e) {}
     }
   }

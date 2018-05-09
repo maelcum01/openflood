@@ -16,7 +16,7 @@ import 'implied_types.dart';
 import 'to_html.dart';
 
 final GeneratedFile target = new GeneratedFile(
-    'test/integration/support/protocol_matchers.dart', (String pkgPath) async {
+    'test/integration/support/protocol_matchers.dart', (String pkgPath) {
   CodegenMatchersVisitor visitor = new CodegenMatchersVisitor(readApi(pkgPath));
   return visitor.collectCode(visitor.visitApi);
 });
@@ -82,9 +82,9 @@ class CodegenMatchersVisitor extends HierarchicalApiVisitor with CodeGenerator {
         if (commaNeeded) {
           writeln(',');
         }
-        write('${json.encode(field.name)}: ');
+        write('${JSON.encode(field.name)}: ');
         if (field.value != null) {
-          write('equals(${json.encode(field.value)})');
+          write('equals(${JSON.encode(field.value)})');
         } else {
           visitTypeDecl(field.type);
         }
@@ -116,14 +116,14 @@ class CodegenMatchersVisitor extends HierarchicalApiVisitor with CodeGenerator {
 
   @override
   visitTypeEnum(TypeEnum typeEnum) {
-    writeln('new MatchesEnum(${json.encode(context)}, [');
+    writeln('new MatchesEnum(${JSON.encode(context)}, [');
     indent(() {
       bool commaNeeded = false;
       for (TypeEnumValue value in typeEnum.values) {
         if (commaNeeded) {
           writeln(',');
         }
-        write('${json.encode(value.value)}');
+        write('${JSON.encode(value.value)}');
         commaNeeded = true;
       }
       writeln();
@@ -151,7 +151,7 @@ class CodegenMatchersVisitor extends HierarchicalApiVisitor with CodeGenerator {
   void visitTypeObject(TypeObject typeObject) {
     writeln('new LazyMatcher(() => new MatchesJsonObject(');
     indent(() {
-      write('${json.encode(context)}, ');
+      write('${JSON.encode(context)}, ');
       Iterable<TypeObjectField> requiredFields =
           typeObject.fields.where((TypeObjectField field) => !field.optional);
       outputObjectFields(requiredFields);

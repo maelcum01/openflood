@@ -129,7 +129,7 @@ a:focus, a:hover {
     .trim();
 
 final GeneratedFile target =
-    new GeneratedFile('doc/api.html', (String pkgPath) async {
+    new GeneratedFile('doc/api.html', (String pkgPath) {
   ToHtmlVisitor visitor = new ToHtmlVisitor(readApi(pkgPath));
   dom.Document document = new dom.Document();
   document.append(new dom.DocumentType('html', null, null));
@@ -353,8 +353,6 @@ class ToHtmlVisitor extends HierarchicalApiVisitor
 
   void generateTableOfContents() {
     for (var domain in api.domains.where((domain) => !domain.experimental)) {
-      if (domain.experimental) continue;
-
       writeln();
 
       p(() {
@@ -365,8 +363,6 @@ class ToHtmlVisitor extends HierarchicalApiVisitor
 
       ul(() {
         for (Request request in domain.requests) {
-          if (request.experimental) continue;
-
           li(() {
             link('request_${request.longMethod}', () {
               write(request.longMethod);
@@ -540,9 +536,6 @@ class ToHtmlVisitor extends HierarchicalApiVisitor
 
   @override
   void visitNotification(Notification notification) {
-    if (notification.experimental) {
-      return;
-    }
     dt('notification', () {
       anchor('notification_${notification.longEvent}', () {
         write(notification.longEvent);
@@ -679,7 +672,7 @@ class ToHtmlVisitor extends HierarchicalApiVisitor
           write(typeObjectField.name);
         }
         if (typeObjectField.value != null) {
-          write(' = ${json.encode(typeObjectField.value)}');
+          write(' = ${JSON.encode(typeObjectField.value)}');
         } else {
           write(': ');
           TypeVisitor typeVisitor = new TypeVisitor(api, short: true);
@@ -789,7 +782,7 @@ class TypeVisitor extends HierarchicalApiVisitor
         }
         write('": ');
         if (field.value != null) {
-          write(json.encode(field.value));
+          write(JSON.encode(field.value));
         } else {
           if (field.optional) {
             gray(() {

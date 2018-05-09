@@ -2,8 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:core' hide Symbol;
-import 'dart:core' as core;
 import 'dart:_js_primitives' show printString;
 import 'dart:_js_helper' show patch;
 import 'dart:_interceptors' show JSArray;
@@ -26,11 +24,6 @@ class Symbol implements core.Symbol {
 
   @patch
   toString() => 'Symbol("$_name")';
-
-  @patch
-  static String computeUnmangledName(Symbol symbol) {
-    throw "unsupported operation";
-  }
 }
 
 @patch
@@ -39,20 +32,11 @@ void printToConsole(String line) {
 }
 
 @patch
-List<T> makeListFixedLength<T>(List<T> growableList) {
+List makeListFixedLength(List growableList) {
   return JSArray.markFixedList(growableList);
 }
 
 @patch
-List<T> makeFixedListUnmodifiable<T>(List<T> fixedLengthList) {
+List makeFixedListUnmodifiable(List fixedLengthList) {
   return JSArray.markUnmodifiableList(fixedLengthList);
-}
-
-@patch
-Object extractTypeArguments<T>(T instance, Function extract) {
-  // TODO(31371): Implement this correctly for Dart 2.0.
-  // In Dart 1.0, instantiating the generic with dynamic (which this does),
-  // gives you an object that can be used anywhere a more specific type is
-  // expected, so this works for now.
-  return extract();
 }

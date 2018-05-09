@@ -92,16 +92,28 @@ class TypeConstraintGatherer {
         supertype.typeParameters.isNotEmpty) {
       var subtypeSubstitution = <TypeParameter, DartType>{};
       var supertypeSubstitution = <TypeParameter, DartType>{};
-      var freshTypeVariables = <TypeParameter>[];
       if (!_matchTypeFormals(subtype.typeParameters, supertype.typeParameters,
-          subtypeSubstitution, supertypeSubstitution, freshTypeVariables)) {
+          subtypeSubstitution, supertypeSubstitution)) {
         return false;
       }
 
-      subtype = substituteTypeParams(
-          subtype, subtypeSubstitution, freshTypeVariables);
-      supertype = substituteTypeParams(
-          supertype, supertypeSubstitution, freshTypeVariables);
+      // TODO(paulberry): try to push this functionality into kernel.
+      FunctionType substituteTypeParams(
+          FunctionType type, Map<TypeParameter, DartType> substitutionMap) {
+        var substitution = Substitution.fromMap(substitutionMap);
+        return new FunctionType(
+            type.positionalParameters.map(substitution.substituteType).toList(),
+            substitution.substituteType(type.returnType),
+            namedParameters: type.namedParameters
+                .map((named) => new NamedType(
+                    named.name, substitution.substituteType(named.type)))
+                .toList(),
+            typeParameters: substitutionMap.keys.toList(),
+            requiredParameterCount: type.requiredParameterCount);
+      }
+
+      subtype = substituteTypeParams(subtype, subtypeSubstitution);
+      supertype = substituteTypeParams(supertype, supertypeSubstitution);
     }
 
     // Test the return types.
@@ -220,48 +232,27 @@ class TypeConstraintGatherer {
     // `Null` is a subtype match for any type `Q` under no constraints.
     // Note that nullable types will change this.
     if (_isNull(subtype)) return true;
-
-    // Handle FutureOr<T> union type.
-    if (subtype is InterfaceType &&
-        identical(subtype.classNode, environment.futureOrClass)) {
-      var subtypeArg = subtype.typeArguments[0];
-      if (supertype is InterfaceType &&
-          identical(supertype.classNode, environment.futureOrClass)) {
-        // `FutureOr<P>` is a subtype match for `FutureOr<Q>` with respect to `L`
-        // under constraints `C`:
-        // - If `P` is a subtype match for `Q` with respect to `L` under constraints
-        //   `C`.
-        var supertypeArg = supertype.typeArguments[0];
-        return _isSubtypeMatch(subtypeArg, supertypeArg);
-      }
-
-      // `FutureOr<P>` is a subtype match for `Q` with respect to `L` under
-      // constraints `C0 + C1`:
-      // - If `Future<P>` is a subtype match for `Q` with respect to `L` under
-      //   constraints `C0`.
-      // - And `P` is a subtype match for `Q` with respect to `L` under
-      //   constraints `C1`.
-      var subtypeFuture = environment.futureType(subtypeArg);
-      return _isSubtypeMatch(subtypeFuture, supertype) &&
-          _isSubtypeMatch(subtypeArg, supertype);
-    }
-
-    if (supertype is InterfaceType &&
-        identical(supertype.classNode, environment.futureOrClass)) {
-      // `P` is a subtype match for `FutureOr<Q>` with respect to `L` under
-      // constraints `C`:
-      // - If `P` is a subtype match for `Future<Q>` with respect to `L` under
-      //   constraints `C`.
-      // - Or `P` is not a subtype match for `Future<Q>` with respect to `L` under
-      //   constraints `C`
-      //   - And `P` is a subtype match for `Q` with respect to `L` under
-      //     constraints `C`
-      var supertypeArg = supertype.typeArguments[0];
-      var supertypeFuture = environment.futureType(supertypeArg);
-      return trySubtypeMatch(subtype, supertypeFuture) ||
-          _isSubtypeMatch(subtype, supertypeArg);
-    }
-
+    // `FutureOr<P>` is a subtype match for `FutureOr<Q>` with respect to `L`
+    // under constraints `C`:
+    // - If `P` is a subtype match for `Q` with respect to `L` under constraints
+    //   `C`.
+    // TODO(paulberry): implement this case.
+    // `FutureOr<P>` is a subtype match for `Q` with respect to `L` under
+    // constraints `C0 + C1`:
+    // - If `Future<P>` is a subtype match for `Q` with respect to `L` under
+    //   constraints `C0`.
+    // - And `P` is a subtype match for `Q` with respect to `L` under
+    //   constraints `C1`.
+    // TODO(paulberry): implement this case.
+    // `P` is a subtype match for `FutureOr<Q>` with respect to `L` under
+    // constraints `C`:
+    // - If `P` is a subtype match for `Future<Q>` with respect to `L` under
+    //   constraints `C`.
+    // - Or `P` is not a subtype match for `Future<Q>` with respect to `L` under
+    //   constraints `C`
+    //   - And `P` is a subtype match for `Q` with respect to `L` under
+    //     constraints `C`
+    // TODO(paulberry): implement this case.
     // A type variable `T` not in `L` with bound `P` is a subtype match for the
     // same type variable `T` with bound `Q` with respect to `L` under
     // constraints `C`:
@@ -331,8 +322,7 @@ class TypeConstraintGatherer {
       List<TypeParameter> params1,
       List<TypeParameter> params2,
       Map<TypeParameter, DartType> substitution1,
-      Map<TypeParameter, DartType> substitution2,
-      List<TypeParameter> freshTypeVariables) {
+      Map<TypeParameter, DartType> substitution2) {
     int count = params1.length;
     if (count != params2.length) return false;
     // TODO(paulberry): in imitation of analyzer, we're checking the bounds as
@@ -341,7 +331,6 @@ class TypeConstraintGatherer {
     // bounds.  See dartbug.com/29629.
     for (int i = 0; i < count; i++) {
       TypeParameter pFresh = new TypeParameter(params2[i].name);
-      freshTypeVariables.add(pFresh);
       DartType variableFresh = new TypeParameterType(pFresh);
       substitution1[params1[i]] = variableFresh;
       substitution2[params2[i]] = variableFresh;

@@ -4,23 +4,22 @@
 
 library fasta.dill_library_builder;
 
-import 'dart:convert' show jsonDecode;
-
+import 'package:front_end/src/fasta/dill/dill_typedef_builder.dart';
 import 'package:kernel/ast.dart'
     show
         Class,
+        ExpressionStatement,
         Field,
+        FunctionNode,
+        Let,
         Library,
         ListLiteral,
         Member,
         Procedure,
         StaticGet,
-        StringLiteral,
         Typedef;
 
-import '../fasta_codes.dart' show templateUnspecified;
-
-import '../problems.dart' show internalProblem, unhandled, unimplemented;
+import '../errors.dart' show internalError;
 
 import '../kernel/kernel_builder.dart'
     show
@@ -39,8 +38,6 @@ import 'dill_member_builder.dart' show DillMemberBuilder;
 
 import 'dill_loader.dart' show DillLoader;
 
-import 'dill_typedef_builder.dart' show DillFunctionTypeAliasBuilder;
-
 class DillLibraryBuilder extends LibraryBuilder<KernelTypeBuilder, Library> {
   final Uri uri;
 
@@ -48,22 +45,10 @@ class DillLibraryBuilder extends LibraryBuilder<KernelTypeBuilder, Library> {
 
   Library library;
 
-  /// Exports that can't be serialized.
-  ///
-  /// The elements of this map are documented in
-  /// [../kernel/kernel_library_builder.dart].
-  Map<String, String> unserializableExports;
-
   DillLibraryBuilder(this.uri, this.loader)
       : super(uri, new Scope.top(), new Scope.top());
 
   Uri get fileUri => uri;
-
-  @override
-  String get name => library.name;
-
-  @override
-  Library get target => library;
 
   void addClass(Class cls) {
     DillClassBuilder classBulder = new DillClassBuilder(cls, this);
@@ -72,10 +57,21 @@ class DillLibraryBuilder extends LibraryBuilder<KernelTypeBuilder, Library> {
     cls.constructors.forEach(classBulder.addMember);
     for (Field field in cls.fields) {
       if (field.name.name == "_redirecting#") {
+        // This is a hack / work around for storing redirecting constructors in
+        // dill files. See `buildFactoryConstructor` in
+        // [package:kernel/analyzer/ast_from_analyzer.dart]
+        // (../../../../kernel/lib/analyzer/ast_from_analyzer.dart).
         ListLiteral initializer = field.initializer;
         for (StaticGet get in initializer.expressions) {
-          RedirectingFactoryBody.restoreFromDill(get.target);
+          Procedure factory = get.target;
+          FunctionNode function = factory.function;
+          ExpressionStatement statement = function.body;
+          Let let = statement.expression;
+          StaticGet getTarget = let.variable.initializer;
+          function.body = new RedirectingFactoryBody(getTarget.target)
+            ..parent = function;
         }
+        initializer.expressions.clear();
       } else {
         classBulder.addMember(field);
       }
@@ -85,9 +81,9 @@ class DillLibraryBuilder extends LibraryBuilder<KernelTypeBuilder, Library> {
   void addMember(Member member) {
     String name = member.name.name;
     if (name == "_exports#") {
-      Field field = member;
-      StringLiteral string = field.initializer;
-      unserializableExports = jsonDecode(string.value);
+      // TODO(ahe): Add this to exportScope.
+      // This is a hack / work around for storing exports in dill files. See
+      // [compile_platform_dartk.dart](../analyzer/compile_platform_dartk.dart).
     } else {
       addBuilder(name, new DillMemberBuilder(member, this), member.fileOffset);
     }
@@ -118,7 +114,7 @@ class DillLibraryBuilder extends LibraryBuilder<KernelTypeBuilder, Library> {
 
   @override
   void addToScope(String name, Builder member, int charOffset, bool isImport) {
-    unimplemented("addToScope", charOffset, fileUri);
+    internalError("Not implemented yet.");
   }
 
   @override
@@ -138,75 +134,5 @@ class DillLibraryBuilder extends LibraryBuilder<KernelTypeBuilder, Library> {
   @override
   String get fullNameForErrors {
     return library.name ?? "<library '${library.fileUri}'>";
-  }
-
-  void finalizeExports() {
-    unserializableExports?.forEach((String name, String message) {
-      Builder builder;
-      switch (name) {
-        case "dynamic":
-        case "void":
-          // TODO(ahe): It's likely that we shouldn't be exporting these types
-          // from dart:core, and this case can be removed.
-          builder = loader.coreLibrary.exportScopeBuilder[name];
-          break;
-
-        default:
-          builder = new KernelInvalidTypeBuilder(
-              name,
-              -1,
-              null,
-              message == null
-                  ? null
-                  : templateUnspecified.withArguments(message));
-      }
-      exportScopeBuilder.addMember(name, builder);
-    });
-
-    for (var reference in library.additionalExports) {
-      var node = reference.node;
-      Uri libraryUri;
-      String name;
-      bool isSetter = false;
-      if (node is Class) {
-        libraryUri = node.enclosingLibrary.importUri;
-        name = node.name;
-      } else if (node is Procedure) {
-        libraryUri = node.enclosingLibrary.importUri;
-        name = node.name.name;
-        isSetter = node.isSetter;
-      } else if (node is Member) {
-        libraryUri = node.enclosingLibrary.importUri;
-        name = node.name.name;
-      } else if (node is Typedef) {
-        libraryUri = node.enclosingLibrary.importUri;
-        name = node.name;
-      } else {
-        unhandled("${node.runtimeType}", "finalizeExports", -1, fileUri);
-      }
-      DillLibraryBuilder library = loader.builders[libraryUri];
-      if (library == null) {
-        internalProblem(
-            templateUnspecified.withArguments("No builder for '$libraryUri'."),
-            -1,
-            fileUri);
-      }
-      Builder builder;
-      if (isSetter) {
-        builder = library.exportScope.setters[name];
-        exportScopeBuilder.addSetter(name, builder);
-      } else {
-        builder = library.exportScope.local[name];
-        exportScopeBuilder.addMember(name, builder);
-      }
-      if (builder == null) {
-        internalProblem(
-            templateUnspecified.withArguments(
-                "Exported element '$name' not found in '$libraryUri'."),
-            -1,
-            fileUri);
-      }
-      assert(node == builder.target);
-    }
   }
 }

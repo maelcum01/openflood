@@ -2,24 +2,26 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+library analyzer.src.context.context_builder;
+
 import 'dart:collection';
 import 'dart:core';
 
-import 'package:analyzer/dart/analysis/declared_variables.dart';
+import 'package:analyzer/context/context_root.dart';
+import 'package:analyzer/context/declared_variables.dart';
 import 'package:analyzer/file_system/file_system.dart';
-import 'package:analyzer/src/analysis_options/analysis_options_provider.dart';
+import 'package:analyzer/plugin/resolver_provider.dart';
+import 'package:analyzer/source/analysis_options_provider.dart';
+import 'package:analyzer/source/package_map_resolver.dart';
 import 'package:analyzer/src/command_line/arguments.dart'
     show
         applyAnalysisOptionFlags,
         bazelAnalysisOptionsPath,
         flutterAnalysisOptionsPath;
-import 'package:analyzer/src/context/context.dart';
-import 'package:analyzer/src/context/context_root.dart';
 import 'package:analyzer/src/dart/analysis/driver.dart'
     show AnalysisDriver, AnalysisDriverScheduler;
 import 'package:analyzer/src/dart/analysis/file_state.dart';
 import 'package:analyzer/src/dart/sdk/sdk.dart';
-import 'package:analyzer/src/file_system/file_system.dart';
 import 'package:analyzer/src/generated/bazel.dart';
 import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/gn.dart';
@@ -27,15 +29,11 @@ import 'package:analyzer/src/generated/sdk.dart';
 import 'package:analyzer/src/generated/source.dart';
 import 'package:analyzer/src/generated/workspace.dart';
 import 'package:analyzer/src/lint/registry.dart';
-import 'package:analyzer/src/plugin/resolver_provider.dart';
-import 'package:analyzer/src/services/lint.dart';
-import 'package:analyzer/src/source/package_map_resolver.dart';
 import 'package:analyzer/src/summary/summary_sdk.dart';
 import 'package:analyzer/src/task/options.dart';
-import 'package:analyzer/src/util/sdk.dart';
 import 'package:args/args.dart';
-import 'package:front_end/src/api_prototype/byte_store.dart';
-import 'package:front_end/src/base/performance_logger.dart';
+import 'package:front_end/src/base/performace_logger.dart';
+import 'package:front_end/src/incremental/byte_store.dart';
 import 'package:package_config/packages.dart';
 import 'package:package_config/packages_file.dart';
 import 'package:package_config/src/packages_impl.dart';
@@ -131,16 +129,6 @@ class ContextBuilder {
   FileContentOverlay fileContentOverlay;
 
   /**
-   * Whether to enable the Dart 2.0 preview.
-   */
-  bool previewDart2 = false;
-
-  /**
-   * Whether to enable the Dart 2.0 Common Front End implementation.
-   */
-  bool useCFE = false;
-
-  /**
    * Initialize a newly created builder to be ready to build a context rooted in
    * the directory with the given [rootDirectoryPath].
    */
@@ -157,10 +145,9 @@ class ContextBuilder {
   AnalysisContext buildContext(String path) {
     InternalAnalysisContext context =
         AnalysisEngine.instance.createAnalysisContext();
-    AnalysisOptionsImpl options = getAnalysisOptions(path);
+    AnalysisOptions options = getAnalysisOptions(path);
     context.contentCache = contentCache;
     context.sourceFactory = createSourceFactory(path, options);
-    options.previewDart2 = previewDart2;
     context.analysisOptions = options;
     context.name = path;
     //_processAnalysisOptions(context, optionMap);
@@ -174,23 +161,9 @@ class ContextBuilder {
    */
   AnalysisDriver buildDriver(ContextRoot contextRoot) {
     String path = contextRoot.root;
-    AnalysisOptions options =
-        getAnalysisOptions(path, contextRoot: contextRoot);
+    AnalysisOptions options = getAnalysisOptions(path);
     //_processAnalysisOptions(context, optionMap);
     final sf = createSourceFactory(path, options);
-
-    // The folder with `vm_platform_strong.dill`, which has required patches.
-    Folder kernelPlatformFolder;
-    if (useCFE) {
-      DartSdk sdk = sf.dartSdk;
-      if (sdk is FolderBasedDartSdk) {
-        var binariesPath = computePlatformBinariesPath(sdk.directory.path);
-        if (binariesPath != null) {
-          kernelPlatformFolder = resourceProvider.getFolder(binariesPath);
-        }
-      }
-    }
-
     AnalysisDriver driver = new AnalysisDriver(
         analysisDriverScheduler,
         performanceLog,
@@ -199,9 +172,7 @@ class ContextBuilder {
         fileContentOverlay,
         contextRoot,
         sf,
-        options,
-        enableKernelDriver: useCFE,
-        kernelPlatformFolder: kernelPlatformFolder);
+        options);
     // temporary plugin support:
     if (onCreateAnalysisDriver != null) {
       onCreateAnalysisDriver(driver, analysisDriverScheduler, performanceLog,
@@ -294,10 +265,13 @@ class ContextBuilder {
    * Add any [declaredVariables] to the list of declared variables used by the
    * given [context].
    */
-  void declareVariables(AnalysisContextImpl context) {
+  void declareVariables(InternalAnalysisContext context) {
     Map<String, String> variables = builderOptions.declaredVariables;
     if (variables != null && variables.isNotEmpty) {
-      context.declaredVariables = new DeclaredVariables.fromMap(variables);
+      DeclaredVariables contextVariables = context.declaredVariables;
+      variables.forEach((String variableName, String value) {
+        contextVariables.define(variableName, value);
+      });
     }
   }
 
@@ -308,7 +282,10 @@ class ContextBuilder {
   void declareVariablesInDriver(AnalysisDriver driver) {
     Map<String, String> variables = builderOptions.declaredVariables;
     if (variables != null && variables.isNotEmpty) {
-      driver.declaredVariables = new DeclaredVariables.fromMap(variables);
+      DeclaredVariables contextVariables = driver.declaredVariables;
+      variables.forEach((String variableName, String value) {
+        contextVariables.define(variableName, value);
+      });
     }
   }
 
@@ -326,15 +303,8 @@ class ContextBuilder {
     Resource location = _findPackagesLocation(path);
     if (location is File) {
       List<int> fileBytes = location.readAsBytesSync();
-      Map<String, Uri> map;
-      try {
-        map =
-            parse(fileBytes, resourceProvider.pathContext.toUri(location.path));
-      } catch (exception) {
-        // If we cannot read the file, then we respond as if the file did not
-        // exist.
-        return Packages.noPackages;
-      }
+      Map<String, Uri> map =
+          parse(fileBytes, resourceProvider.pathContext.toUri(location.path));
       resolveSymbolicLinks(map);
       return new MapPackages(map);
     } else if (location is Folder) {
@@ -420,7 +390,7 @@ class ContextBuilder {
    * information about the analysis options selection process.
    */
   AnalysisOptions getAnalysisOptions(String path,
-      {void verbosePrint(String text), ContextRoot contextRoot}) {
+      {void verbosePrint(String text)}) {
     void verbose(String text) {
       if (verbosePrint != null) {
         verbosePrint(text);
@@ -436,14 +406,11 @@ class ContextBuilder {
 
     AnalysisOptionsImpl options = createDefaultOptions();
     File optionsFile = getOptionsFile(path);
-    YamlMap optionMap;
+    Map<String, YamlNode> optionMap;
 
     if (optionsFile != null) {
       try {
         optionMap = optionsProvider.getOptionsFromFile(optionsFile);
-        if (contextRoot != null) {
-          contextRoot.optionsFilePath = optionsFile.path;
-        }
         verbose('Loaded analysis options from ${optionsFile.path}');
       } catch (e) {
         // Ignore exceptions thrown while trying to load the options file.
@@ -464,9 +431,6 @@ class ContextBuilder {
         if (source != null && source.exists()) {
           try {
             optionMap = optionsProvider.getOptionsFromSource(source);
-            if (contextRoot != null) {
-              contextRoot.optionsFilePath = source.fullName;
-            }
             verbose('Loaded analysis options from ${source.fullName}');
           } catch (e) {
             // Ignore exceptions thrown while trying to load the options file.
@@ -487,18 +451,6 @@ class ContextBuilder {
           verbose('Using default lint rules');
         }
       }
-      if (ContextBuilderOptions.flutterRepo) {
-        // TODO(devoncarew): Should we still be auto-inserting this?
-        const lintName = 'public_member_api_docs';
-        Linter rule = options.lintRules.firstWhere(
-            (Linter lint) => lint.name == lintName,
-            orElse: () => null);
-        if (rule == null) {
-          rule = Registry.ruleRegistry
-              .firstWhere((Linter lint) => lint.name == lintName);
-          options.lintRules = new List.from(options.lintRules)..add(rule);
-        }
-      }
     } else {
       verbose('Using default analysis options');
     }
@@ -508,17 +460,11 @@ class ContextBuilder {
   /**
    * Return the analysis options file that should be used when analyzing code in
    * the directory with the given [path].
-   *
-   * If [forceSearch] is true, then don't return the default analysis options
-   * path. This allows cli to locate what *would* have been the analysis options
-   * file path, and super-impose the defaults over it in-place.
    */
-  File getOptionsFile(String path, {bool forceSearch: false}) {
-    if (!forceSearch) {
-      String filePath = builderOptions.defaultAnalysisOptionsFilePath;
-      if (filePath != null) {
-        return resourceProvider.getFile(filePath);
-      }
+  File getOptionsFile(String path) {
+    String filePath = builderOptions.defaultAnalysisOptionsFilePath;
+    if (filePath != null) {
+      return resourceProvider.getFile(filePath);
     }
     Folder root = resourceProvider.getFolder(path);
     for (Folder folder = root; folder != null; folder = folder.parent) {
@@ -655,12 +601,6 @@ class ContextBuilder {
  * Options used by a [ContextBuilder].
  */
 class ContextBuilderOptions {
-  /**
-   * A flag indicating that the flutter repository is being analyzed.
-   * See comments in source for `flutter analyze --watch`.
-   */
-  static bool flutterRepo = false;
-
   /**
    * The results of parsing the command line arguments as defined by
    * [defineAnalysisArguments] or `null` if none.

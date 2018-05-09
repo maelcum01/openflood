@@ -113,10 +113,10 @@ abstract class TreeWriter {
       String valueString = _toString(value);
       if (valueString == null) {
         buffer.write('<span style="color: #FF0000">');
-        buffer.write(htmlEscape.convert(value.runtimeType.toString()));
+        buffer.write(HTML_ESCAPE.convert(value.runtimeType.toString()));
         buffer.write('</span>');
       } else {
-        buffer.write(htmlEscape.convert(valueString));
+        buffer.write(HTML_ESCAPE.convert(valueString));
       }
     }
   }

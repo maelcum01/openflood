@@ -29,9 +29,7 @@ class _StdStream extends Stream<List<int>> {
  * Mixing synchronous and asynchronous reads is undefined.
  */
 class Stdin extends _StdStream implements Stream<List<int>> {
-  int _fd;
-
-  Stdin._(Stream<List<int>> stream, this._fd) : super(stream);
+  Stdin._(Stream<List<int>> stream) : super(stream);
 
   /**
    * Synchronously read a line from stdin. This call will block until a full
@@ -81,7 +79,7 @@ class Stdin extends _StdStream implements Stream<List<int>> {
         line.add(byte);
       }
     } else {
-      // Case having to handle CR LF as a single unretained line terminator.
+      // Case having to handel CR LF as a single unretained line terminator.
       outer:
       while (true) {
         int byte = readByteSync();
@@ -156,7 +154,7 @@ class Stdin extends _StdStream implements Stream<List<int>> {
     * will be taken as evidence that ANSI escape sequences are supported.
     * On Windows, only versions of Windows 10 after v.1511
     * ("TH2", OS build 10586) will be detected as supporting the output of
-    * ANSI escape sequences, and only versions after v.1607 ("Anniversary
+    * ANSI escape sequences, and only versions after v.1607 ("Anniversery
     * Update", OS build 14393) will be detected as supporting the input of
     * ANSI escape sequences.
     */
@@ -169,20 +167,6 @@ class Stdin extends _StdStream implements Stream<List<int>> {
    * If at end of file, -1 is returned.
    */
   external int readByteSync();
-
-  /**
-   * Returns true if there is a terminal attached to stdin.
-   */
-  bool get hasTerminal {
-    try {
-      return stdioType(this) == StdioType.TERMINAL;
-    } on FileSystemException catch (_) {
-      // If stdioType throws a FileSystemException, then it is not hooked up to
-      // a terminal, probably because it is closed, but let other exception
-      // types bubble up.
-      return false;
-    }
-  }
 }
 
 /**
@@ -244,7 +228,7 @@ class Stdout extends _StdSink implements IOSink {
     * will be taken as evidence that ANSI escape sequences are supported.
     * On Windows, only versions of Windows 10 after v.1511
     * ("TH2", OS build 10586) will be detected as supporting the output of
-    * ANSI escape sequences, and only versions after v.1607 ("Anniversary
+    * ANSI escape sequences, and only versions after v.1607 ("Anniversery
     * Update", OS build 14393) will be detected as supporting the input of
     * ANSI escape sequences.
     */
@@ -371,23 +355,10 @@ Stdin _stdin;
 Stdout _stdout;
 Stdout _stderr;
 
-// These may be set to different values by the embedder by calling
-// _setStdioFDs when initializing dart:io.
-int _stdinFD = 0;
-int _stdoutFD = 1;
-int _stderrFD = 2;
-
-// This is an embedder entrypoint.
-void _setStdioFDs(int stdin, int stdout, int stderr) {
-  _stdinFD = stdin;
-  _stdoutFD = stdout;
-  _stderrFD = stderr;
-}
-
 /// The standard input stream of data read by this program.
 Stdin get stdin {
   if (_stdin == null) {
-    _stdin = _StdIOUtils._getStdioInputStream(_stdinFD);
+    _stdin = _StdIOUtils._getStdioInputStream();
   }
   return _stdin;
 }
@@ -395,7 +366,7 @@ Stdin get stdin {
 /// The standard output stream of data written by this program.
 Stdout get stdout {
   if (_stdout == null) {
-    _stdout = _StdIOUtils._getStdioOutputStream(_stdoutFD);
+    _stdout = _StdIOUtils._getStdioOutputStream(1);
   }
   return _stdout;
 }
@@ -403,7 +374,7 @@ Stdout get stdout {
 /// The standard output stream of errors written by this program.
 Stdout get stderr {
   if (_stderr == null) {
-    _stderr = _StdIOUtils._getStdioOutputStream(_stderrFD);
+    _stderr = _StdIOUtils._getStdioOutputStream(2);
   }
   return _stderr;
 }
@@ -414,8 +385,7 @@ StdioType stdioType(object) {
   if (object is _StdStream) {
     object = object._stream;
   } else if (object == stdout || object == stderr) {
-    int stdiofd = object == stdout ? _stdoutFD : _stderrFD;
-    switch (_StdIOUtils._getStdioHandleType(stdiofd)) {
+    switch (_StdIOUtils._getStdioHandleType(object == stdout ? 1 : 2)) {
       case _STDIO_HANDLE_TYPE_TERMINAL:
         return StdioType.TERMINAL;
       case _STDIO_HANDLE_TYPE_PIPE:
@@ -453,7 +423,7 @@ StdioType stdioType(object) {
 
 class _StdIOUtils {
   external static _getStdioOutputStream(int fd);
-  external static Stdin _getStdioInputStream(int fd);
+  external static Stdin _getStdioInputStream();
 
   /// Returns the socket type or `null` if [socket] is not a builtin socket.
   external static int _socketType(Socket socket);

@@ -5,10 +5,10 @@
 library kernel.transformations.reify.transformation.builder;
 
 import '../asts.dart';
-import '../../../ast.dart';
+import 'package:kernel/ast.dart';
 import 'dart:collection' show LinkedHashMap;
 import 'binding.dart' show RuntimeLibrary;
-import '../../../core_types.dart' show CoreTypes;
+import 'package:kernel/core_types.dart' show CoreTypes;
 
 class Scope {
   final Map<String, TreeNode> names = <String, TreeNode>{};
@@ -302,7 +302,7 @@ class RuntimeTypeSupportBuilder {
       return new ConstructorInvocation(
           rtiLibrary.voidTypeConstructor, new Arguments(<Expression>[]));
     }
-    return new InvalidExpression(null);
+    return new InvalidExpression();
   }
 
   Expression createCallAsInstanceOf(Expression receiver, Class cls) {

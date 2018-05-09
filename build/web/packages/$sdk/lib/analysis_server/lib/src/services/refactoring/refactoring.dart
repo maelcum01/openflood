@@ -9,9 +9,9 @@ import 'package:analysis_server/src/services/refactoring/convert_getter_to_metho
 import 'package:analysis_server/src/services/refactoring/convert_method_to_getter.dart';
 import 'package:analysis_server/src/services/refactoring/extract_local.dart';
 import 'package:analysis_server/src/services/refactoring/extract_method.dart';
-import 'package:analysis_server/src/services/refactoring/extract_widget.dart';
 import 'package:analysis_server/src/services/refactoring/inline_local.dart';
 import 'package:analysis_server/src/services/refactoring/inline_method.dart';
+import 'package:analysis_server/src/services/refactoring/move_file.dart';
 import 'package:analysis_server/src/services/refactoring/rename_class_member.dart';
 import 'package:analysis_server/src/services/refactoring/rename_constructor.dart';
 import 'package:analysis_server/src/services/refactoring/rename_import.dart';
@@ -20,10 +20,12 @@ import 'package:analysis_server/src/services/refactoring/rename_library.dart';
 import 'package:analysis_server/src/services/refactoring/rename_local.dart';
 import 'package:analysis_server/src/services/refactoring/rename_unit_member.dart';
 import 'package:analysis_server/src/services/search/search_engine.dart';
-import 'package:analyzer/dart/analysis/session.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/file_system/file_system.dart';
 import 'package:analyzer/src/dart/element/ast_provider.dart';
+import 'package:analyzer/src/generated/engine.dart';
+import 'package:analyzer/src/generated/source.dart';
 import 'package:analyzer_plugin/protocol/protocol_common.dart'
     show RefactoringMethodParameter, SourceChange;
 
@@ -135,14 +137,10 @@ abstract class ExtractMethodRefactoring implements Refactoring {
   /**
    * Returns a new [ExtractMethodRefactoring] instance.
    */
-  factory ExtractMethodRefactoring(
-      SearchEngine searchEngine,
-      AstProvider astProvider,
-      CompilationUnit unit,
-      int selectionOffset,
-      int selectionLength) {
+  factory ExtractMethodRefactoring(SearchEngine searchEngine,
+      CompilationUnit unit, int selectionOffset, int selectionLength) {
     return new ExtractMethodRefactoringImpl(
-        searchEngine, astProvider, unit, selectionOffset, selectionLength);
+        searchEngine, unit, selectionOffset, selectionLength);
   }
 
   /**
@@ -222,43 +220,6 @@ abstract class ExtractMethodRefactoring implements Refactoring {
 }
 
 /**
- * [Refactoring] to extract a widget creation expression or a method returning
- * a widget, into a new stateless or stateful widget.
- */
-abstract class ExtractWidgetRefactoring implements Refactoring {
-  /**
-   * Returns a new [ExtractWidgetRefactoring] instance.
-   */
-  factory ExtractWidgetRefactoring(SearchEngine searchEngine,
-      AnalysisSession session, CompilationUnit unit, int offset) {
-    return new ExtractWidgetRefactoringImpl(
-        searchEngine, session, unit, offset);
-  }
-
-  /**
-   * The name that the class should be given.
-   */
-  void set name(String name);
-
-  /**
-   * Validates that the [name] is a valid identifier and is appropriate for a
-   * class.
-   *
-   * It does not perform all the checks (such as checking for conflicts with any
-   * existing names in any of the scopes containing the current name), as many
-   * of these checks require search engine. Use [checkFinalConditions] for this
-   * level of checking.
-   */
-  RefactoringStatus checkName();
-
-  /**
-   * Return `true` if refactoring is available, possibly without checking all
-   * initial conditions.
-   */
-  bool isAvailable();
-}
-
-/**
  * [Refactoring] to inline a local [VariableElement].
  */
 abstract class InlineLocalRefactoring implements Refactoring {
@@ -323,6 +284,29 @@ abstract class InlineMethodRefactoring implements Refactoring {
    * The name of the method (or function) being inlined.
    */
   String get methodName;
+}
+
+/**
+ * [Refactoring] to move/rename a file.
+ */
+abstract class MoveFileRefactoring implements Refactoring {
+  /**
+   * Returns a new [MoveFileRefactoring] instance.
+   */
+  factory MoveFileRefactoring(
+      ResourceProvider resourceProvider,
+      SearchEngine searchEngine,
+      AnalysisContext context,
+      Source source,
+      String oldFile) {
+    return new MoveFileRefactoringImpl(
+        resourceProvider, searchEngine, context, source, oldFile);
+  }
+
+  /**
+   * The new file path to which the given file is being moved.
+   */
+  void set newFile(String newName);
 }
 
 /**
@@ -402,8 +386,7 @@ abstract class RenameRefactoring implements Refactoring {
           searchEngine, astProvider, element);
     }
     if (element is ImportElement) {
-      return new RenameImportRefactoringImpl(
-          searchEngine, astProvider, element);
+      return new RenameImportRefactoringImpl(searchEngine, element);
     }
     if (element is LabelElement) {
       return new RenameLabelRefactoringImpl(searchEngine, element);
@@ -415,8 +398,7 @@ abstract class RenameRefactoring implements Refactoring {
       return new RenameLocalRefactoringImpl(searchEngine, astProvider, element);
     }
     if (element.enclosingElement is ClassElement) {
-      return new RenameClassMemberRefactoringImpl(
-          searchEngine, astProvider, element);
+      return new RenameClassMemberRefactoringImpl(searchEngine, element);
     }
     return null;
   }
@@ -467,17 +449,14 @@ class ResolvedUnitCache {
   }
 
   Future<CompilationUnit> getUnit(Element element) async {
-    CompilationUnitElement unitElement = getUnitElement(element);
+    CompilationUnitElement unitElement =
+        element.getAncestor((e) => e is CompilationUnitElement)
+            as CompilationUnitElement;
     CompilationUnit unit = _map[unitElement];
     if (unit == null) {
       unit = await _astProvider.getResolvedUnitForElement(element);
       _map[unitElement] = unit;
     }
     return unit;
-  }
-
-  CompilationUnitElement getUnitElement(Element element) {
-    return element.getAncestor((e) => e is CompilationUnitElement)
-        as CompilationUnitElement;
   }
 }

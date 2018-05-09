@@ -14,20 +14,6 @@ import 'package:analyzer/error/error.dart';
  */
 class AnalysisOptionsErrorCode extends ErrorCode {
   /**
-   * An error code indicating that there is a syntactic error in the included
-   * file.
-   *
-   * Parameters:
-   * 0: the path of the file containing the error
-   * 1: the starting offset of the text in the file that contains the error
-   * 2: the ending offset of the text in the file that contains the error
-   * 3: the error message
-   */
-  static const AnalysisOptionsErrorCode INCLUDED_FILE_PARSE_ERROR =
-      const AnalysisOptionsErrorCode(
-          'INCLUDED_FILE_PARSE_ERROR', '{3} in {0}({1}..{2})');
-
-  /**
    * An error code indicating that there is a syntactic error in the file.
    *
    * Parameters:
@@ -37,11 +23,24 @@ class AnalysisOptionsErrorCode extends ErrorCode {
       const AnalysisOptionsErrorCode('PARSE_ERROR', '{0}');
 
   /**
+   * An error code indicating that there is a syntactic error
+   * in the included file.
+   *
+   * Parameters:
+   * 0: the path of the file containing the error
+   * 1: the starting offset of the text in the file that contains the error
+   * 2: the ending offset of the text in the file that contains the error
+   * 3: the error message
+   */
+  static const INCLUDED_FILE_PARSE_ERROR = const AnalysisOptionsErrorCode(
+      'INCLUDED_FILE_PARSE_ERROR', '{3} in {0}({1}..{2})');
+
+  /**
    * Initialize a newly created error code to have the given [name].
    */
   const AnalysisOptionsErrorCode(String name, String message,
-      {String correction})
-      : super.temporary(name, message, correction: correction);
+      [String correction])
+      : super(name, message, correction);
 
   @override
   ErrorSeverity get errorSeverity => ErrorSeverity.ERROR;
@@ -82,15 +81,19 @@ class AnalysisOptionsWarningCode extends ErrorCode {
           "Warning in the included options file {0}({1}..{2}): {3}");
 
   /**
-   * An error code indicating that an unrecognized error code is being used to
-   * specify an error filter.
+   * An error code indicating that a plugin is being configured with an
+   * unsupported option and legal options are provided.
    *
    * Parameters:
-   * 0: the unrecognized error code
+   * 0: the plugin name
+   * 1: the unsupported option key
+   * 2: legal values
    */
-  static const AnalysisOptionsWarningCode UNRECOGNIZED_ERROR_CODE =
+  static const AnalysisOptionsWarningCode UNSUPPORTED_OPTION_WITH_LEGAL_VALUES =
       const AnalysisOptionsWarningCode(
-          'UNRECOGNIZED_ERROR_CODE', "'{0}' isn't a recognized error code.");
+          'UNSUPPORTED_OPTION_WITH_LEGAL_VALUES',
+          "The option '{1}' isn't supported by '{0}'.",
+          "Try using one of the supported options: {2}.");
 
   /**
    * An error code indicating that a plugin is being configured with an
@@ -108,20 +111,6 @@ class AnalysisOptionsWarningCode extends ErrorCode {
           "Try using the only supported option: '{2}'.");
 
   /**
-   * An error code indicating that a plugin is being configured with an
-   * unsupported option and legal options are provided.
-   *
-   * Parameters:
-   * 0: the plugin name
-   * 1: the unsupported option key
-   * 2: legal values
-   */
-  static const AnalysisOptionsWarningCode UNSUPPORTED_OPTION_WITH_LEGAL_VALUES =
-      const AnalysisOptionsWarningCode('UNSUPPORTED_OPTION_WITH_LEGAL_VALUES',
-          "The option '{1}' isn't supported by '{0}'.",
-          correction: "Try using one of the supported options: {2}.");
-
-  /**
    * An error code indicating that an option entry is being configured with an
    * unsupported value.
    *
@@ -132,57 +121,31 @@ class AnalysisOptionsWarningCode extends ErrorCode {
    */
   static const AnalysisOptionsWarningCode UNSUPPORTED_VALUE =
       const AnalysisOptionsWarningCode(
-          'UNSUPPORTED_VALUE', "The value '{1}' isn't supported by '{0}'.",
-          correction: "Try using one of the supported options: {2}.");
+          'UNSUPPORTED_VALUE',
+          "The value '{1}' isn't supported by '{0}'.",
+          "Try using one of the supported options: {2}.");
+
+  /**
+   * An error code indicating that an unrecognized error code is being used to
+   * specify an error filter.
+   *
+   * Parameters:
+   * 0: the unrecognized error code
+   */
+  static const AnalysisOptionsWarningCode UNRECOGNIZED_ERROR_CODE =
+      const AnalysisOptionsWarningCode(
+          'UNRECOGNIZED_ERROR_CODE', "'{0}' isn't a recognized error code.");
 
   /**
    * Initialize a newly created warning code to have the given [name].
    */
   const AnalysisOptionsWarningCode(String name, String message,
-      {String correction})
-      : super.temporary(name, message, correction: correction);
+      [String correction])
+      : super(name, message, correction);
 
   @override
   ErrorSeverity get errorSeverity => ErrorSeverity.WARNING;
 
   @override
   ErrorType get type => ErrorType.STATIC_WARNING;
-}
-
-class AnalysisOptionsHintCode extends ErrorCode {
-  /**
-   * An error code indicating the analysis options file name is deprecated and
-   * the file should be renamed.
-   *
-   * Parameters:
-   * 0: the uri of the file which should be renamed
-   */
-  static const ErrorCode DEPRECATED_ANALYSIS_OPTIONS_FILE_NAME =
-      const AnalysisOptionsHintCode(
-          'DEPRECATED_ANALYSIS_OPTIONS_FILE_NAME',
-          "The name of the analysis options file {0} is deprecated;"
-          " consider renaming it to analysis_options.yaml.");
-
-  /**
-   * An error code indicating that strong-mode: false is being deprecated.
-   */
-  static const AnalysisOptionsHintCode SPEC_MODE_DEPRECATED =
-      const AnalysisOptionsHintCode('SPEC_MODE_DEPRECATED',
-          "The option 'strong-mode: false' is being deprecated.",
-          correction:
-              "It's recommended to use 'strong-mode: true' and make your code "
-              "strong mode clean.");
-
-  /**
-   * Initialize a newly created hint code to have the given [name].
-   */
-  const AnalysisOptionsHintCode(String name, String message,
-      {String correction})
-      : super.temporary(name, message, correction: correction);
-
-  @override
-  ErrorSeverity get errorSeverity => ErrorSeverity.INFO;
-
-  @override
-  ErrorType get type => ErrorType.HINT;
 }

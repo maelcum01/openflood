@@ -2,38 +2,23 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:front_end/src/fasta/builder/ast_factory.dart';
+
 /// A library to help transform compounds and null-aware accessors into
 /// let expressions.
 
-import 'package:kernel/ast.dart' hide MethodInvocation, InvalidExpression;
+import 'package:front_end/src/fasta/kernel/utils.dart' show offsetForToken;
 
-import '../../scanner/token.dart' show Token;
+import 'package:front_end/src/scanner/token.dart' show Token;
 
-import '../names.dart' show equalsName, indexGetName, indexSetName;
+import 'package:front_end/src/fasta/kernel/fasta_accessors.dart'
+    show BuilderHelper;
 
-import '../parser.dart' show offsetForToken;
+import 'package:kernel/ast.dart' hide MethodInvocation;
 
-import '../problems.dart' show unhandled;
+final Name indexGetName = new Name("[]");
 
-import 'fasta_accessors.dart' show BuilderHelper;
-
-import 'kernel_builder.dart' show LoadLibraryBuilder, PrefixBuilder;
-
-import 'kernel_shadow_ast.dart'
-    show
-        ShadowArguments,
-        ShadowComplexAssignment,
-        ShadowConditionalExpression,
-        ShadowIllegalAssignment,
-        ShadowMethodInvocation,
-        ShadowNullAwarePropertyGet,
-        ShadowPropertyAssign,
-        ShadowPropertyGet,
-        ShadowSuperMethodInvocation,
-        ShadowSuperPropertyGet,
-        ShadowThisExpression,
-        ShadowVariableDeclaration,
-        ShadowVariableGet;
+final Name indexSetName = new Name("[]=");
 
 /// An [Accessor] represents a subexpression for which we can't yet build a
 /// kernel [Expression] because we don't yet know the context in which it is
@@ -47,15 +32,22 @@ import 'kernel_shadow_ast.dart'
 /// generate an invocation of `operator[]` or `operator[]=`, so we generate an
 /// [Accessor] object.  Later, after `= b` is parsed, [buildAssignment] will be
 /// called.
-abstract class Accessor<Arguments> {
+abstract class Accessor {
   final BuilderHelper helper;
   final Token token;
+
+  // [builtBinary] and [builtGetter] capture the inner nodes. Used by
+  // dart2js+rasta for determining how subexpressions map to legacy dart2js Ast
+  // nodes. This will be removed once dart2js type analysis (aka inference) is
+  // reimplemented on kernel.
+  Expression builtBinary;
+  Expression builtGetter;
 
   Accessor(this.helper, this.token);
 
   /// Builds an [Expression] representing a read from the accessor.
   Expression buildSimpleRead() {
-    return _finish(_makeSimpleRead(), null);
+    return _finish(_makeSimpleRead());
   }
 
   /// Builds an [Expression] representing an assignment with the accessor on
@@ -64,9 +56,7 @@ abstract class Accessor<Arguments> {
   /// The returned expression evaluates to the assigned value, unless
   /// [voidContext] is true, in which case it may evaluate to anything.
   Expression buildAssignment(Expression value, {bool voidContext: false}) {
-    var complexAssignment = startComplexAssignment(value);
-    return _finish(_makeSimpleWrite(value, voidContext, complexAssignment),
-        complexAssignment);
+    return _finish(_makeSimpleWrite(value, voidContext));
   }
 
   /// Returns an [Expression] representing a null-aware assignment (`??=`) with
@@ -76,25 +66,23 @@ abstract class Accessor<Arguments> {
   /// [voidContext] is true, in which case it may evaluate to anything.
   ///
   /// [type] is the static type of the RHS.
-  Expression buildNullAwareAssignment(
-      Expression value, DartType type, int offset,
+  Expression buildNullAwareAssignment(Expression value, DartType type,
       {bool voidContext: false}) {
-    var complexAssignment = startComplexAssignment(value);
     if (voidContext) {
-      var nullAwareCombiner = new ShadowConditionalExpression(
-          buildIsNull(_makeRead(complexAssignment), offset),
-          _makeWrite(value, false, complexAssignment),
-          new NullLiteral());
-      complexAssignment?.nullAwareCombiner = nullAwareCombiner;
-      return _finish(nullAwareCombiner, complexAssignment);
+      return _finish(new ConditionalExpression(
+          buildIsNull(helper.astFactory, _makeRead()),
+          _makeWrite(value, false),
+          new NullLiteral(),
+          type));
     }
-    var tmp = new VariableDeclaration.forValue(_makeRead(complexAssignment));
-    var nullAwareCombiner = new ShadowConditionalExpression(
-        buildIsNull(new VariableGet(tmp), offset),
-        _makeWrite(value, false, complexAssignment),
-        new VariableGet(tmp));
-    complexAssignment?.nullAwareCombiner = nullAwareCombiner;
-    return _finish(makeLet(tmp, nullAwareCombiner), complexAssignment);
+    var tmp = new VariableDeclaration.forValue(_makeRead());
+    return _finish(makeLet(
+        tmp,
+        new ConditionalExpression(
+            buildIsNull(helper.astFactory, new VariableGet(tmp)),
+            _makeWrite(value, false),
+            new VariableGet(tmp),
+            type)));
   }
 
   /// Returns an [Expression] representing a compound assignment (e.g. `+=`)
@@ -102,16 +90,12 @@ abstract class Accessor<Arguments> {
   Expression buildCompoundAssignment(Name binaryOperator, Expression value,
       {int offset: TreeNode.noOffset,
       bool voidContext: false,
-      Procedure interfaceTarget,
-      bool isPreIncDec: false}) {
-    var complexAssignment = startComplexAssignment(value);
-    complexAssignment?.isPreIncDec = isPreIncDec;
-    var combiner = makeBinary(
-        _makeRead(complexAssignment), binaryOperator, interfaceTarget, value,
-        offset: offset);
-    complexAssignment?.combiner = combiner;
-    return _finish(_makeWrite(combiner, voidContext, complexAssignment),
-        complexAssignment);
+      Procedure interfaceTarget}) {
+    return _finish(_makeWrite(
+        builtBinary = makeBinary(helper.astFactory, _makeRead(), binaryOperator,
+            interfaceTarget, value,
+            offset: offset),
+        voidContext));
   }
 
   /// Returns an [Expression] representing a pre-increment or pre-decrement
@@ -123,8 +107,7 @@ abstract class Accessor<Arguments> {
     return buildCompoundAssignment(binaryOperator, new IntLiteral(1),
         offset: offset,
         voidContext: voidContext,
-        interfaceTarget: interfaceTarget,
-        isPreIncDec: true);
+        interfaceTarget: interfaceTarget);
   }
 
   /// Returns an [Expression] representing a post-increment or post-decrement
@@ -137,68 +120,41 @@ abstract class Accessor<Arguments> {
       return buildPrefixIncrement(binaryOperator,
           offset: offset, voidContext: true, interfaceTarget: interfaceTarget);
     }
-    var rhs = new IntLiteral(1);
-    var complexAssignment = startComplexAssignment(rhs);
-    var value = new VariableDeclaration.forValue(_makeRead(complexAssignment));
+    var value = new VariableDeclaration.forValue(_makeRead());
     valueAccess() => new VariableGet(value);
-    var combiner = makeBinary(
-        valueAccess(), binaryOperator, interfaceTarget, rhs,
-        offset: offset);
-    complexAssignment?.combiner = combiner;
-    complexAssignment?.isPostIncDec = true;
-    var dummy = new ShadowVariableDeclaration.forValue(
-        _makeWrite(combiner, true, complexAssignment),
-        helper.functionNestingLevel);
-    return _finish(
-        makeLet(value, makeLet(dummy, valueAccess())), complexAssignment);
+    var dummy = new VariableDeclaration.forValue(_makeWrite(
+        builtBinary = makeBinary(helper.astFactory, valueAccess(),
+            binaryOperator, interfaceTarget, new IntLiteral(1),
+            offset: offset),
+        true));
+    return _finish(makeLet(value, makeLet(dummy, valueAccess())));
   }
 
-  Expression _makeSimpleRead() => _makeRead(null);
+  Expression _makeSimpleRead() => _makeRead();
 
-  Expression _makeSimpleWrite(Expression value, bool voidContext,
-      ShadowComplexAssignment complexAssignment) {
-    return _makeWrite(value, voidContext, complexAssignment);
+  Expression _makeSimpleWrite(Expression value, bool voidContext) {
+    return _makeWrite(value, voidContext);
   }
 
-  Expression _makeRead(ShadowComplexAssignment complexAssignment);
+  Expression _makeRead();
 
-  Expression _makeWrite(Expression value, bool voidContext,
-      ShadowComplexAssignment complexAssignment);
+  Expression _makeWrite(Expression value, bool voidContext);
 
-  Expression _finish(
-      Expression body, ShadowComplexAssignment complexAssignment) {
-    if (complexAssignment != null) {
-      complexAssignment.desugared = body;
-      return complexAssignment;
-    } else {
-      return body;
-    }
-  }
+  Expression _finish(Expression body) => body;
 
   /// Returns an [Expression] representing a compile-time error.
   ///
   /// At runtime, an exception will be thrown.
-  makeInvalidRead() {
-    return unhandled("compile-time error", "$runtimeType",
-        offsetForToken(token), helper.uri);
-  }
+  makeInvalidRead() => new InvalidExpression();
 
   /// Returns an [Expression] representing a compile-time error wrapping
   /// [value].
   ///
   /// At runtime, [value] will be evaluated before throwing an exception.
-  makeInvalidWrite(Expression value) {
-    return unhandled("compile-time error", "$runtimeType",
-        offsetForToken(token), helper.uri);
-  }
-
-  /// Creates a data structure for tracking the desugaring of a complex
-  /// assignment expression whose right hand side is [rhs].
-  ShadowComplexAssignment startComplexAssignment(Expression rhs) =>
-      new ShadowIllegalAssignment(rhs);
+  makeInvalidWrite(Expression value) => wrapInvalid(value);
 }
 
-abstract class VariableAccessor<Arguments> extends Accessor<Arguments> {
+abstract class VariableAccessor extends Accessor {
   VariableDeclaration variable;
   DartType promotedType;
 
@@ -206,29 +162,23 @@ abstract class VariableAccessor<Arguments> extends Accessor<Arguments> {
       BuilderHelper helper, this.variable, this.promotedType, Token token)
       : super(helper, token);
 
-  Expression _makeRead(ShadowComplexAssignment complexAssignment) {
+  Expression _makeRead() {
     var fact = helper.typePromoter
         .getFactForAccess(variable, helper.functionNestingLevel);
     var scope = helper.typePromoter.currentScope;
-    var read = new ShadowVariableGet(variable, fact, scope)
-      ..fileOffset = offsetForToken(token);
-    complexAssignment?.read = read;
-    return read;
+    return helper.astFactory.variableGet(variable, fact, scope, token);
   }
 
-  Expression _makeWrite(Expression value, bool voidContext,
-      ShadowComplexAssignment complexAssignment) {
+  Expression _makeWrite(Expression value, bool voidContext) {
     helper.typePromoter.mutateVariable(variable, helper.functionNestingLevel);
-    var write = variable.isFinal || variable.isConst
+    return variable.isFinal || variable.isConst
         ? makeInvalidWrite(value)
-        : new VariableSet(variable, value)
+        : helper.astFactory.variableSet(variable, value)
       ..fileOffset = offsetForToken(token);
-    complexAssignment?.write = write;
-    return write;
   }
 }
 
-class PropertyAccessor<Arguments> extends Accessor<Arguments> {
+class PropertyAccessor extends Accessor {
   VariableDeclaration _receiverVariable;
   Expression receiver;
   Name name;
@@ -249,15 +199,13 @@ class PropertyAccessor<Arguments> extends Accessor<Arguments> {
       this.getter, this.setter, Token token)
       : super(helper, token);
 
-  Expression _makeSimpleRead() => new ShadowPropertyGet(receiver, name, getter)
-    ..fileOffset = offsetForToken(token);
+  Expression _makeSimpleRead() =>
+      helper.astFactory.propertyGet(receiver, name, getter)
+        ..fileOffset = offsetForToken(token);
 
-  Expression _makeSimpleWrite(Expression value, bool voidContext,
-      ShadowComplexAssignment complexAssignment) {
-    var write = new PropertySet(receiver, name, value, setter)
+  Expression _makeSimpleWrite(Expression value, bool voidContext) {
+    return helper.astFactory.propertySet(receiver, name, value, setter)
       ..fileOffset = offsetForToken(token);
-    complexAssignment?.write = write;
-    return write;
   }
 
   receiverAccess() {
@@ -266,30 +214,21 @@ class PropertyAccessor<Arguments> extends Accessor<Arguments> {
       ..fileOffset = offsetForToken(token);
   }
 
-  Expression _makeRead(ShadowComplexAssignment complexAssignment) {
-    var read = new ShadowPropertyGet(receiverAccess(), name, getter)
+  Expression _makeRead() => builtGetter = helper.astFactory
+      .propertyGet(receiverAccess(), name, getter)
+        ..fileOffset = offsetForToken(token);
+
+  Expression _makeWrite(Expression value, bool voidContext) {
+    return helper.astFactory.propertySet(receiverAccess(), name, value, setter)
       ..fileOffset = offsetForToken(token);
-    complexAssignment?.read = read;
-    return read;
   }
 
-  Expression _makeWrite(Expression value, bool voidContext,
-      ShadowComplexAssignment complexAssignment) {
-    var write = new PropertySet(receiverAccess(), name, value, setter)
-      ..fileOffset = offsetForToken(token);
-    complexAssignment?.write = write;
-    return write;
-  }
-
-  Expression _finish(
-      Expression body, ShadowComplexAssignment complexAssignment) {
-    return super._finish(makeLet(_receiverVariable, body), complexAssignment);
-  }
+  Expression _finish(Expression body) => makeLet(_receiverVariable, body);
 }
 
 /// Special case of [PropertyAccessor] to avoid creating an indirect access to
 /// 'this'.
-class ThisPropertyAccessor<Arguments> extends Accessor<Arguments> {
+class ThisPropertyAccessor extends Accessor {
   Name name;
   Member getter, setter;
 
@@ -297,77 +236,47 @@ class ThisPropertyAccessor<Arguments> extends Accessor<Arguments> {
       BuilderHelper helper, this.name, this.getter, this.setter, Token token)
       : super(helper, token);
 
-  Expression _makeRead(ShadowComplexAssignment complexAssignment) {
-    if (getter == null) {
-      helper.warnUnresolvedGet(name, offsetForToken(token));
-    }
-    var read = new ShadowPropertyGet(new ShadowThisExpression(), name, getter)
-      ..fileOffset = offsetForToken(token);
-    complexAssignment?.read = read;
-    return read;
-  }
+  Expression _makeRead() => builtGetter = helper.astFactory
+      .propertyGet(new ThisExpression(), name, getter)
+        ..fileOffset = offsetForToken(token);
 
-  Expression _makeWrite(Expression value, bool voidContext,
-      ShadowComplexAssignment complexAssignment) {
-    if (setter == null) {
-      helper.warnUnresolvedSet(name, offsetForToken(token));
-    }
-    var write = new PropertySet(new ShadowThisExpression(), name, value, setter)
-      ..fileOffset = offsetForToken(token);
-    complexAssignment?.write = write;
-    return write;
+  Expression _makeWrite(Expression value, bool voidContext) {
+    return helper.astFactory
+        .propertySet(new ThisExpression(), name, value, setter)
+          ..fileOffset = offsetForToken(token);
   }
 }
 
-class NullAwarePropertyAccessor<Arguments> extends Accessor<Arguments> {
+class NullAwarePropertyAccessor extends Accessor {
   VariableDeclaration receiver;
-  Expression receiverExpression;
   Name name;
   Member getter, setter;
   DartType type;
 
-  NullAwarePropertyAccessor(BuilderHelper helper, this.receiverExpression,
+  NullAwarePropertyAccessor(BuilderHelper helper, Expression receiver,
       this.name, this.getter, this.setter, this.type, Token token)
-      : this.receiver = makeOrReuseVariable(receiverExpression),
+      : this.receiver = makeOrReuseVariable(receiver),
         super(helper, token);
 
   receiverAccess() => new VariableGet(receiver);
 
-  Expression _makeRead(ShadowComplexAssignment complexAssignment) {
-    var read = new ShadowPropertyGet(receiverAccess(), name, getter)
-      ..fileOffset = offsetForToken(token);
-    complexAssignment?.read = read;
-    return read;
+  Expression _makeRead() => builtGetter =
+      helper.astFactory.propertyGet(receiverAccess(), name, getter);
+
+  Expression _makeWrite(Expression value, bool voidContext) {
+    return helper.astFactory.propertySet(receiverAccess(), name, value, setter);
   }
 
-  Expression _makeWrite(Expression value, bool voidContext,
-      ShadowComplexAssignment complexAssignment) {
-    var write = new PropertySet(receiverAccess(), name, value, setter)
-      ..fileOffset = offsetForToken(token);
-    complexAssignment?.write = write;
-    return write;
-  }
-
-  Expression _finish(
-      Expression body, ShadowComplexAssignment complexAssignment) {
-    var offset = offsetForToken(token);
-    var nullAwareGuard = new ConditionalExpression(
-        buildIsNull(receiverAccess(), offset), new NullLiteral(), body, null)
-      ..fileOffset = offset;
-    if (complexAssignment != null) {
-      body = makeLet(receiver, nullAwareGuard);
-      ShadowPropertyAssign kernelPropertyAssign = complexAssignment;
-      kernelPropertyAssign.nullAwareGuard = nullAwareGuard;
-      kernelPropertyAssign.desugared = body;
-      return kernelPropertyAssign;
-    } else {
-      return new ShadowNullAwarePropertyGet(receiver, nullAwareGuard)
-        ..fileOffset = offset;
-    }
-  }
+  Expression _finish(Expression body) => makeLet(
+      receiver,
+      new ConditionalExpression(
+          buildIsNull(helper.astFactory, receiverAccess()),
+          new NullLiteral(),
+          body,
+          type));
 }
 
-class SuperPropertyAccessor<Arguments> extends Accessor<Arguments> {
+class SuperPropertyAccessor extends Accessor {
   Name name;
   Member getter, setter;
 
@@ -375,31 +284,22 @@ class SuperPropertyAccessor<Arguments> extends Accessor<Arguments> {
       BuilderHelper helper, this.name, this.getter, this.setter, Token token)
       : super(helper, token);
 
-  Expression _makeRead(ShadowComplexAssignment complexAssignment) {
-    if (getter == null) {
-      helper.warnUnresolvedGet(name, offsetForToken(token), isSuper: true);
-    }
+  Expression _makeRead() {
+    if (getter == null) return makeInvalidRead();
     // TODO(ahe): Use [DirectPropertyGet] when possible.
-    var read = new ShadowSuperPropertyGet(name, getter)
+    return builtGetter = new SuperPropertyGet(name, getter)
       ..fileOffset = offsetForToken(token);
-    complexAssignment?.read = read;
-    return read;
   }
 
-  Expression _makeWrite(Expression value, bool voidContext,
-      ShadowComplexAssignment complexAssignment) {
-    if (setter == null) {
-      helper.warnUnresolvedSet(name, offsetForToken(token), isSuper: true);
-    }
+  Expression _makeWrite(Expression value, bool voidContext) {
+    if (setter == null) return makeInvalidWrite(value);
     // TODO(ahe): Use [DirectPropertySet] when possible.
-    var write = new SuperPropertySet(name, value, setter)
+    return new SuperPropertySet(name, value, setter)
       ..fileOffset = offsetForToken(token);
-    complexAssignment?.write = write;
-    return write;
   }
 }
 
-class IndexAccessor<Arguments> extends Accessor<Arguments> {
+class IndexAccessor extends Accessor {
   Expression receiver;
   Expression index;
   VariableDeclaration receiverVariable;
@@ -421,23 +321,15 @@ class IndexAccessor<Arguments> extends Accessor<Arguments> {
       this.getter, this.setter, Token token)
       : super(helper, token);
 
-  Expression _makeSimpleRead() {
-    var read = new ShadowMethodInvocation(
-        receiver, indexGetName, new ShadowArguments(<Expression>[index]),
-        interfaceTarget: getter)
-      ..fileOffset = offsetForToken(token);
-    return read;
-  }
+  Expression _makeSimpleRead() => helper.astFactory.methodInvocation(receiver,
+      indexGetName, helper.astFactory.arguments(<Expression>[index]), getter)
+    ..fileOffset = offsetForToken(token);
 
-  Expression _makeSimpleWrite(Expression value, bool voidContext,
-      ShadowComplexAssignment complexAssignment) {
-    if (!voidContext) return _makeWriteAndReturn(value, complexAssignment);
-    var write = new ShadowMethodInvocation(
-        receiver, indexSetName, new ShadowArguments(<Expression>[index, value]),
-        interfaceTarget: setter)
+  Expression _makeSimpleWrite(Expression value, bool voidContext) {
+    if (!voidContext) return _makeWriteAndReturn(value);
+    return helper.astFactory.methodInvocation(receiver, indexSetName,
+        helper.astFactory.arguments(<Expression>[index, value]), setter)
       ..fileOffset = offsetForToken(token);
-    complexAssignment?.write = write;
-    return write;
   }
 
   receiverAccess() {
@@ -453,58 +345,48 @@ class IndexAccessor<Arguments> extends Accessor<Arguments> {
     return new VariableGet(indexVariable)..fileOffset = offsetForToken(token);
   }
 
-  Expression _makeRead(ShadowComplexAssignment complexAssignment) {
-    var read = new ShadowMethodInvocation(receiverAccess(), indexGetName,
-        new ShadowArguments(<Expression>[indexAccess()]),
-        interfaceTarget: getter)
+  Expression _makeRead() {
+    return builtGetter = helper.astFactory.methodInvocation(
+        receiverAccess(),
+        indexGetName,
+        helper.astFactory.arguments(<Expression>[indexAccess()]),
+        getter)
       ..fileOffset = offsetForToken(token);
-    complexAssignment?.read = read;
-    return read;
   }
 
-  Expression _makeWrite(Expression value, bool voidContext,
-      ShadowComplexAssignment complexAssignment) {
-    if (!voidContext) return _makeWriteAndReturn(value, complexAssignment);
-    var write = new ShadowMethodInvocation(receiverAccess(), indexSetName,
-        new ShadowArguments(<Expression>[indexAccess(), value]),
-        interfaceTarget: setter)
+  Expression _makeWrite(Expression value, bool voidContext) {
+    if (!voidContext) return _makeWriteAndReturn(value);
+    return helper.astFactory.methodInvocation(receiverAccess(), indexSetName,
+        helper.astFactory.arguments(<Expression>[indexAccess(), value]), setter)
       ..fileOffset = offsetForToken(token);
-    complexAssignment?.write = write;
-    return write;
   }
 
   // TODO(dmitryas): remove this method after the "[]=" operator of the Context
   // class is made to return a value.
-  _makeWriteAndReturn(
-      Expression value, ShadowComplexAssignment complexAssignment) {
+  _makeWriteAndReturn(Expression value) {
     // The call to []= does not return the value like direct-style assignments
     // do.  We need to bind the value in a let.
     var valueVariable = new VariableDeclaration.forValue(value);
-    var write = new ShadowMethodInvocation(
-        receiverAccess(),
-        indexSetName,
-        new ShadowArguments(
-            <Expression>[indexAccess(), new VariableGet(valueVariable)]),
-        interfaceTarget: setter)
-      ..fileOffset = offsetForToken(token);
-    complexAssignment?.write = write;
-    var dummy = new ShadowVariableDeclaration.forValue(
-        write, helper.functionNestingLevel);
+    var dummy = new VariableDeclaration.forValue(helper.astFactory
+        .methodInvocation(
+            receiverAccess(),
+            indexSetName,
+            helper.astFactory.arguments(
+                <Expression>[indexAccess(), new VariableGet(valueVariable)]),
+            setter)
+          ..fileOffset = offsetForToken(token));
     return makeLet(
         valueVariable, makeLet(dummy, new VariableGet(valueVariable)));
   }
 
-  Expression _finish(
-      Expression body, ShadowComplexAssignment complexAssignment) {
-    return super._finish(
-        makeLet(receiverVariable, makeLet(indexVariable, body)),
-        complexAssignment);
+  Expression _finish(Expression body) {
+    return makeLet(receiverVariable, makeLet(indexVariable, body));
   }
 }
 
 /// Special case of [IndexAccessor] to avoid creating an indirect access to
 /// 'this'.
-class ThisIndexAccessor<Arguments> extends Accessor<Arguments> {
+class ThisIndexAccessor extends Accessor {
   Expression index;
   VariableDeclaration indexVariable;
   Procedure getter, setter;
@@ -514,21 +396,17 @@ class ThisIndexAccessor<Arguments> extends Accessor<Arguments> {
       : super(helper, token);
 
   Expression _makeSimpleRead() {
-    return new ShadowMethodInvocation(new ShadowThisExpression(), indexGetName,
-        new ShadowArguments(<Expression>[index]),
-        interfaceTarget: getter)
-      ..fileOffset = offsetForToken(token);
+    return helper.astFactory.methodInvocation(new ThisExpression(),
+        indexGetName, helper.astFactory.arguments(<Expression>[index]), getter);
   }
 
-  Expression _makeSimpleWrite(Expression value, bool voidContext,
-      ShadowComplexAssignment complexAssignment) {
-    if (!voidContext) return _makeWriteAndReturn(value, complexAssignment);
-    var write = new ShadowMethodInvocation(new ShadowThisExpression(),
-        indexSetName, new ShadowArguments(<Expression>[index, value]),
-        interfaceTarget: setter)
-      ..fileOffset = offsetForToken(token);
-    complexAssignment?.write = write;
-    return write;
+  Expression _makeSimpleWrite(Expression value, bool voidContext) {
+    if (!voidContext) return _makeWriteAndReturn(value);
+    return helper.astFactory.methodInvocation(
+        new ThisExpression(),
+        indexSetName,
+        helper.astFactory.arguments(<Expression>[index, value]),
+        setter);
   }
 
   indexAccess() {
@@ -536,49 +414,38 @@ class ThisIndexAccessor<Arguments> extends Accessor<Arguments> {
     return new VariableGet(indexVariable);
   }
 
-  Expression _makeRead(ShadowComplexAssignment complexAssignment) {
-    var read = new ShadowMethodInvocation(new ShadowThisExpression(),
-        indexGetName, new ShadowArguments(<Expression>[indexAccess()]),
-        interfaceTarget: getter)
-      ..fileOffset = offsetForToken(token);
-    complexAssignment?.read = read;
-    return read;
-  }
+  Expression _makeRead() => builtGetter = helper.astFactory.methodInvocation(
+      new ThisExpression(),
+      indexGetName,
+      helper.astFactory.arguments(<Expression>[indexAccess()]),
+      getter);
 
-  Expression _makeWrite(Expression value, bool voidContext,
-      ShadowComplexAssignment complexAssignment) {
-    if (!voidContext) return _makeWriteAndReturn(value, complexAssignment);
-    var write = new ShadowMethodInvocation(new ShadowThisExpression(),
-        indexSetName, new ShadowArguments(<Expression>[indexAccess(), value]),
-        interfaceTarget: setter)
-      ..fileOffset = offsetForToken(token);
-    complexAssignment?.write = write;
-    return write;
-  }
-
-  _makeWriteAndReturn(
-      Expression value, ShadowComplexAssignment complexAssignment) {
-    var valueVariable = new VariableDeclaration.forValue(value);
-    var write = new ShadowMethodInvocation(
-        new ShadowThisExpression(),
+  Expression _makeWrite(Expression value, bool voidContext) {
+    if (!voidContext) return _makeWriteAndReturn(value);
+    return helper.astFactory.methodInvocation(
+        new ThisExpression(),
         indexSetName,
-        new ShadowArguments(
-            <Expression>[indexAccess(), new VariableGet(valueVariable)]),
-        interfaceTarget: setter)
-      ..fileOffset = offsetForToken(token);
-    complexAssignment?.write = write;
-    var dummy = new VariableDeclaration.forValue(write);
+        helper.astFactory.arguments(<Expression>[indexAccess(), value]),
+        setter);
+  }
+
+  _makeWriteAndReturn(Expression value) {
+    var valueVariable = new VariableDeclaration.forValue(value);
+    var dummy = new VariableDeclaration.forValue(helper.astFactory
+        .methodInvocation(
+            new ThisExpression(),
+            indexSetName,
+            helper.astFactory.arguments(
+                <Expression>[indexAccess(), new VariableGet(valueVariable)]),
+            setter));
     return makeLet(
         valueVariable, makeLet(dummy, new VariableGet(valueVariable)));
   }
 
-  Expression _finish(
-      Expression body, ShadowComplexAssignment complexAssignment) {
-    return super._finish(makeLet(indexVariable, body), complexAssignment);
-  }
+  Expression _finish(Expression body) => makeLet(indexVariable, body);
 }
 
-class SuperIndexAccessor<Arguments> extends Accessor<Arguments> {
+class SuperIndexAccessor extends Accessor {
   Expression index;
   VariableDeclaration indexVariable;
   Member getter, setter;
@@ -592,83 +459,45 @@ class SuperIndexAccessor<Arguments> extends Accessor<Arguments> {
     return new VariableGet(indexVariable);
   }
 
-  Expression _makeSimpleRead() {
-    if (getter == null) {
-      helper.warnUnresolvedMethod(indexGetName, offsetForToken(token),
-          isSuper: true);
-    }
-    // TODO(ahe): Use [DirectMethodInvocation] when possible.
-    return new ShadowSuperMethodInvocation(
-        indexGetName, new ShadowArguments(<Expression>[index]), getter)
-      ..fileOffset = offsetForToken(token);
+  Expression _makeSimpleRead() => new SuperMethodInvocation(
+      indexGetName, helper.astFactory.arguments(<Expression>[index]), getter);
+
+  Expression _makeSimpleWrite(Expression value, bool voidContext) {
+    if (!voidContext) return _makeWriteAndReturn(value);
+    return new SuperMethodInvocation(indexSetName,
+        helper.astFactory.arguments(<Expression>[index, value]), setter);
   }
 
-  Expression _makeSimpleWrite(Expression value, bool voidContext,
-      ShadowComplexAssignment complexAssignment) {
-    if (!voidContext) return _makeWriteAndReturn(value, complexAssignment);
-    if (setter == null) {
-      helper.warnUnresolvedMethod(indexSetName, offsetForToken(token),
-          isSuper: true);
-    }
-    var write = new SuperMethodInvocation(
-        indexSetName, new ShadowArguments(<Expression>[index, value]), setter)
-      ..fileOffset = offsetForToken(token);
-    complexAssignment?.write = write;
-    return write;
+  Expression _makeRead() {
+    return builtGetter = new SuperMethodInvocation(indexGetName,
+        helper.astFactory.arguments(<Expression>[indexAccess()]), getter);
   }
 
-  Expression _makeRead(ShadowComplexAssignment complexAssignment) {
-    if (getter == null) {
-      helper.warnUnresolvedMethod(indexGetName, offsetForToken(token),
-          isSuper: true);
-    }
-    var read = new SuperMethodInvocation(
-        indexGetName, new ShadowArguments(<Expression>[indexAccess()]), getter)
-      ..fileOffset = offsetForToken(token);
-    complexAssignment?.read = read;
-    return read;
-  }
-
-  Expression _makeWrite(Expression value, bool voidContext,
-      ShadowComplexAssignment complexAssignment) {
-    if (!voidContext) return _makeWriteAndReturn(value, complexAssignment);
-    if (setter == null) {
-      helper.warnUnresolvedMethod(indexSetName, offsetForToken(token),
-          isSuper: true);
-    }
-    var write = new SuperMethodInvocation(indexSetName,
-        new ShadowArguments(<Expression>[indexAccess(), value]), setter)
-      ..fileOffset = offsetForToken(token);
-    complexAssignment?.write = write;
-    return write;
-  }
-
-  _makeWriteAndReturn(
-      Expression value, ShadowComplexAssignment complexAssignment) {
-    var valueVariable = new VariableDeclaration.forValue(value);
-    if (setter == null) {
-      helper.warnUnresolvedMethod(indexSetName, offsetForToken(token),
-          isSuper: true);
-    }
-    var write = new SuperMethodInvocation(
+  Expression _makeWrite(Expression value, bool voidContext) {
+    if (!voidContext) return _makeWriteAndReturn(value);
+    return new SuperMethodInvocation(
         indexSetName,
-        new ShadowArguments(
+        helper.astFactory.arguments(<Expression>[indexAccess(), value]),
+        setter);
+  }
+
+  _makeWriteAndReturn(Expression value) {
+    var valueVariable = new VariableDeclaration.forValue(value);
+    var dummy = new VariableDeclaration.forValue(new SuperMethodInvocation(
+        indexSetName,
+        helper.astFactory.arguments(
             <Expression>[indexAccess(), new VariableGet(valueVariable)]),
-        setter)
-      ..fileOffset = offsetForToken(token);
-    complexAssignment?.write = write;
-    var dummy = new VariableDeclaration.forValue(write);
+        setter));
     return makeLet(
         valueVariable, makeLet(dummy, new VariableGet(valueVariable)));
   }
 
-  Expression _finish(
-      Expression body, ShadowComplexAssignment complexAssignment) {
-    return super._finish(makeLet(indexVariable, body), complexAssignment);
+  Expression _finish(Expression body) {
+    return makeLet(indexVariable, body);
   }
 }
 
-class StaticAccessor<Arguments> extends Accessor<Arguments> {
+class StaticAccessor extends Accessor {
   Member readTarget;
   Member writeTarget;
 
@@ -676,79 +505,19 @@ class StaticAccessor<Arguments> extends Accessor<Arguments> {
       BuilderHelper helper, this.readTarget, this.writeTarget, Token token)
       : super(helper, token);
 
-  Expression _makeRead(ShadowComplexAssignment complexAssignment) {
-    if (readTarget == null) {
-      return makeInvalidRead();
-    } else {
-      var read = helper.makeStaticGet(readTarget, token);
-      complexAssignment?.read = read;
-      return read;
-    }
-  }
+  Expression _makeRead() => builtGetter = readTarget == null
+      ? makeInvalidRead()
+      : helper.makeStaticGet(readTarget, token);
 
-  Expression _makeWrite(Expression value, bool voidContext,
-      ShadowComplexAssignment complexAssignment) {
-    Expression write;
-    if (writeTarget == null) {
-      write = makeInvalidWrite(value);
-    } else {
-      write = new StaticSet(writeTarget, value);
-      complexAssignment?.write = write;
-    }
-    write.fileOffset = offsetForToken(token);
-    return write;
+  Expression _makeWrite(Expression value, bool voidContext) {
+    return writeTarget == null
+        ? makeInvalidWrite(value)
+        : new StaticSet(writeTarget, value)
+      ..fileOffset = offsetForToken(token);
   }
 }
 
-abstract class LoadLibraryAccessor<Arguments> extends Accessor<Arguments> {
-  final LoadLibraryBuilder builder;
-
-  LoadLibraryAccessor(BuilderHelper helper, Token token, this.builder)
-      : super(helper, token);
-
-  Expression _makeRead(ShadowComplexAssignment complexAssignment) {
-    var read =
-        helper.makeStaticGet(builder.createTearoffMethod(helper.forest), token);
-    complexAssignment?.read = read;
-    return read;
-  }
-
-  Expression _makeWrite(Expression value, bool voidContext,
-      ShadowComplexAssignment complexAssignment) {
-    Expression write = makeInvalidWrite(value);
-    write.fileOffset = offsetForToken(token);
-    return write;
-  }
-}
-
-abstract class DeferredAccessor<Arguments> extends Accessor<Arguments> {
-  final PrefixBuilder builder;
-  final Accessor accessor;
-
-  DeferredAccessor(
-      BuilderHelper helper, Token token, this.builder, this.accessor)
-      : super(helper, token);
-
-  Expression _makeSimpleRead() {
-    return helper.wrapInDeferredCheck(
-        accessor._makeSimpleRead(), builder, token.charOffset);
-  }
-
-  Expression _makeRead(ShadowComplexAssignment complexAssignment) {
-    return helper.wrapInDeferredCheck(
-        accessor._makeRead(complexAssignment), builder, token.charOffset);
-  }
-
-  Expression _makeWrite(Expression value, bool voidContext,
-      ShadowComplexAssignment complexAssignment) {
-    return helper.wrapInDeferredCheck(
-        accessor._makeWrite(value, voidContext, complexAssignment),
-        builder,
-        token.charOffset);
-  }
-}
-
-class ReadOnlyAccessor<Arguments> extends Accessor<Arguments> {
+class ReadOnlyAccessor extends Accessor {
   Expression expression;
   VariableDeclaration value;
 
@@ -757,38 +526,15 @@ class ReadOnlyAccessor<Arguments> extends Accessor<Arguments> {
 
   Expression _makeSimpleRead() => expression;
 
-  Expression _makeRead(ShadowComplexAssignment complexAssignment) {
+  Expression _makeRead() {
     value ??= new VariableDeclaration.forValue(expression);
     return new VariableGet(value);
   }
 
-  Expression _makeWrite(Expression value, bool voidContext,
-      ShadowComplexAssignment complexAssignment) {
-    var write = makeInvalidWrite(value);
-    complexAssignment?.write = write;
-    return write;
-  }
+  Expression _makeWrite(Expression value, bool voidContext) =>
+      makeInvalidWrite(value);
 
-  Expression _finish(
-          Expression body, ShadowComplexAssignment complexAssignment) =>
-      super._finish(makeLet(value, body), complexAssignment);
-}
-
-abstract class DelayedErrorAccessor<Arguments> extends Accessor<Arguments> {
-  DelayedErrorAccessor(BuilderHelper helper, Token token)
-      : super(helper, token);
-
-  Expression buildError();
-
-  Expression _makeSimpleRead() => buildError();
-  Expression _makeSimpleWrite(Expression value, bool voidContext,
-          ShadowComplexAssignment complexAssignment) =>
-      buildError();
-  Expression _makeRead(ShadowComplexAssignment complexAssignment) =>
-      buildError();
-  Expression _makeWrite(Expression value, bool voidContext,
-          ShadowComplexAssignment complexAssignment) =>
-      buildError();
+  Expression _finish(Expression body) => makeLet(value, body);
 }
 
 Expression makeLet(VariableDeclaration variable, Expression body) {
@@ -796,21 +542,28 @@ Expression makeLet(VariableDeclaration variable, Expression body) {
   return new Let(variable, body);
 }
 
-Expression makeBinary(
-    Expression left, Name operator, Procedure interfaceTarget, Expression right,
+Expression makeBinary(AstFactory astFactory, Expression left, Name operator,
+    Procedure interfaceTarget, Expression right,
     {int offset: TreeNode.noOffset}) {
-  return new ShadowMethodInvocation(
-      left, operator, new ShadowArguments(<Expression>[right]),
-      interfaceTarget: interfaceTarget)
+  return astFactory.methodInvocation(left, operator,
+      astFactory.arguments(<Expression>[right]), interfaceTarget)
     ..fileOffset = offset;
 }
 
-Expression buildIsNull(Expression value, int offset) {
-  return makeBinary(value, equalsName, null, new NullLiteral(), offset: offset);
+final Name _equalOperator = new Name('==');
+
+Expression buildIsNull(AstFactory astFactory, Expression value,
+    {int offset: TreeNode.noOffset}) {
+  return makeBinary(astFactory, value, _equalOperator, null, new NullLiteral(),
+      offset: offset);
 }
 
 VariableDeclaration makeOrReuseVariable(Expression value) {
   // TODO: Devise a way to remember if a variable declaration was reused
   // or is fresh (hence needs a let binding).
   return new VariableDeclaration.forValue(value);
+}
+
+Expression wrapInvalid(Expression e) {
+  return new Let(new VariableDeclaration.forValue(e), new InvalidExpression());
 }

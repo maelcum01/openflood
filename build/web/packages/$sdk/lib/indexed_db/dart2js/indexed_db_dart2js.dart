@@ -69,8 +69,6 @@
  *
  * [IndexedDB reference](http://docs.webplatform.org/wiki/apis/indexeddb)
  * provides wiki-style docs about indexedDB
- *
- * {@category Web}
  */
 library dart.dom.indexed_db;
 
@@ -116,8 +114,9 @@ class _KeyRangeFactoryProvider {
     return _cachedClass = _uncachedClass();
   }
 
-  static _uncachedClass() =>
-      JS('var', '''window.webkitIDBKeyRange || window.mozIDBKeyRange ||
+  static _uncachedClass() => JS(
+      'var',
+      '''window.webkitIDBKeyRange || window.mozIDBKeyRange ||
           window.msIDBKeyRange || window.IDBKeyRange''');
 
   static _translateKey(idbkey) => idbkey; // TODO: fixme.
@@ -514,15 +513,6 @@ class Database extends EventTarget {
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-// WARNING: Do not edit - generated code.
-
-@DomName('IDBObserverCallback')
-@Experimental() // untriaged
-typedef void ObserverCallback(ObserverChanges changes);
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
 @DomName('IDBFactory')
 @SupportedBrowser(SupportedBrowser.CHROME)
 @SupportedBrowser(SupportedBrowser.FIREFOX, '15')
@@ -545,8 +535,8 @@ class IdbFactory extends Interceptor {
   @DomName('IDBFactory.open')
   Future<Database> open(String name,
       {int version,
-      void onUpgradeNeeded(VersionChangeEvent event),
-      void onBlocked(Event event)}) {
+      void onUpgradeNeeded(VersionChangeEvent),
+      void onBlocked(Event)}) {
     if ((version == null) != (onUpgradeNeeded == null)) {
       return new Future.error(new ArgumentError(
           'version and onUpgradeNeeded must be specified together'));
@@ -590,9 +580,21 @@ class IdbFactory extends Interceptor {
     }
   }
 
+  @DomName('IDBFactory.getDatabaseNames')
+  @SupportedBrowser(SupportedBrowser.CHROME)
+  @Experimental()
+  Future<List<String>> getDatabaseNames() {
+    try {
+      var request = _webkitGetDatabaseNames();
+
+      return _completeRequest(request);
+    } catch (e, stacktrace) {
+      return new Future.error(e, stacktrace);
+    }
+  }
+
   /**
    * Checks to see if getDatabaseNames is supported by the current platform.
-   * TODO(terry): Should be able to always return false?
    */
   bool get supportsDatabaseNames {
     return supported &&
@@ -621,18 +623,29 @@ class IdbFactory extends Interceptor {
   @Creates('Request')
   @Creates('Database')
   OpenDBRequest _open(String name, [int version]) native;
+
+  @JSName('webkitGetDatabaseNames')
+  @DomName('IDBFactory.webkitGetDatabaseNames')
+  @DocsEditable()
+  @SupportedBrowser(SupportedBrowser.CHROME)
+  @SupportedBrowser(SupportedBrowser.SAFARI)
+  @Experimental()
+  @Returns('Request')
+  @Creates('Request')
+  @Creates('DomStringList')
+  Request _webkitGetDatabaseNames() native;
 }
 
 /**
  * Ties a request to a completer, so the completer is completed when it succeeds
  * and errors out when the request errors.
  */
-Future<T> _completeRequest<T>(Request request) {
-  var completer = new Completer<T>.sync();
+Future/*<T>*/ _completeRequest/*<T>*/(Request request) {
+  var completer = new Completer/*<T>*/ .sync();
   // TODO: make sure that completer.complete is synchronous as transactions
   // may be committed if the result is not processed immediately.
   request.onSuccess.listen((e) {
-    T result = request.result;
+    var result = _cast/*<T>*/(request.result);
     completer.complete(result);
   });
   request.onError.listen(completer.completeError);
@@ -750,7 +763,7 @@ class Index extends Interceptor {
 
   @DomName('IDBIndex.name')
   @DocsEditable()
-  String name;
+  final String name;
 
   @DomName('IDBIndex.objectStore')
   @DocsEditable()
@@ -776,12 +789,12 @@ class Index extends Interceptor {
   @DomName('IDBIndex.getAll')
   @DocsEditable()
   @Experimental() // untriaged
-  Request getAll(Object query, [int count]) native;
+  Request getAll(Object range, [int maxCount]) native;
 
   @DomName('IDBIndex.getAllKeys')
   @DocsEditable()
   @Experimental() // untriaged
-  Request getAllKeys(Object query, [int count]) native;
+  Request getAllKeys(Object range, [int maxCount]) native;
 
   @JSName('getKey')
   @DomName('IDBIndex.getKey')
@@ -862,11 +875,6 @@ class KeyRange extends Interceptor {
   @DocsEditable()
   static KeyRange bound_(Object lower, Object upper,
       [bool lowerOpen, bool upperOpen]) native;
-
-  @DomName('IDBKeyRange.includes')
-  @DocsEditable()
-  @Experimental() // untriaged
-  bool includes(Object key) native;
 
   @JSName('lowerBound')
   @DomName('IDBKeyRange.lowerBound')
@@ -1039,7 +1047,7 @@ class ObjectStore extends Interceptor {
 
   @DomName('IDBObjectStore.name')
   @DocsEditable()
-  String name;
+  final String name;
 
   @DomName('IDBObjectStore.transaction')
   @DocsEditable()
@@ -1124,17 +1132,12 @@ class ObjectStore extends Interceptor {
   @DomName('IDBObjectStore.getAll')
   @DocsEditable()
   @Experimental() // untriaged
-  Request getAll(Object query, [int count]) native;
+  Request getAll(Object range, [int maxCount]) native;
 
   @DomName('IDBObjectStore.getAllKeys')
   @DocsEditable()
   @Experimental() // untriaged
-  Request getAllKeys(Object query, [int count]) native;
-
-  @DomName('IDBObjectStore.getKey')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Request getKey(Object key) native;
+  Request getAllKeys(Object range, [int maxCount]) native;
 
   @DomName('IDBObjectStore.index')
   @DocsEditable()
@@ -1186,18 +1189,18 @@ class ObjectStore extends Interceptor {
   /**
    * Helper for iterating over cursors in a request.
    */
-  static Stream<T> _cursorStreamFromResult<T extends Cursor>(
+  static Stream/*<T>*/ _cursorStreamFromResult/*<T extends Cursor>*/(
       Request request, bool autoAdvance) {
     // TODO: need to guarantee that the controller provides the values
     // immediately as waiting until the next tick will cause the transaction to
     // close.
-    var controller = new StreamController<T>(sync: true);
+    var controller = new StreamController/*<T>*/(sync: true);
 
     //TODO: Report stacktrace once issue 4061 is resolved.
     request.onError.listen(controller.addError);
 
     request.onSuccess.listen((e) {
-      T cursor = request.result as dynamic;
+      var cursor = _cast/*<T>*/(request.result);
       if (cursor == null) {
         controller.close();
       } else {
@@ -1210,106 +1213,9 @@ class ObjectStore extends Interceptor {
     return controller.stream;
   }
 }
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
 
-@DocsEditable()
-@DomName('IDBObservation')
-@Experimental() // untriaged
-@Native("IDBObservation")
-class Observation extends Interceptor {
-  // To suppress missing implicit constructor warnings.
-  factory Observation._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('IDBObservation.key')
-  @DocsEditable()
-  @Experimental() // untriaged
-  final Object key;
-
-  @DomName('IDBObservation.type')
-  @DocsEditable()
-  @Experimental() // untriaged
-  final String type;
-
-  @DomName('IDBObservation.value')
-  @DocsEditable()
-  @Experimental() // untriaged
-  final Object value;
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-@DocsEditable()
-@DomName('IDBObserver')
-@Experimental() // untriaged
-@Native("IDBObserver")
-class Observer extends Interceptor {
-  // To suppress missing implicit constructor warnings.
-  factory Observer._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('IDBObserver.IDBObserver')
-  @DocsEditable()
-  factory Observer(ObserverCallback callback) {
-    return Observer._create_1(callback);
-  }
-  static Observer _create_1(callback) =>
-      JS('Observer', 'new IDBObserver(#)', callback);
-
-  @DomName('IDBObserver.observe')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void observe(Database db, Transaction tx, Map options) {
-    var options_1 = convertDartToNative_Dictionary(options);
-    _observe_1(db, tx, options_1);
-    return;
-  }
-
-  @JSName('observe')
-  @DomName('IDBObserver.observe')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void _observe_1(Database db, Transaction tx, options) native;
-
-  @DomName('IDBObserver.unobserve')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void unobserve(Database db) native;
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-@DocsEditable()
-@DomName('IDBObserverChanges')
-@Experimental() // untriaged
-@Native("IDBObserverChanges")
-class ObserverChanges extends Interceptor {
-  // To suppress missing implicit constructor warnings.
-  factory ObserverChanges._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('IDBObserverChanges.database')
-  @DocsEditable()
-  @Experimental() // untriaged
-  final Database database;
-
-  @DomName('IDBObserverChanges.records')
-  @DocsEditable()
-  @Experimental() // untriaged
-  final Object records;
-
-  @DomName('IDBObserverChanges.transaction')
-  @DocsEditable()
-  @Experimental() // untriaged
-  final Transaction transaction;
-}
+// ignore: STRONG_MODE_DOWN_CAST_COMPOSITE
+/*=To*/ _cast/*<To>*/(dynamic x) => x;
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
@@ -1545,10 +1451,11 @@ class Transaction extends EventTarget {
   @DocsEditable()
   Stream<Event> get onError => errorEvent.forTarget(this);
 }
-// Copyright (c) 2018, the Dart project authors.  Please see the AUTHORS file
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+@DocsEditable()
 @DomName('IDBVersionChangeEvent')
 @Unstable()
 @Native("IDBVersionChangeEvent")
@@ -1596,9 +1503,4 @@ class VersionChangeEvent extends Event {
   @Creates('int|String|Null')
   @Returns('int|String|Null')
   final int oldVersion;
-
-  @JSName('target')
-  @DomName('IDBVersionChangeEvent.target')
-  @DocsEditable()
-  final OpenDBRequest target;
 }

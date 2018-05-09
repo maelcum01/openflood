@@ -17,11 +17,9 @@ import 'dart:_js_helper'
 import 'dart:_isolate_helper'
     show IsolateNatives, TimerImpl, leaveJsAsync, enterJsAsync, isWorker;
 
-import 'dart:_foreign_helper' show JS, JS_GET_FLAG;
+import 'dart:_foreign_helper' show JS;
 
 import 'dart:_async_await_error_codes' as async_error_codes;
-
-import "dart:collection" show IterableBase;
 
 @patch
 class _AsyncRun {
@@ -52,6 +50,8 @@ class _AsyncRun {
         storedCallback = null;
         f();
       }
+
+      ;
 
       var observer = JS('', 'new self.MutationObserver(#)',
           convertDartClosureToJS(internalCallback, 1));
@@ -99,7 +99,7 @@ class _AsyncRun {
   }
 
   static void _scheduleImmediateWithTimer(void callback()) {
-    Timer._createTimer(Duration.zero, callback);
+    Timer._createTimer(Duration.ZERO, callback);
   }
 }
 
@@ -128,53 +128,6 @@ class Timer {
     if (milliseconds < 0) milliseconds = 0;
     return new TimerImpl.periodic(milliseconds, callback);
   }
-}
-
-class _AsyncAwaitCompleter<T> implements Completer<T> {
-  final _completer = new Completer<T>.sync();
-  bool isSync;
-
-  _AsyncAwaitCompleter() : isSync = false;
-
-  void complete([FutureOr<T> value]) {
-    if (isSync) {
-      _completer.complete(value);
-    } else if (value is Future<T>) {
-      value.then(_completer.complete, onError: _completer.completeError);
-    } else {
-      scheduleMicrotask(() {
-        _completer.complete(value);
-      });
-    }
-  }
-
-  void completeError(e, [st]) {
-    if (isSync) {
-      _completer.completeError(e, st);
-    } else {
-      scheduleMicrotask(() {
-        _completer.completeError(e, st);
-      });
-    }
-  }
-
-  Future<T> get future => _completer.future;
-  bool get isCompleted => _completer.isCompleted;
-}
-
-/// Initiates the computation of an `async` function and starts the body
-/// synchronously.
-///
-/// Used as part of the runtime support for the async/await transformation.
-///
-/// This function sets up the first call into the transformed [bodyFunction].
-/// Independently, it takes the [completer] and returns the future of the
-/// completer for convenience of the transformed code.
-dynamic _asyncStartSync(
-    _WrappedAsyncBody bodyFunction, _AsyncAwaitCompleter completer) {
-  bodyFunction(async_error_codes.SUCCESS, null);
-  completer.isSync = true;
-  return completer.future;
 }
 
 /// Initiates the computation of an `async` function.
@@ -401,8 +354,8 @@ Stream _streamOfController(_AsyncStarStreamController controller) {
 ///
 /// If yielding while the subscription is paused it will become suspended. And
 /// only resume after the subscription is resumed or canceled.
-class _AsyncStarStreamController<T> {
-  StreamController<T> controller;
+class _AsyncStarStreamController {
+  StreamController controller;
   Stream get stream => controller.stream;
 
   /// True when the async* function has yielded while being paused.
@@ -422,7 +375,7 @@ class _AsyncStarStreamController<T> {
 
   add(event) => controller.add(event);
 
-  addStream(Stream<T> stream) {
+  addStream(Stream stream) {
     return controller.addStream(stream, cancelOnError: false);
   }
 
@@ -437,7 +390,7 @@ class _AsyncStarStreamController<T> {
       });
     }
 
-    controller = new StreamController<T>(onListen: () {
+    controller = new StreamController(onListen: () {
       _resumeBody();
     }, onResume: () {
       // Only schedule again if the async* function actually is suspended.
@@ -464,9 +417,9 @@ class _AsyncStarStreamController<T> {
   }
 }
 
-//_makeAsyncStarController(body) {
-//  return new _AsyncStarStreamController(body);
-//}
+_makeAsyncStarController(body) {
+  return new _AsyncStarStreamController(body);
+}
 
 class _IterationMarker {
   static const YIELD_SINGLE = 0;
@@ -498,7 +451,7 @@ class _IterationMarker {
   toString() => "IterationMarker($state, $value)";
 }
 
-class _SyncStarIterator<T> implements Iterator<T> {
+class _SyncStarIterator implements Iterator {
   // _SyncStarIterator handles stepping a sync* generator body state machine.
   //
   // It also handles the stepping over 'nested' iterators to flatten yield*
@@ -513,11 +466,9 @@ class _SyncStarIterator<T> implements Iterator<T> {
   dynamic _body;
 
   // The current value, unless iterating a non-sync* nested iterator.
-  T _current = null;
+  dynamic _current = null;
 
   // This is the nested iterator when iterating a yield* of a non-sync iterator.
-  // TODO(32956): In strong-mode, yield* takes an Iterable<T> (possibly checked
-  // with an implicit downcast), so change type to Iterator<T>.
   Iterator _nestedIterator = null;
 
   // Stack of suspended state machines when iterating a yield* of a sync*
@@ -526,10 +477,7 @@ class _SyncStarIterator<T> implements Iterator<T> {
 
   _SyncStarIterator(this._body);
 
-  T get current {
-    if (_nestedIterator == null) return _current;
-    return _nestedIterator.current;
-  }
+  get current => _nestedIterator == null ? _current : _nestedIterator.current;
 
   _runBody() {
     // TODO(sra): Find a way to hard-wire SUCCESS and ERROR codes.
@@ -597,20 +545,11 @@ class _SyncStarIterator<T> implements Iterator<T> {
             continue;
           } else {
             _nestedIterator = inner;
-            // TODO(32956): Change to the following when strong-mode is the only
-            // option:
-            //
-            //     _nestedIterator = JS<Iterator<T>>('','#', inner);
             continue;
           }
         }
       } else {
-        // TODO(32956): Remove this test.
-        if (JS_GET_FLAG('STRONG_MODE')) {
-          _current = JS<T>('', '#', value);
-        } else {
-          _current = value;
-        }
+        _current = value;
         return true;
       }
     }
@@ -621,7 +560,7 @@ class _SyncStarIterator<T> implements Iterator<T> {
 /// An Iterable corresponding to a sync* method.
 ///
 /// Each invocation of a sync* method will return a new instance of this class.
-class _SyncStarIterable<T> extends IterableBase<T> {
+class _SyncStarIterable extends IterableBase {
   // This is a function that will return a helper function that does the
   // iteration of the sync*.
   //
@@ -630,13 +569,12 @@ class _SyncStarIterable<T> extends IterableBase<T> {
 
   _SyncStarIterable(this._outerHelper);
 
-  Iterator<T> get iterator =>
-      new _SyncStarIterator<T>(JS('', '#()', _outerHelper));
+  Iterator get iterator => new _SyncStarIterator(JS('', '#()', _outerHelper));
 }
 
 @patch
 void _rethrow(Object error, StackTrace stackTrace) {
   error = wrapException(error);
-  JS('void', '#.stack = #', error, stackTrace.toString());
-  JS('void', 'throw #', error);
+  JS("void", "#.stack = #", error, stackTrace.toString());
+  JS("void", "throw #", error);
 }

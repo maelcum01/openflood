@@ -4,12 +4,11 @@
 
 // Patch file for the dart:isolate library.
 
-import "dart:async";
 import 'dart:_js_helper' show patch;
 import 'dart:_isolate_helper'
     show CapabilityImpl, IsolateNatives, ReceivePortImpl, RawReceivePortImpl;
 
-typedef _UnaryFunction(Null arg);
+typedef _UnaryFunction(arg);
 
 @patch
 class Isolate {
@@ -33,16 +32,13 @@ class Isolate {
   static Uri _packageBase = Uri.base.resolve(IsolateNatives.packagesBase);
 
   @patch
-  static Future<Uri> resolvePackageUri(Uri packageUri) {
-    if (packageUri.scheme != 'package') {
-      return new Future<Uri>.value(packageUri);
-    }
-    return new Future<Uri>.value(
-        _packageBase.resolveUri(packageUri.replace(scheme: '')));
+  static Future<Uri> resolvePackageUri(Uri packageUri) async {
+    if (packageUri.scheme != 'package') return packageUri;
+    return _packageBase.resolveUri(packageUri.replace(scheme: ''));
   }
 
   @patch
-  static Future<Isolate> spawn<T>(void entryPoint(T message), T message,
+  static Future<Isolate> spawn(void entryPoint(message), var message,
       {bool paused: false,
       bool errorsAreFatal,
       SendPort onExit,
@@ -188,12 +184,12 @@ class Isolate {
   }
 
   @patch
-  void kill({int priority: beforeNextEvent}) {
+  void kill({int priority: BEFORE_NEXT_EVENT}) {
     controlPort.send(["kill", terminateCapability, priority]);
   }
 
   @patch
-  void ping(SendPort responsePort, {Object response, int priority: immediate}) {
+  void ping(SendPort responsePort, {Object response, int priority: IMMEDIATE}) {
     var message = new List(4)
       ..[0] = "ping"
       ..[1] = responsePort
@@ -234,7 +230,7 @@ class ReceivePort {
 @patch
 class RawReceivePort {
   @patch
-  factory RawReceivePort([Function handler]) {
+  factory RawReceivePort([void handler(event)]) {
     return new RawReceivePortImpl(handler);
   }
 }

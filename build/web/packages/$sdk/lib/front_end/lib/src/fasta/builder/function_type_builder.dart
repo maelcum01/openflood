@@ -4,14 +4,23 @@
 
 library fasta.function_type_builder;
 
-import 'builder.dart' show LibraryBuilder, TypeBuilder, TypeVariableBuilder;
+import 'builder.dart'
+    show LibraryBuilder, Scope, TypeBuilder, TypeDeclarationBuilder;
 
 abstract class FunctionTypeBuilder extends TypeBuilder {
   final TypeBuilder returnType;
   final List typeVariables;
   final List formals;
 
-  FunctionTypeBuilder(this.returnType, this.typeVariables, this.formals);
+  FunctionTypeBuilder(int charOffset, Uri fileUri, this.returnType,
+      this.typeVariables, this.formals)
+      : super(charOffset, fileUri);
+
+  @override
+  void resolveIn(Scope scope) {}
+
+  @override
+  void bind(TypeDeclarationBuilder builder) {}
 
   @override
   String get name => null;
@@ -21,33 +30,10 @@ abstract class FunctionTypeBuilder extends TypeBuilder {
 
   @override
   StringBuffer printOn(StringBuffer buffer) {
-    if (typeVariables != null) {
-      buffer.write("<");
-      bool isFirst = true;
-      for (TypeVariableBuilder t in typeVariables) {
-        if (!isFirst) {
-          buffer.write(", ");
-        } else {
-          isFirst = false;
-        }
-        buffer.write(t.name);
-      }
-      buffer.write(">");
-    }
-    buffer.write("(");
-    if (formals != null) {
-      bool isFirst = true;
-      for (TypeBuilder t in formals) {
-        if (!isFirst) {
-          buffer.write(", ");
-        } else {
-          isFirst = false;
-        }
-        buffer.write(t.fullNameForErrors);
-      }
-    }
-    buffer.write(") -> ");
-    buffer.write(returnType.fullNameForErrors);
+    buffer.write(typeVariables);
+    buffer.write(formals);
+    buffer.write(" -> ");
+    buffer.write(returnType);
     return buffer;
   }
 

@@ -4,9 +4,7 @@
 
 library dart2js.scanner.string_scanner;
 
-import '../../scanner/token.dart' show SyntheticStringToken, TokenType;
-
-import '../../scanner/token.dart' as analyzer show StringToken;
+import '../../scanner/token.dart' show TokenType;
 
 import 'array_based_scanner.dart' show ArrayBasedScanner;
 
@@ -28,7 +26,8 @@ class StringScanner extends ArrayBasedScanner {
       bool scanGenericMethodComments: false,
       bool scanLazyAssignmentOperators: false})
       : string = ensureZeroTermination(string),
-        super(includeComments, scanGenericMethodComments);
+        super(includeComments, scanGenericMethodComments,
+            scanLazyAssignmentOperators);
 
   static String ensureZeroTermination(String string) {
     return (string.isEmpty || string.codeUnitAt(string.length - 1) != 0)
@@ -47,20 +46,11 @@ class StringScanner extends ArrayBasedScanner {
   void handleUnicode(int startScanOffset) {}
 
   @override
-  analyzer.StringToken createSubstringToken(
-      TokenType type, int start, bool asciiOnly,
+  StringToken createSubstringToken(TokenType type, int start, bool asciiOnly,
       [int extraOffset = 0]) {
     return new StringToken.fromSubstring(
         type, string, start, scanOffset + extraOffset, tokenStart,
         canonicalize: true, precedingComments: comments);
-  }
-
-  @override
-  analyzer.StringToken createSyntheticSubstringToken(
-      TokenType type, int start, bool asciiOnly, String syntheticChars) {
-    String source = string.substring(start, scanOffset);
-    return new SyntheticStringToken(
-        type, source + syntheticChars, tokenStart, source.length);
   }
 
   @override
@@ -80,4 +70,21 @@ class StringScanner extends ArrayBasedScanner {
   }
 
   bool atEndOfFile() => scanOffset >= string.length - 1;
+}
+
+/**
+ * Scanner that creates tokens for a part of a larger [String], where the part
+ * starts at the [baseOffset].
+ */
+class SubStringScanner extends StringScanner {
+  final int baseOffset;
+
+  SubStringScanner(this.baseOffset, String string,
+      {bool includeComments: false})
+      : super(string, includeComments: includeComments);
+
+  @override
+  void beginToken() {
+    tokenStart = baseOffset + stringOffset;
+  }
 }

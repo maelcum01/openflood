@@ -2,12 +2,10 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:async';
 import 'dart:io';
 
 import 'package:analyzer/analyzer.dart';
 import 'package:analyzer/dart/ast/token.dart';
-import 'package:analyzer/file_system/file_system.dart' as file_system;
 import 'package:analyzer/src/generated/engine.dart'
     show AnalysisErrorInfo, AnalysisErrorInfoImpl, Logger;
 import 'package:analyzer/src/generated/java_engine.dart' show CaughtException;
@@ -26,7 +24,6 @@ import 'package:path/path.dart' as p;
 typedef Printer(String msg);
 
 /// Describes a String in valid camel case format.
-@deprecated // Never intended for public use.
 class CamelCaseString {
   static final _camelCaseMatcher = new RegExp(r'[A-Z][a-z]*');
   static final _camelCaseTester = new RegExp(r'^([_$]*)([A-Z?$]+[a-z0-9]*)+$');
@@ -63,11 +60,11 @@ class DartLinter implements AnalysisErrorListener {
   /// Creates a new linter.
   DartLinter(this.options, {this.reporter: const PrintingReporter()});
 
-  Future<Iterable<AnalysisErrorInfo>> lintFiles(List<File> files) async {
+  Iterable<AnalysisErrorInfo> lintFiles(List<File> files) {
     List<AnalysisErrorInfo> errors = [];
-    final lintDriver = new LintDriver(options);
-    errors.addAll(await lintDriver.analyze(files.where((f) => isDartFile(f))));
-    numSourcesAnalyzed = lintDriver.numSourcesAnalyzed;
+    var analysisDriver = new LintDriver(options);
+    errors.addAll(analysisDriver.analyze(files.where((f) => isDartFile(f))));
+    numSourcesAnalyzed = analysisDriver.numSourcesAnalyzed;
     files.where((f) => isPubspecFile(f)).forEach((p) {
       numSourcesAnalyzed++;
       return errors.addAll(_lintPubspecFile(p));
@@ -196,7 +193,6 @@ class LinterException implements Exception {
 class LinterOptions extends DriverOptions {
   Iterable<LintRule> enabledLints;
   LintFilter filter;
-  file_system.ResourceProvider resourceProvider;
   LinterOptions([this.enabledLints]) {
     enabledLints ??= Registry.ruleRegistry;
   }
@@ -208,7 +204,7 @@ class LinterOptions extends DriverOptions {
   }
 }
 
-/// Filtered lints are omitted from linter output.
+/// Filtered lints are ommitted from linter output.
 abstract class LintFilter {
   bool filter(AnalysisError lint);
 }
@@ -365,11 +361,11 @@ class SourceLinter implements DartLinter, AnalysisErrorListener {
   SourceLinter(this.options, {this.reporter: const PrintingReporter()});
 
   @override
-  Future<Iterable<AnalysisErrorInfo>> lintFiles(List<File> files) async {
+  Iterable<AnalysisErrorInfo> lintFiles(List<File> files) {
     List<AnalysisErrorInfo> errors = [];
-    final lintDriver = new LintDriver(options);
-    errors.addAll(await lintDriver.analyze(files.where((f) => isDartFile(f))));
-    numSourcesAnalyzed = lintDriver.numSourcesAnalyzed;
+    var analysisDriver = new LintDriver(options);
+    errors.addAll(analysisDriver.analyze(files.where((f) => isDartFile(f))));
+    numSourcesAnalyzed = analysisDriver.numSourcesAnalyzed;
     files.where((f) => isPubspecFile(f)).forEach((p) {
       numSourcesAnalyzed++;
       return errors.addAll(_lintPubspecFile(p));

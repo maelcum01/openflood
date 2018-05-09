@@ -4,7 +4,7 @@
 
 library fasta.modifier;
 
-import 'problems.dart' show unhandled;
+import 'errors.dart' show internalError;
 
 enum ModifierEnum {
   Abstract,
@@ -67,7 +67,7 @@ class Modifier {
     if (identical('final', string)) return Final;
     if (identical('static', string)) return Static;
     if (identical('var', string)) return Var;
-    return unhandled(string, "Modifier.fromString", -1, null);
+    return internalError("Unhandled modifier: $string");
   }
 
   toString() => "modifier(${'$kind'.substring('ModifierEnum.'.length)})";
@@ -81,13 +81,5 @@ class Modifier {
       result |= modifier.mask;
     }
     return result;
-  }
-
-  static int validateVarFinalOrConst(String lexeme) {
-    if (lexeme == null) return 0;
-    if (identical('const', lexeme)) return Const.mask;
-    if (identical('final', lexeme)) return Final.mask;
-    if (identical('var', lexeme)) return Var.mask;
-    return unhandled(lexeme, "Modifier.validateVarFinalOrConst", -1, null);
   }
 }

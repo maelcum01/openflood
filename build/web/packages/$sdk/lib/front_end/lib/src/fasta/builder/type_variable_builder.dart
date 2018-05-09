@@ -30,6 +30,4 @@ abstract class TypeVariableBuilder<T extends TypeBuilder, R>
   String toString() => "${printOn(new StringBuffer())}";
 
   T asTypeBuilder();
-
-  TypeVariableBuilder clone(List<TypeBuilder> newTypes);
 }

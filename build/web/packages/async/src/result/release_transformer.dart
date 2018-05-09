@@ -4,17 +4,19 @@
 
 import 'dart:async';
 
-import 'result.dart';
+import '../result.dart';
 import 'release_sink.dart';
 
-/// A transformer that releases result events as data and error events.
-class ReleaseStreamTransformer<T> extends StreamTransformerBase<Result<T>, T> {
+/// Use [Result.releaseTransformer] instead.
+@Deprecated("Will be removed in async 2.0.0.")
+class ReleaseStreamTransformer<T> implements StreamTransformer<Result<T>, T> {
   const ReleaseStreamTransformer();
 
   Stream<T> bind(Stream<Result<T>> source) {
     return new Stream<T>.eventTransformed(source, _createSink);
   }
 
-  // Since Stream.eventTransformed is not generic, this method can be static.
-  static EventSink<Result> _createSink(EventSink sink) => new ReleaseSink(sink);
+  static EventSink<Result> _createSink(EventSink sink) {
+    return new ReleaseSink(sink);
+  }
 }

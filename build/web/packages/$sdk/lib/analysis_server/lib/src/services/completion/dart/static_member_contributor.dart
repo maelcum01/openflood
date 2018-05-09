@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:analysis_server/src/ide_options.dart';
 import 'package:analysis_server/src/provisional/completion/dart/completion_dart.dart';
 import 'package:analysis_server/src/services/completion/dart/suggestion_builder.dart';
 import 'package:analyzer/dart/ast/ast.dart';
@@ -31,7 +32,8 @@ class StaticMemberContributor extends DartCompletionContributor {
           return EMPTY_LIST;
         }
 
-        _SuggestionBuilder builder = new _SuggestionBuilder(containingLibrary);
+        _SuggestionBuilder builder =
+            new _SuggestionBuilder(containingLibrary, request.ideOptions);
         elem.accept(builder);
         return builder.suggestions;
       }
@@ -55,7 +57,12 @@ class _SuggestionBuilder extends GeneralizingElementVisitor {
    */
   final List<CompletionSuggestion> suggestions = <CompletionSuggestion>[];
 
-  _SuggestionBuilder(this.containingLibrary);
+  /**
+   * Ide options.
+   */
+  final IdeOptions options;
+
+  _SuggestionBuilder(this.containingLibrary, this.options);
 
   @override
   visitClassElement(ClassElement element) {
@@ -109,7 +116,7 @@ class _SuggestionBuilder extends GeneralizingElementVisitor {
       return;
     }
     CompletionSuggestion suggestion =
-        createSuggestion(element, completion: completion);
+        createSuggestion(element, options, completion: completion);
     if (suggestion != null) {
       suggestions.add(suggestion);
     }

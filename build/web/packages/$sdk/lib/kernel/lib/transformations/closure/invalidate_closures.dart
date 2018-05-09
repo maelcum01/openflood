@@ -18,7 +18,6 @@ class InvalidateClosures extends Transformer {
   }
 
   void invalidate(FunctionNode function) {
-    if (function.asyncMarker != AsyncMarker.Sync) return;
     var position = function.location;
     function.body = new ExpressionStatement(new Throw(
         new StringLiteral("Calling unconverted closure at $position")))

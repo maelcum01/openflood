@@ -8,7 +8,7 @@ import 'dart:async' show Future;
 
 import 'dart:io' show FileSystemException;
 
-import 'deprecated_problems.dart' show deprecated_inputError;
+import 'errors.dart' show inputError;
 
 import 'scanner/io.dart' as scanner_io show readBytesFromFile;
 
@@ -23,6 +23,6 @@ Future<List<int>> readBytesFromFile(Uri uri,
     if (osMessage != null && osMessage.isNotEmpty) {
       message = osMessage;
     }
-    return deprecated_inputError(uri, -1, message);
+    return inputError(uri, -1, message);
   }
 }

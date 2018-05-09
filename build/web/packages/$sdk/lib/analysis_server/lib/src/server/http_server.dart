@@ -5,36 +5,10 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:analysis_server/src/channel/web_socket_channel.dart';
 import 'package:analysis_server/src/socket_server.dart';
-import 'package:analysis_server/src/status/diagnostics.dart';
-
-/**
- * Instances of the class [AbstractGetHandler] handle GET requests.
- */
-abstract class AbstractGetHandler {
-  /**
-   * Handle a GET request received by the HTTP server.
-   */
-  void handleGetRequest(HttpRequest request);
-}
-
-/**
- * An [AbstractGetHandler] that always returns the given error message.
- */
-class ErrorGetHandler extends AbstractGetHandler {
-  final String message;
-
-  ErrorGetHandler(this.message);
-
-  @override
-  void handleGetRequest(HttpRequest request) {
-    HttpResponse response = request.response;
-    response.statusCode = HttpStatus.NOT_FOUND;
-    response.headers.contentType = ContentType.TEXT;
-    response.write(message);
-    response.close();
-  }
-}
+import 'package:analysis_server/src/status/get_handler.dart';
+import 'package:analysis_server/src/status/get_handler2.dart';
 
 /**
  * Instances of the class [HttpServer] implement a simple HTTP server. The
@@ -63,7 +37,7 @@ class HttpAnalysisServer {
   /**
    * Future that is completed with the HTTP server once it is running.
    */
-  Future<HttpServer> _serverFuture;
+  Future<HttpServer> _server;
 
   /**
    * Last PRINT_BUFFER_LENGTH lines printed.
@@ -78,10 +52,10 @@ class HttpAnalysisServer {
   /**
    * Return the port this server is bound to.
    */
-  Future<int> get boundPort async => (await _serverFuture)?.port;
+  Future<int> get boundPort async => (await _server)?.port;
 
   void close() {
-    _serverFuture?.then((HttpServer server) {
+    _server.then((HttpServer server) {
       server.close();
     });
   }
@@ -101,22 +75,17 @@ class HttpAnalysisServer {
    * Begin serving HTTP requests over the given port.
    */
   Future<int> serveHttp([int initialPort]) async {
-    if (_serverFuture != null) {
+    if (_server != null) {
       return boundPort;
     }
 
     try {
-      _serverFuture =
+      _server =
           HttpServer.bind(InternetAddress.LOOPBACK_IP_V4, initialPort ?? 0);
-
-      HttpServer server = await _serverFuture;
+      HttpServer server = await _server;
       _handleServer(server);
       return server.port;
     } catch (ignore) {
-      // If we can't bind to the specified port, don't remember the broken
-      // server.
-      _serverFuture = null;
-
       return null;
     }
   }
@@ -124,35 +93,44 @@ class HttpAnalysisServer {
   /**
    * Handle a GET request received by the HTTP server.
    */
-  Future<Null> _handleGetRequest(HttpRequest request) async {
+  void _handleGetRequest(HttpRequest request) {
     if (getHandler == null) {
-      getHandler = new DiagnosticsSite(socketServer, _printBuffer);
+      if (socketServer.analysisServer.options.enableNewAnalysisDriver) {
+        getHandler = new GetHandler2(socketServer, _printBuffer);
+      } else {
+        getHandler = new GetHandler(socketServer, _printBuffer);
+      }
     }
-    await getHandler.handleGetRequest(request);
+    getHandler.handleGetRequest(request);
   }
 
   /**
    * Attach a listener to a newly created HTTP server.
    */
   void _handleServer(HttpServer httpServer) {
-    httpServer.listen((HttpRequest request) async {
+    httpServer.listen((HttpRequest request) {
       List<String> updateValues = request.headers[HttpHeaders.UPGRADE];
-      if (request.method == 'GET') {
-        await _handleGetRequest(request);
-      } else if (updateValues != null &&
-          updateValues.indexOf('websocket') >= 0) {
-        // We no longer support serving analysis server communications over
-        // WebSocket connections.
-        HttpResponse response = request.response;
-        response.statusCode = HttpStatus.NOT_FOUND;
-        response.headers.contentType = ContentType.TEXT;
-        response.write(
-            'WebSocket connections not supported (${request.uri.path}).');
-        response.close();
+      if (updateValues != null && updateValues.indexOf('websocket') >= 0) {
+        WebSocketTransformer.upgrade(request).then((WebSocket websocket) {
+          _handleWebSocket(websocket);
+        });
+      } else if (request.method == 'GET') {
+        _handleGetRequest(request);
       } else {
         _returnUnknownRequest(request);
       }
     });
+  }
+
+  /**
+   * Handle an UPGRADE request received by the HTTP server by creating and
+   * running an analysis server on a [WebSocket]-based communication channel.
+   */
+  void _handleWebSocket(WebSocket socket) {
+    // TODO(devoncarew): This serves the analysis server over a websocket
+    // connection for historical reasons (and should probably be removed).
+    socketServer.createAnalysisServer(new WebSocketServerChannel(
+        socket, socketServer.instrumentationService));
   }
 
   /**
@@ -162,7 +140,8 @@ class HttpAnalysisServer {
   void _returnUnknownRequest(HttpRequest request) {
     HttpResponse response = request.response;
     response.statusCode = HttpStatus.NOT_FOUND;
-    response.headers.contentType = ContentType.TEXT;
+    response.headers.contentType =
+        new ContentType("text", "plain", charset: "utf-8");
     response.write('Not found');
     response.close();
   }

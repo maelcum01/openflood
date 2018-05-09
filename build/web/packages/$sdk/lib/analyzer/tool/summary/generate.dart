@@ -25,15 +25,15 @@ import 'dart:io';
 import 'package:front_end/src/codegen/tools.dart';
 import 'package:front_end/src/fasta/scanner/string_scanner.dart';
 import 'package:front_end/src/scanner/token.dart' show Token;
-import 'package:front_end/src/testing/package_root.dart' as package_root;
 import 'package:path/path.dart';
 
 import 'idl_model.dart' as idlModel;
 import 'mini_ast.dart';
 
-main() async {
-  String pkgPath = normalize(join(package_root.packageRoot, 'analyzer'));
-  await GeneratedContent.generateAll(pkgPath, allTargets);
+main() {
+  String script = Platform.script.toFilePath(windows: Platform.isWindows);
+  String pkgPath = normalize(join(dirname(script), '..', '..'));
+  GeneratedContent.generateAll(pkgPath, allTargets);
 }
 
 final List<GeneratedContent> allTargets = <GeneratedContent>[
@@ -42,14 +42,14 @@ final List<GeneratedContent> allTargets = <GeneratedContent>[
 ];
 
 final GeneratedFile formatTarget =
-    new GeneratedFile('lib/src/summary/format.dart', (String pkgPath) async {
+    new GeneratedFile('lib/src/summary/format.dart', (String pkgPath) {
   _CodeGenerator codeGenerator = new _CodeGenerator(pkgPath);
   codeGenerator.generateFormatCode();
   return codeGenerator._outBuffer.toString();
 });
 
 final GeneratedFile schemaTarget =
-    new GeneratedFile('lib/src/summary/format.fbs', (String pkgPath) async {
+    new GeneratedFile('lib/src/summary/format.fbs', (String pkgPath) {
   _CodeGenerator codeGenerator = new _CodeGenerator(pkgPath);
   codeGenerator.generateFlatBufferSchema();
   return codeGenerator._outBuffer.toString();
@@ -435,8 +435,8 @@ class _CodeGenerator {
     out();
     out("import 'dart:convert' as convert;");
     out();
-    out("import 'package:analyzer/src/summary/api_signature.dart' as api_sig;");
-    out("import 'package:analyzer/src/summary/flat_buffers.dart' as fb;");
+    out("import 'package:front_end/src/base/api_signature.dart' as api_sig;");
+    out("import 'package:front_end/src/base/flat_buffers.dart' as fb;");
     out();
     out("import 'idl.dart' as idl;");
     out();
@@ -521,7 +521,7 @@ class _CodeGenerator {
    * Enclose [s] in quotes, escaping as necessary.
    */
   String quoted(String s) {
-    return json.encode(s);
+    return JSON.encode(s);
   }
 
   void _generateBuilder(idlModel.ClassDeclaration cls) {
@@ -915,7 +915,7 @@ class _CodeGenerator {
       out();
       // Write toString().
       out('@override');
-      out('String toString() => convert.json.encode(toJson());');
+      out('String toString() => convert.JSON.encode(toJson());');
     });
     out('}');
   }

@@ -23,7 +23,7 @@ part of dart.collection;
  *
  * The map allows `null` as a key.
  */
-abstract class LinkedHashMap<K, V> implements Map<K, V> {
+abstract class LinkedHashMap<K, V> implements HashMap<K, V> {
   /**
    * Creates an insertion-ordered hash-table based [Map].
    *
@@ -35,7 +35,7 @@ abstract class LinkedHashMap<K, V> implements Map<K, V> {
    * for keys in order to place them in the hash table. If it is omitted, the
    * key's own [Object.hashCode] is used.
    *
-   * If using methods like [operator []], [remove] and [containsKey] together
+   * If using methods like [[]], [remove] and [containsKey] together
    * with a custom equality and hashcode, an extra `isValidKey` function
    * can be supplied. This function is called before calling [equals] or
    * [hashCode] with an argument that may not be a [K] instance, and if the
@@ -87,23 +87,14 @@ abstract class LinkedHashMap<K, V> implements Map<K, V> {
 
   /**
    * Creates a [LinkedHashMap] that contains all key value pairs of [other].
-   *
-   * The keys must all be instances of [K] and the values to [V].
-   * The [other] map itself can have any type.
    */
   factory LinkedHashMap.from(Map other) {
     LinkedHashMap<K, V> result = new LinkedHashMap<K, V>();
     other.forEach((k, v) {
-      result[k] = v;
+      result[k as Object/*=K*/] = v as Object/*=V*/;
     });
     return result;
   }
-
-  /**
-   * Creates a [LinkedHashMap] that contains all key value pairs of [other].
-   */
-  factory LinkedHashMap.of(Map<K, V> other) =>
-      new LinkedHashMap<K, V>()..addAll(other);
 
   /**
    * Creates a [LinkedHashMap] where the keys and values are computed from the
@@ -121,7 +112,7 @@ abstract class LinkedHashMap<K, V> implements Map<K, V> {
   factory LinkedHashMap.fromIterable(Iterable iterable,
       {K key(element), V value(element)}) {
     LinkedHashMap<K, V> map = new LinkedHashMap<K, V>();
-    MapBase._fillMapWithMappedIterable(map, iterable, key, value);
+    Maps._fillMapWithMappedIterable(map, iterable, key, value);
     return map;
   }
 
@@ -138,7 +129,7 @@ abstract class LinkedHashMap<K, V> implements Map<K, V> {
    */
   factory LinkedHashMap.fromIterables(Iterable<K> keys, Iterable<V> values) {
     LinkedHashMap<K, V> map = new LinkedHashMap<K, V>();
-    MapBase._fillMapWithIterables(map, keys, values);
+    Maps._fillMapWithIterables(map, keys, values);
     return map;
   }
 }

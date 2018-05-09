@@ -4,13 +4,13 @@
 
 import 'dart:async';
 
-import 'package:front_end/src/api_prototype/dependency_grapher.dart';
+import 'package:front_end/dependency_grapher.dart';
 import 'package:front_end/src/async_dependency_walker.dart';
 import 'package:front_end/src/base/processed_options.dart';
 import 'package:front_end/src/fasta/parser.dart';
 import 'package:front_end/src/fasta/scanner.dart';
 import 'package:front_end/src/fasta/source/directive_listener.dart';
-import 'package:front_end/src/fasta/uri_translator.dart';
+import 'package:front_end/src/fasta/translate_uri.dart';
 
 /// Generates a representation of the dependency graph of a program.
 ///
@@ -22,10 +22,10 @@ import 'package:front_end/src/fasta/uri_translator.dart';
 /// they are read directly from `options.fileSystem`.
 ///
 /// This is intended for internal use by the front end.  Clients should use
-/// package:front_end/src/api_prototype/dependency_grapher.dart.
+/// package:front_end/dependency_grapher.dart.
 Future<Graph> graphForProgram(List<Uri> sources, ProcessedOptions options,
     {FileReader fileReader}) async {
-  UriTranslator uriTranslator = await options.getUriTranslator();
+  TranslateUri uriTranslator = await options.getUriTranslator();
   fileReader ??= (originalUri, resolvedUri) =>
       options.fileSystem.entityForUri(resolvedUri).readAsString();
   var walker = new _Walker(fileReader, uriTranslator, options.compileSdk);
@@ -50,7 +50,7 @@ class _StartingPoint extends _WalkerNode {
 
 class _Walker extends AsyncDependencyWalker<_WalkerNode> {
   final FileReader fileReader;
-  final UriTranslator uriTranslator;
+  final TranslateUri uriTranslator;
   final _nodesByUri = <Uri, _WalkerNode>{};
   final graph = new Graph();
   final bool compileSdk;
@@ -94,9 +94,8 @@ class _WalkerNode extends Node<_WalkerNode> {
   Future<List<_WalkerNode>> computeDependencies() async {
     var dependencies = <_WalkerNode>[];
     // TODO(paulberry): add error recovery if the file can't be read.
-    var resolvedUri = uri.scheme == 'dart' || uri.scheme == 'package'
-        ? walker.uriTranslator.translate(uri)
-        : uri;
+    var resolvedUri =
+        uri.scheme == 'file' ? uri : walker.uriTranslator.translate(uri);
     if (resolvedUri == null) {
       // TODO(paulberry): If an error reporter was provided, report the error
       // in the proper way and continue.

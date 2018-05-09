@@ -10,14 +10,7 @@ import 'package:analyzer/src/dart/analysis/driver.dart';
 import 'package:analyzer/src/dart/ast/utilities.dart';
 import 'package:analyzer/src/dart/element/ast_provider.dart';
 
-/**
- * [AstProvider] implementation for [AnalysisDriver].
- */
-class AstProviderForDriver implements AstProvider {
-  final AnalysisDriver driver;
-
-  AstProviderForDriver(this.driver);
-
+abstract class AbstractAstProvider implements AstProvider {
   @override
   Future<SimpleIdentifier> getParsedNameForElement(Element element) async {
     CompilationUnit unit = await getParsedUnitForElement(element);
@@ -25,23 +18,9 @@ class AstProviderForDriver implements AstProvider {
   }
 
   @override
-  Future<CompilationUnit> getParsedUnitForElement(Element element) async {
-    String path = element.source.fullName;
-    ParseResult parseResult = await driver.parseFile(path);
-    return parseResult.unit;
-  }
-
-  @override
   Future<SimpleIdentifier> getResolvedNameForElement(Element element) async {
     CompilationUnit unit = await getResolvedUnitForElement(element);
     return _getNameNode(unit, element);
-  }
-
-  @override
-  Future<CompilationUnit> getResolvedUnitForElement(Element element) async {
-    String path = element.source.fullName;
-    AnalysisResult analysisResult = await driver.getResult(path);
-    return analysisResult?.unit;
   }
 
   SimpleIdentifier _getNameNode(CompilationUnit unit, Element element) {
@@ -54,5 +33,28 @@ class AstProviderForDriver implements AstProvider {
       return nameNode;
     }
     return null;
+  }
+}
+
+/**
+ * [AstProvider] implementation for [AnalysisDriver].
+ */
+class AstProviderForDriver extends AbstractAstProvider {
+  final AnalysisDriver driver;
+
+  AstProviderForDriver(this.driver);
+
+  @override
+  Future<CompilationUnit> getParsedUnitForElement(Element element) async {
+    String path = element.source.fullName;
+    ParseResult parseResult = await driver.parseFile(path);
+    return parseResult.unit;
+  }
+
+  @override
+  Future<CompilationUnit> getResolvedUnitForElement(Element element) async {
+    String path = element.source.fullName;
+    AnalysisResult analysisResult = await driver.getResult(path);
+    return analysisResult?.unit;
   }
 }

@@ -8,7 +8,6 @@ import '../modifier.dart'
     show
         abstractMask,
         constMask,
-        covariantMask,
         externalMask,
         finalMask,
         namedMixinApplicationMask,
@@ -19,19 +18,14 @@ import 'builder.dart' show Builder;
 abstract class ModifierBuilder extends Builder {
   final int charOffset;
 
-  final Uri fileUri;
-
   ModifierBuilder(Builder parent, this.charOffset, [Uri fileUri])
-      : fileUri = fileUri ?? parent?.fileUri,
-        super(parent, charOffset, fileUri ?? parent?.fileUri);
+      : super(parent, charOffset, fileUri ?? parent?.fileUri);
 
   int get modifiers;
 
   bool get isAbstract => (modifiers & abstractMask) != 0;
 
   bool get isConst => (modifiers & constMask) != 0;
-
-  bool get isCovariant => (modifiers & covariantMask) != 0;
 
   bool get isExternal => (modifiers & externalMask) != 0;
 
@@ -42,18 +36,4 @@ abstract class ModifierBuilder extends Builder {
   bool get isNamedMixinApplication {
     return (modifiers & namedMixinApplicationMask) != 0;
   }
-
-  bool get isClassMember => false;
-
-  String get name;
-
-  bool get isNative => false;
-
-  String get debugName;
-
-  StringBuffer printOn(StringBuffer buffer) {
-    return buffer..write(name ?? fullNameForErrors);
-  }
-
-  String toString() => "$debugName(${printOn(new StringBuffer())})";
 }

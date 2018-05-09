@@ -30,12 +30,18 @@ abstract class UnhandledListener extends StackListener {
   List<String> popIdentifierList(int count) => popList(count);
 
   @override
-  void endConditionalUri(Token ifKeyword, Token leftParen, Token equalSign) {
+  void endMetadataStar(int count, bool forParameter) {
+    debugEvent("MetadataStar");
+    push(popList(count) ?? NullValue.Metadata);
+  }
+
+  @override
+  void endConditionalUri(Token ifKeyword, Token equalitySign) {
     debugEvent("ConditionalUri");
     popCharOffset();
     pop(); // URI.
-    if (equalSign != null) popCharOffset();
-    popIfNotNull(equalSign); // String.
+    if (equalitySign != null) popCharOffset();
+    popIfNotNull(equalitySign); // String.
     pop(); // DottedName.
     push(Unhandled.ConditionalUri);
   }
@@ -68,17 +74,17 @@ abstract class UnhandledListener extends StackListener {
   }
 
   @override
-  void handleDottedName(int count, Token firstIdentifier) {
+  void endDottedName(int count, Token firstIdentifier) {
     debugEvent("DottedName");
     popIdentifierList(count);
     push(Unhandled.DottedName);
   }
 
   @override
-  void endFunctionType(Token functionToken, Token endToken) {
+  void handleFunctionType(Token functionToken, Token endToken) {
     pop(); // Formals.
-    pop(); // Return type.
     pop(); // Type variables.
+    pop(); // Return type.
     push(NullValue.Type);
   }
 }

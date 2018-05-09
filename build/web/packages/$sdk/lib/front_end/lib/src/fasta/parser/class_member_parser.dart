@@ -6,8 +6,6 @@ library fasta.parser.class_member_parser;
 
 import '../../scanner/token.dart' show Token;
 
-import 'assert.dart' show Assert;
-
 import 'listener.dart' show Listener;
 
 import 'parser.dart' show Parser;
@@ -17,23 +15,13 @@ import 'parser.dart' show Parser;
 class ClassMemberParser extends Parser {
   ClassMemberParser(Listener listener) : super(listener);
 
-  @override
-  Token parseExpression(Token token) {
-    return skipExpression(token);
-  }
+  Token parseExpression(Token token) => skipExpression(token);
 
-  @override
-  Token parseIdentifierExpression(Token token) {
-    return token.next;
-  }
-
-  @override
-  Token parseAssert(Token token, Assert kind) {
-    if (kind == Assert.Statement) {
-      return super.parseAssert(token, kind);
-    } else {
-      return skipExpression(token);
-    }
+  Token parseRecoverExpression(Token token) {
+    Token begin = token;
+    token = skipExpression(token);
+    listener.handleRecoverExpression(begin);
+    return token;
   }
 
   // This method is overridden for two reasons:
@@ -44,7 +32,4 @@ class ClassMemberParser extends Parser {
   Token parseFunctionBody(Token token, bool isExpression, bool allowAbstract) {
     return skipFunctionBody(token, isExpression, allowAbstract);
   }
-
-  @override
-  Token parseInvalidBlock(Token token) => skipBlock(token);
 }

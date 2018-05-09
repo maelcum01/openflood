@@ -6,6 +6,7 @@ library fasta.function_type_alias_builder;
 
 import 'builder.dart'
     show
+        FormalParameterBuilder,
         LibraryBuilder,
         MetadataBuilder,
         TypeBuilder,
@@ -14,18 +15,21 @@ import 'builder.dart'
 
 abstract class FunctionTypeAliasBuilder<T extends TypeBuilder, R>
     extends TypeDeclarationBuilder<T, R> {
-  final T type;
+  final T returnType;
 
   final List<TypeVariableBuilder> typeVariables;
 
-  /// List of type arguments provided by instantiate to bound.
-  List<TypeBuilder> get calculatedBounds;
+  final List<FormalParameterBuilder> formals;
 
-  FunctionTypeAliasBuilder(List<MetadataBuilder> metadata, String name,
-      this.typeVariables, this.type, LibraryBuilder parent, int charOffset)
+  FunctionTypeAliasBuilder(
+      List<MetadataBuilder> metadata,
+      this.returnType,
+      String name,
+      this.typeVariables,
+      this.formals,
+      LibraryBuilder parent,
+      int charOffset)
       : super(metadata, null, name, parent, charOffset);
-
-  String get debugName => "FunctionTypeAliasBuilder";
 
   LibraryBuilder get parent => super.parent;
 }

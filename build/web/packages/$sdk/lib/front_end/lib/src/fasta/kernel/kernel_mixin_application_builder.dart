@@ -6,54 +6,44 @@ library fasta.kernel_mixin_application_builder;
 
 import 'package:kernel/ast.dart' show InterfaceType, Supertype;
 
-import '../problems.dart' show unsupported;
+import '../errors.dart' show internalError;
+
+import '../util/relativize.dart' show relativizeUri;
 
 import 'kernel_builder.dart'
     show
+        KernelLibraryBuilder,
         KernelTypeBuilder,
         LibraryBuilder,
         MixinApplicationBuilder,
-        TypeBuilder,
         TypeVariableBuilder;
 
 class KernelMixinApplicationBuilder
     extends MixinApplicationBuilder<KernelTypeBuilder>
     implements KernelTypeBuilder {
+  final int charOffset;
+
+  final String relativeFileUri;
+
+  final KernelLibraryBuilder library;
+
   Supertype builtType;
 
   List<TypeVariableBuilder> typeVariables;
 
-  KernelMixinApplicationBuilder(
-      KernelTypeBuilder supertype, List<KernelTypeBuilder> mixins)
-      : super(supertype, mixins);
+  String subclassName;
 
-  @override
+  KernelMixinApplicationBuilder(KernelTypeBuilder supertype,
+      List<KernelTypeBuilder> mixins, this.library, int charOffset, Uri fileUri)
+      : charOffset = charOffset,
+        relativeFileUri = relativizeUri(fileUri),
+        super(supertype, mixins, charOffset, fileUri);
+
   InterfaceType build(LibraryBuilder library) {
-    int charOffset = -1; // TODO(ahe): Provide these.
-    Uri fileUri = null; // TODO(ahe): Provide these.
-    return unsupported("build", charOffset, fileUri);
+    return internalError("Unsupported operation.");
   }
 
-  @override
-  Supertype buildSupertype(
-      LibraryBuilder library, int charOffset, Uri fileUri) {
-    return unsupported("buildSupertype", charOffset, fileUri);
-  }
-
-  @override
-  Supertype buildMixedInType(
-      LibraryBuilder library, int charOffset, Uri fileUri) {
-    return unsupported("buildMixedInType", charOffset, fileUri);
-  }
-
-  @override
-  buildInvalidType(int charOffset, Uri fileUri) {
-    return unsupported("buildInvalidType", charOffset, fileUri);
-  }
-
-  KernelMixinApplicationBuilder clone(List<TypeBuilder> newTypes) {
-    int charOffset = -1; // TODO(dmitryas): Provide these.
-    Uri fileUri = null; // TODO(dmitryas): Provide these.
-    return unsupported("clone", charOffset, fileUri);
+  Supertype buildSupertype(LibraryBuilder library) {
+    return internalError("Unsupported operation.");
   }
 }

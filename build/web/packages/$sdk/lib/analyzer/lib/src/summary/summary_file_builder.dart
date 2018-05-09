@@ -52,6 +52,9 @@ class SummaryBuilder {
     //
     Set<String> uriSet =
         sdk.sdkLibraries.map((SdkLibrary library) => library.shortName).toSet();
+    if (!strong) {
+      uriSet.add('dart:html/nativewrappers.dart');
+    }
     uriSet.add('dart:html_common/html_common_dart2js.dart');
 
     Set<Source> librarySources = new HashSet<Source>();
@@ -138,9 +141,7 @@ class _Builder {
     scanner.scanGenericMethodComments = strong;
     Token token = scanner.tokenize();
     LineInfo lineInfo = new LineInfo(scanner.lineStarts);
-    Parser parser = new Parser(source, errorListener,
-        useFasta: context.analysisOptions.useFastaParser);
-    parser.enableOptionalNewAndConst = context.analysisOptions.previewDart2;
+    Parser parser = new Parser(source, errorListener);
     parser.parseGenericMethodComments = strong;
     CompilationUnit unit = parser.parseCompilationUnit(token);
     unit.lineInfo = lineInfo;

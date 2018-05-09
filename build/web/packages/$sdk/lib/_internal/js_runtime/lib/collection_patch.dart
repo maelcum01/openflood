@@ -17,8 +17,6 @@ import 'dart:_js_helper'
         LinkedHashMapKeyIterable,
         LinkedHashMapKeyIterator;
 
-import 'dart:_internal' hide Symbol;
-
 const _USE_ES6_MAPS = const bool.fromEnvironment("dart2js.use.es6.maps");
 
 @patch
@@ -58,7 +56,7 @@ class HashMap<K, V> {
   factory HashMap.identity() = _IdentityHashMap<K, V>;
 }
 
-class _HashMap<K, V> extends MapBase<K, V> implements HashMap<K, V> {
+class _HashMap<K, V> implements HashMap<K, V> {
   int _length = 0;
 
   // The hash map contents are divided into three parts: one part for
@@ -437,6 +435,8 @@ class _CustomHashMap<K, V> extends _HashMap<K, V> {
     }
     return -1;
   }
+
+  String toString() => Maps.mapToString(this);
 }
 
 class _HashMapKeyIterable<E> extends EfficientLengthIterable<E> {
@@ -671,6 +671,8 @@ class _Es6LinkedIdentityHashMap<K, V> extends _LinkedIdentityHashMap<K, V>
     // iterator.
     _modifications = (_modifications + 1) & 0x3ffffff;
   }
+
+  String toString() => Maps.mapToString(this);
 }
 
 class _Es6MapIterable<E> extends EfficientLengthIterable<E> {
@@ -855,7 +857,6 @@ class _HashSet<E> extends _HashSetBase<E> implements HashSet<E> {
   _HashSet();
 
   Set<E> _newSet() => new _HashSet<E>();
-  Set<R> _newSimilarSet<R>() => new _HashSet<R>();
 
   // Iterable.
   Iterator<E> get iterator {
@@ -1108,7 +1109,6 @@ class _HashSet<E> extends _HashSetBase<E> implements HashSet<E> {
 
 class _IdentityHashSet<E> extends _HashSet<E> {
   Set<E> _newSet() => new _IdentityHashSet<E>();
-  Set<R> _newSimilarSet<R>() => new _IdentityHashSet<R>();
 
   int _computeHashCode(var key) {
     // We force the hash codes to be unsigned 30-bit integers to avoid
@@ -1135,7 +1135,6 @@ class _CustomHashSet<E> extends _HashSet<E> {
       : _validKey = (validKey != null) ? validKey : ((x) => x is E);
 
   Set<E> _newSet() => new _CustomHashSet<E>(_equality, _hasher, _validKey);
-  Set<R> _newSimilarSet<R>() => new _HashSet<R>();
 
   int _findBucketIndex(var bucket, var element) {
     if (bucket == null) return -1;
@@ -1268,7 +1267,6 @@ class _LinkedHashSet<E> extends _HashSetBase<E> implements LinkedHashSet<E> {
   _LinkedHashSet();
 
   Set<E> _newSet() => new _LinkedHashSet<E>();
-  Set<R> _newSimilarSet<R>() => new _LinkedHashSet<R>();
 
   void _unsupported(String operation) {
     throw 'LinkedHashSet: unsupported $operation';
@@ -1553,7 +1551,6 @@ class _LinkedHashSet<E> extends _HashSetBase<E> implements LinkedHashSet<E> {
 
 class _LinkedIdentityHashSet<E> extends _LinkedHashSet<E> {
   Set<E> _newSet() => new _LinkedIdentityHashSet<E>();
-  Set<R> _newSimilarSet<R>() => new _LinkedIdentityHashSet<R>();
 
   int _computeHashCode(var key) {
     // We force the hash codes to be unsigned 30-bit integers to avoid
@@ -1583,7 +1580,6 @@ class _LinkedCustomHashSet<E> extends _LinkedHashSet<E> {
 
   Set<E> _newSet() =>
       new _LinkedCustomHashSet<E>(_equality, _hasher, _validKey);
-  Set<R> _newSimilarSet<R>() => new _LinkedHashSet<R>();
 
   int _findBucketIndex(var bucket, var element) {
     if (bucket == null) return -1;

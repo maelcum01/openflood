@@ -2,11 +2,10 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:async';
+library analyzer.src.generated.utilities_general;
+
 import 'dart:collection';
 import 'dart:developer' show UserTag;
-
-import 'package:yaml/yaml.dart';
 
 export 'package:front_end/src/base/jenkins_smi_hash.dart' show JenkinsSmiHash;
 
@@ -27,9 +26,6 @@ bool isTrue(Object value) =>
  * value could not be converted.
  */
 bool toBool(Object value) {
-  if (value is YamlScalar) {
-    value = (value as YamlScalar).value;
-  }
   if (value is bool) {
     return value;
   }
@@ -95,7 +91,7 @@ abstract class PerformanceTag {
    * Return the [PerformanceTag] that is initially current.  This is intended
    * to track time when the system is performing unknown operations.
    */
-  static PerformanceTag get unknown => _PerformanceTagImpl.unknown;
+  static PerformanceTag get UNKNOWN => _PerformanceTagImpl.UNKNOWN;
 
   /**
    * Create a [PerformanceTag] having the given [label].  A [UserTag] will also
@@ -118,12 +114,6 @@ abstract class PerformanceTag {
   String get label;
 
   /**
-   * Create a child tag of the current tag. The new tag's name will include the
-   * parent's name.
-   */
-  PerformanceTag createChild(String childTagName);
-
-  /**
    * Make this the current tag for the isolate, and return the previous tag.
    */
   PerformanceTag makeCurrent();
@@ -132,13 +122,7 @@ abstract class PerformanceTag {
    * Make this the current tag for the isolate, run [f], and restore the
    * previous tag. Returns the result of invoking [f].
    */
-  E makeCurrentWhile<E>(E f());
-
-  /**
-   * Make this the current tag for the isolate, run [f], and restore the
-   * previous tag. Returns the result of invoking [f].
-   */
-  Future<E> makeCurrentWhileAsync<E>(Future<E> f());
+  dynamic/*=E*/ makeCurrentWhile/*<E>*/(dynamic/*=E*/ f());
 
   /**
    * Reset the total time tracked by all [PerformanceTag]s to zero.
@@ -154,9 +138,9 @@ class _PerformanceTagImpl implements PerformanceTag {
   /**
    * The current performance tag for the isolate.
    */
-  static _PerformanceTagImpl current = unknown;
+  static _PerformanceTagImpl current = UNKNOWN;
 
-  static final _PerformanceTagImpl unknown = new _PerformanceTagImpl('unknown');
+  static final _PerformanceTagImpl UNKNOWN = new _PerformanceTagImpl('unknown');
 
   /**
    * A list of all performance tags that have been created so far.
@@ -187,11 +171,6 @@ class _PerformanceTagImpl implements PerformanceTag {
   String get label => userTag.label;
 
   @override
-  PerformanceTag createChild(String childTagName) {
-    return new _PerformanceTagImpl('$label.$childTagName');
-  }
-
-  @override
   PerformanceTag makeCurrent() {
     if (identical(this, current)) {
       return current;
@@ -204,20 +183,10 @@ class _PerformanceTagImpl implements PerformanceTag {
     return previous;
   }
 
-  E makeCurrentWhile<E>(E f()) {
+  dynamic/*=E*/ makeCurrentWhile/*<E>*/(dynamic/*=E*/ f()) {
     PerformanceTag prevTag = makeCurrent();
     try {
       return f();
-    } finally {
-      prevTag.makeCurrent();
-    }
-  }
-
-  @override
-  Future<E> makeCurrentWhileAsync<E>(Future<E> f()) async {
-    PerformanceTag prevTag = makeCurrent();
-    try {
-      return await f();
     } finally {
       prevTag.makeCurrent();
     }

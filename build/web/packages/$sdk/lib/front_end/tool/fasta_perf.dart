@@ -9,17 +9,19 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:analyzer/src/fasta/ast_builder.dart';
-import 'package:args/args.dart';
-
-import 'package:front_end/src/api_prototype/front_end.dart';
-import 'package:front_end/src/base/processed_options.dart';
+import 'package:front_end/physical_file_system.dart';
+import 'package:front_end/src/fasta/dill/dill_target.dart' show DillTarget;
+import 'package:front_end/src/fasta/kernel/kernel_target.dart'
+    show KernelTarget;
 import 'package:front_end/src/fasta/parser.dart';
 import 'package:front_end/src/fasta/scanner.dart';
 import 'package:front_end/src/fasta/scanner/io.dart' show readBytesFromFileSync;
 import 'package:front_end/src/fasta/source/directive_listener.dart';
-import 'package:front_end/src/fasta/uri_translator.dart' show UriTranslator;
-
-import 'perf_common.dart';
+import 'package:front_end/src/fasta/ticker.dart' show Ticker;
+import 'package:front_end/src/fasta/translate_uri.dart' show TranslateUri;
+import 'package:front_end/src/fasta/translate_uri.dart';
+import 'package:front_end/src/fasta/parser/dart_vm_native.dart'
+    show skipNativeClause;
 
 /// Cumulative total number of chars scanned.
 int inputSize = 0;
@@ -29,15 +31,12 @@ Stopwatch scanTimer = new Stopwatch();
 
 main(List<String> args) async {
   // TODO(sigmund): provide sdk folder as well.
-  var options = argParser.parse(args);
-  if (options.rest.length != 2) {
-    print('usage: fasta_perf.dart [options] <bench-id> <entry.dart>');
-    print(argParser.usage);
+  if (args.length < 2) {
+    print('usage: fasta_perf.dart <bench-id> <entry.dart>');
     exit(1);
   }
-  bool strongMode = !options['legacy'];
-  var bench = options.rest[0];
-  var entryUri = Uri.base.resolve(options.rest[1]);
+  var bench = args[0];
+  var entryUri = Uri.base.resolve(args[1]);
 
   await setup(entryUri);
 
@@ -47,11 +46,13 @@ main(List<String> args) async {
     // TODO(sigmund): enable when we can run the ast-builder standalone.
     // 'parse': () async => parseFiles(files),
     'kernel_gen_e2e': () async {
-      await generateKernel(entryUri, strongMode: strongMode);
+      await generateKernel(entryUri);
     },
-    'kernel_gen_e2e_sum': () async {
-      await generateKernel(entryUri, compileSdk: false, strongMode: strongMode);
-    },
+    // TODO(sigmund): enable once we add a build step to create the
+    // platform.dill files.
+    // 'kernel_gen_e2e_sum': () async {
+    //   await generateKernel(entryUri, compileSdk: false);
+    // },
   };
 
   var handler = handlers[bench];
@@ -73,31 +74,17 @@ main(List<String> args) async {
   }
 }
 
-Uri sdkRoot = _computeRoot();
-Uri _computeRoot() {
-  // TODO(sigmund): delete this when our performance bots include runtime/lib/
-  if (new Directory('runtime/lib/').existsSync()) {
-    return Uri.base.resolve("sdk/");
-  }
-  return Uri.base
-      .resolveUri(new Uri.file(Platform.resolvedExecutable))
-      .resolve('patched_sdk/');
-}
-
 /// Translates `dart:*` and `package:*` URIs to resolved URIs.
-UriTranslator uriResolver;
+TranslateUri uriResolver;
 
 /// Preliminary set up to be able to correctly resolve URIs on the given
 /// program.
 Future setup(Uri entryUri) async {
-  var options = new CompilerOptions()
-    ..sdkRoot = sdkRoot
-    // Because this is only used to create a uriResolver, we don't allow any
-    // whitelisting of error messages in the error handler.
-    ..onError = onErrorHandler(false)
-    ..compileSdk = true
-    ..packagesFileUri = Uri.base.resolve('.packages');
-  uriResolver = await new ProcessedOptions(options).getUriTranslator();
+  // TODO(sigmund): use `perf.dart::_findSdkPath` here when fasta can patch the
+  // sdk directly.
+  var sdkRoot =
+      Uri.base.resolve(Platform.resolvedExecutable).resolve('patched_sdk/');
+  uriResolver = await TranslateUri.parse(PhysicalFileSystem.instance, sdkRoot);
 }
 
 /// Scan [contents] and return the first token produced by the scanner.
@@ -183,9 +170,7 @@ Set<String> extractDirectiveUris(List<int> contents) {
 
 class DirectiveListenerWithNative extends DirectiveListener {
   @override
-  void handleNativeFunctionBodySkipped(Token nativeToken, Token semicolon) {
-    // Always allow native functions.
-  }
+  Token handleNativeClause(Token token) => skipNativeClause(token);
 }
 
 /// Parses every file in [files] and reports the time spent doing so.
@@ -212,14 +197,15 @@ parseFull(Uri uri, List<int> source) {
 // Note: AstBuilder doesn't build compilation-units or classes, only method
 // bodies. So this listener is not feature complete.
 class _PartialAstBuilder extends AstBuilder {
-  _PartialAstBuilder(Uri uri) : super(null, null, null, null, true, uri);
+  _PartialAstBuilder(Uri uri) : super(null, null, null, null, null, uri);
 
   // Note: this method converts the body to kernel, so we skip that here.
   @override
-  finishFunction(annotations, formals, asyncModifier, body) {}
+  finishFunction(formals, asyncModifier, body) {}
 }
 
 // Invoke the fasta kernel generator for the program starting in [entryUri]
+// TODO(sigmund): update to use the frontend api once fasta is being hit.
 generateKernel(Uri entryUri,
     {bool compileSdk: true, bool strongMode: false}) async {
   // TODO(sigmund): this is here only to compute the input size,
@@ -227,22 +213,10 @@ generateKernel(Uri entryUri,
   scanReachableFiles(entryUri);
 
   var timer = new Stopwatch()..start();
-  var options = new CompilerOptions()
-    ..sdkRoot = sdkRoot
-    ..reportMessages = true
-    ..onError = onErrorHandler(strongMode)
-    ..strongMode = strongMode
-    ..target = createTarget(isFlutter: false, strongMode: strongMode)
-    ..chaseDependencies = true
-    ..packagesFileUri = Uri.base.resolve('.packages')
-    ..compileSdk = compileSdk;
-  if (!compileSdk) {
-    // TODO(sigmund): fix this: this is broken since the change to move .dill
-    // files out of the patched_sdk folder. It is not failing anywhere because
-    // this codepath is not used right now in our performance bots.
-    options.sdkSummary = sdkRoot.resolve('outline.dill');
-  }
-
+  final Ticker ticker = new Ticker();
+  final DillTarget dillTarget = new DillTarget(ticker, uriResolver, "vm");
+  final KernelTarget kernelTarget = new KernelTarget(
+      PhysicalFileSystem.instance, dillTarget, uriResolver, strongMode);
   var entrypoints = [
     entryUri,
     // These extra libraries are added to match the same set of libraries
@@ -259,11 +233,20 @@ generateKernel(Uri entryUri,
     Uri.parse('dart:mirrors'),
     Uri.parse('dart:typed_data'),
   ];
-  var program = await kernelForComponent(entrypoints, options);
+  entrypoints.forEach(kernelTarget.read);
 
+  if (!compileSdk) {
+    dillTarget.read(
+        Uri.base.resolve(Platform.resolvedExecutable).resolve('platform.dill'));
+  }
+  await dillTarget.buildOutlines();
+  await kernelTarget.buildOutlines();
+  var program = await kernelTarget.buildProgram();
+  if (kernelTarget.errors.isNotEmpty) {
+    throw kernelTarget.errors.first;
+  }
   timer.stop();
-  var name = 'kernel_gen_e2e${compileSdk ? "" : "_sum"}';
-  report(name, timer.elapsedMicroseconds);
+  report('kernel_gen_e2e', timer.elapsedMicroseconds);
   return program;
 }
 
@@ -277,9 +260,3 @@ void report(String name, int time) {
   sb.write(', $invSpeed ns/char');
   print('$sb');
 }
-
-ArgParser argParser = new ArgParser()
-  ..addFlag('legacy',
-      help: 'run the compiler in legacy-mode',
-      defaultsTo: false,
-      negatable: false);

@@ -18,6 +18,12 @@ IOSink errorSink = stderr;
 /// Visible for testing
 IOSink outSink = stdout;
 
+/// Cached project package.
+String _projectPackageName;
+
+/// Cached project root.
+String _projectRoot;
+
 /// Collect all lintable files, recursively, under this [path] root, ignoring
 /// links.
 Iterable<File> collectFiles(String path) {

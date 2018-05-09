@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+library serialization.summarize_const_expr;
+
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/element/type.dart' show DartType;
@@ -11,7 +13,7 @@ import 'package:analyzer/src/summary/idl.dart';
 /**
  * Serialize the given constructor initializer [node].
  */
-UnlinkedConstructorInitializerBuilder serializeConstructorInitializer(
+UnlinkedConstructorInitializer serializeConstructorInitializer(
     ConstructorInitializer node,
     UnlinkedExprBuilder serializeConstExpr(Expression expr)) {
   if (node is ConstructorFieldInitializer) {
@@ -173,13 +175,6 @@ abstract class AbstractConstExprSerializer {
   List<int> serializeFunctionExpression(FunctionExpression functionExpression);
 
   /**
-   * Return [EntityRefBuilder] that corresponds to the [type], which is defined
-   * using generic function type syntax. These may appear as the type arguments
-   * of a const list, etc.
-   */
-  EntityRefBuilder serializeGenericFunctionType(GenericFunctionType type);
-
-  /**
    * Return [EntityRefBuilder] that corresponds to the given [identifier].
    */
   EntityRefBuilder serializeIdentifier(Identifier identifier);
@@ -190,25 +185,11 @@ abstract class AbstractConstExprSerializer {
    */
   EntityRefBuilder serializeIdentifierSequence(Expression expr);
 
-  void serializeInstanceCreation(EntityRefBuilder constructor,
-      ArgumentList argumentList, bool typeArgumentsProvided) {
-    _serializeArguments(argumentList, typeArgumentsProvided);
+  void serializeInstanceCreation(
+      EntityRefBuilder constructor, ArgumentList argumentList) {
+    _serializeArguments(argumentList);
     references.add(constructor);
     operations.add(UnlinkedExprOperation.invokeConstructor);
-  }
-
-  /**
-   * Return [EntityRefBuilder] that corresponds to the given [type].
-   */
-  EntityRefBuilder serializeType(TypeAnnotation type) {
-    if (type is TypeName) {
-      return serializeTypeName(type?.type, type?.name, type?.typeArguments);
-    }
-    if (type is GenericFunctionType) {
-      return serializeGenericFunctionType(type);
-    }
-    throw new ArgumentError(
-        'Cannot serialize an instance of ${type.runtimeType}');
   }
 
   /**
@@ -217,8 +198,19 @@ abstract class AbstractConstExprSerializer {
    * given [name] and [arguments].  The parameter [type] might be `null` if the
    * type is not resolved.
    */
-  EntityRefBuilder serializeTypeName(
+  EntityRefBuilder serializeType(
       DartType type, Identifier name, TypeArgumentList arguments);
+
+  /**
+   * Return [EntityRefBuilder] that corresponds to the given [type].
+   */
+  EntityRefBuilder serializeTypeName(TypeAnnotation type) {
+    if (type is TypeName) {
+      return serializeType(type?.type, type?.name, type?.typeArguments);
+    }
+    throw new ArgumentError(
+        'Cannot serialize an instance of ${type.runtimeType}');
+  }
 
   /**
    * Return the [UnlinkedExprBuilder] that corresponds to the state of this
@@ -294,7 +286,6 @@ abstract class AbstractConstExprSerializer {
   }
 
   void _pushInt(int value) {
-    value ??= 0;
     assert(value >= 0);
     if (value >= 0x100000000) {
       int numOfComponents = 0;
@@ -321,13 +312,7 @@ abstract class AbstractConstExprSerializer {
    */
   void _serialize(Expression expr) {
     if (expr is IntegerLiteral) {
-      int value = expr.value ?? 0;
-      if (value >= 0) {
-        _pushInt(value);
-      } else {
-        _pushInt(-value);
-        operations.add(UnlinkedExprOperation.negate);
-      }
+      _pushInt(expr.value);
     } else if (expr is DoubleLiteral) {
       operations.add(UnlinkedExprOperation.pushDouble);
       doubles.add(expr.value);
@@ -366,8 +351,7 @@ abstract class AbstractConstExprSerializer {
       serializeInstanceCreation(
           serializeConstructorRef(typeName.type, typeName.name,
               typeName.typeArguments, expr.constructorName.name),
-          expr.argumentList,
-          typeName.typeArguments != null);
+          expr.argumentList);
     } else if (expr is ListLiteral) {
       _serializeListLiteral(expr);
     } else if (expr is MapLiteral) {
@@ -416,16 +400,13 @@ abstract class AbstractConstExprSerializer {
     } else if (expr is AsExpression) {
       isValidConst = false;
       _serialize(expr.expression);
-      references.add(serializeType(expr.type));
+      references.add(serializeTypeName(expr.type));
       operations.add(UnlinkedExprOperation.typeCast);
     } else if (expr is IsExpression) {
       isValidConst = false;
       _serialize(expr.expression);
-      references.add(serializeType(expr.type));
+      references.add(serializeTypeName(expr.type));
       operations.add(UnlinkedExprOperation.typeCheck);
-      if (expr.notOperator != null) {
-        operations.add(UnlinkedExprOperation.not);
-      }
     } else if (expr is SuperExpression) {
       operations.add(UnlinkedExprOperation.pushSuper);
     } else if (expr is ThisExpression) {
@@ -443,9 +424,8 @@ abstract class AbstractConstExprSerializer {
     }
   }
 
-  void _serializeArguments(
-      ArgumentList argumentList, bool typeArgumentsProvided) {
-    if (forConst || !typeArgumentsProvided) {
+  void _serializeArguments(ArgumentList argumentList) {
+    if (forConst) {
       List<Expression> arguments = argumentList.arguments;
       // Serialize the arguments.
       List<String> argumentNames = <String>[];
@@ -567,7 +547,7 @@ abstract class AbstractConstExprSerializer {
     }
     if (expr.typeArguments != null &&
         expr.typeArguments.arguments.length == 1) {
-      references.add(serializeType(expr.typeArguments.arguments[0]));
+      references.add(serializeTypeName(expr.typeArguments.arguments[0]));
       operations.add(UnlinkedExprOperation.makeTypedList);
     } else {
       operations.add(UnlinkedExprOperation.makeUntypedList);
@@ -586,8 +566,8 @@ abstract class AbstractConstExprSerializer {
     }
     if (expr.typeArguments != null &&
         expr.typeArguments.arguments.length == 2) {
-      references.add(serializeType(expr.typeArguments.arguments[0]));
-      references.add(serializeType(expr.typeArguments.arguments[1]));
+      references.add(serializeTypeName(expr.typeArguments.arguments[0]));
+      references.add(serializeTypeName(expr.typeArguments.arguments[1]));
       operations.add(UnlinkedExprOperation.makeTypedMap);
     } else {
       operations.add(UnlinkedExprOperation.makeUntypedMap);
@@ -595,12 +575,16 @@ abstract class AbstractConstExprSerializer {
   }
 
   void _serializeMethodInvocation(MethodInvocation invocation) {
+    if (invocation.target != null ||
+        invocation.methodName.name != 'identical') {
+      isValidConst = false;
+    }
     Expression target = invocation.target;
     SimpleIdentifier methodName = invocation.methodName;
     ArgumentList argumentList = invocation.argumentList;
     if (_isIdentifierSequence(methodName)) {
       EntityRefBuilder ref = serializeIdentifierSequence(methodName);
-      _serializeArguments(argumentList, invocation.typeArguments != null);
+      _serializeArguments(argumentList);
       references.add(ref);
       _serializeTypeArguments(invocation.typeArguments);
       operations.add(UnlinkedExprOperation.invokeMethodRef);
@@ -608,7 +592,7 @@ abstract class AbstractConstExprSerializer {
       if (!invocation.isCascaded) {
         _serialize(target);
       }
-      _serializeArguments(argumentList, invocation.typeArguments != null);
+      _serializeArguments(argumentList);
       strings.add(methodName.name);
       _serializeTypeArguments(invocation.typeArguments);
       operations.add(UnlinkedExprOperation.invokeMethod);
@@ -707,7 +691,7 @@ abstract class AbstractConstExprSerializer {
     } else {
       ints.add(typeArguments.arguments.length);
       for (TypeAnnotation type in typeArguments.arguments) {
-        references.add(serializeType(type));
+        references.add(serializeTypeName(type));
       }
     }
   }

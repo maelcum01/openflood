@@ -5,7 +5,7 @@
 library kernel.transformation.reify.analysis.program_analysis;
 
 import '../asts.dart';
-import '../../../ast.dart';
+import 'package:kernel/ast.dart';
 
 // TODO(karlklose): keep all predicates and derived information here and move
 // the actual data to a builder class.
@@ -98,9 +98,9 @@ class ProgramAnalysis extends Visitor {
 
 bool _analyzeAll(Library library) => true;
 
-ProgramKnowledge analyze(Component component,
+ProgramKnowledge analyze(Program program,
     {LibraryFilter analyzeLibrary: _analyzeAll}) {
   ProgramKnowledge knowledge = new ProgramKnowledge();
-  component.accept(new ProgramAnalysis(knowledge, analyzeLibrary));
+  program.accept(new ProgramAnalysis(knowledge, analyzeLibrary));
   return knowledge;
 }

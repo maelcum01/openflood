@@ -242,7 +242,7 @@ abstract class Utf16BytesToCodeUnitsDecoder implements ListRangeIterator {
   // TODO(kevmoo): should this field be private?
   final ListRangeIterator utf16EncodedBytesIterator;
   final int replacementCodepoint;
-  int _current;
+  int _current = null;
 
   Utf16BytesToCodeUnitsDecoder._fromListRangeIterator(
       this.utf16EncodedBytesIterator, this.replacementCodepoint);

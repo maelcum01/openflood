@@ -58,11 +58,17 @@
  *
  * The following types are transferred directly and not proxied:
  *
- *   * Basic types: `null`, `bool`, `num`, `String`, `DateTime`
- *   * `TypedData`, including its subclasses like `Int32List`, but _not_
- *     `ByteBuffer`
- *   * When compiling for the web, also: `Blob`, `Event`, `ImageData`,
- *     `KeyRange`, `Node`, and `Window`.
+ * * "Basic" types: `null`, `bool`, `num`, `String`, `DateTime`
+ * * `Blob`
+ * * `Event`
+ * * `HtmlCollection`
+ * * `ImageData`
+ * * `KeyRange`
+ * * `Node`
+ * * `NodeList`
+ * * `TypedData`, including its subclasses like `Int32List`, but _not_
+ *   `ByteBuffer`
+ * * `Window`
  *
  * ## Converting collections with JsObject.jsify()
  *
@@ -78,12 +84,12 @@
  * This expression creates a JavaScript array:
  *
  *     var jsArray = new JsObject.jsify([1, 2, 3]);
- *
- * {@category Web}
  */
 library dart.js;
 
+import 'dart:html' show Blob, Event, ImageData, Node, Window;
 import 'dart:collection' show HashMap, ListMixin;
+import 'dart:indexed_db' show KeyRange;
 import 'dart:typed_data' show TypedData;
 
 import 'dart:_foreign_helper' show JS, JS_CONST, DART_CLOSURE_TO_JS;
@@ -91,7 +97,6 @@ import 'dart:_interceptors'
     show JavaScriptObject, UnknownJavaScriptObject, DART_CLOSURE_PROPERTY_NAME;
 import 'dart:_js_helper'
     show Primitives, convertDartClosureToJS, getIsolateAffinityTag;
-import 'dart:_js' show isBrowserObject, convertFromBrowserObject;
 
 export 'dart:_interceptors' show JavaScriptObject;
 
@@ -185,7 +190,7 @@ class JsObject {
     // the arguments list passed to apply().
     // After that, use the JavaScript 'new' operator which overrides any binding
     // of 'this' with the new instance.
-    var args = <dynamic>[null]..addAll(arguments.map(_convertToJS));
+    var args = [null]..addAll(arguments.map(_convertToJS));
     var factoryFunction = JS('', '#.bind.apply(#, #)', constr, constr, args);
     // Without this line, calling factoryFunction as a constructor throws
     JS('String', 'String(#)', factoryFunction);
@@ -494,12 +499,11 @@ class JsArray<E> extends JsObject with ListMixin<E> {
   }
 
   void setRange(int start, int end, Iterable<E> iterable, [int skipCount = 0]) {
-    _checkRange(start, end, this.length);
+    _checkRange(start, end, length);
     int length = end - start;
     if (length == 0) return;
     if (skipCount < 0) throw new ArgumentError(skipCount);
-    var args = <dynamic>[start, length]
-      ..addAll(iterable.skip(skipCount).take(length));
+    var args = [start, length]..addAll(iterable.skip(skipCount).take(length));
     callMethod('splice', args);
   }
 
@@ -563,10 +567,13 @@ dynamic _convertToJS(dynamic o) {
   if (o is JsObject) {
     return o._jsObject;
   }
-  if (isBrowserObject(o)) {
-    return o;
-  }
-  if (o is TypedData) {
+  if (o is Blob ||
+      o is Event ||
+      o is KeyRange ||
+      o is ImageData ||
+      o is Node ||
+      o is TypedData ||
+      o is Window) {
     return o;
   }
   if (o is DateTime) {
@@ -602,10 +609,16 @@ Object _convertToDart(o) {
       JS('bool', 'typeof # == "number"', o) ||
       JS('bool', 'typeof # == "boolean"', o)) {
     return o;
-  } else if (_isLocalObject(o) && isBrowserObject(o)) {
-    return convertFromBrowserObject(o);
-  } else if (_isLocalObject(o) && o is TypedData) {
-    return JS('TypedData', '#', o);
+  } else if (_isLocalObject(o) &&
+      (o is Blob ||
+          o is Event ||
+          o is KeyRange ||
+          o is ImageData ||
+          o is Node ||
+          o is TypedData ||
+          o is Window)) {
+    // long line: dart2js doesn't allow string concatenation in the JS() form
+    return JS('Blob|Event|KeyRange|ImageData|Node|TypedData|Window', '#', o);
   } else if (JS('bool', '# instanceof Date', o)) {
     var ms = JS('num', '#.getTime()', o);
     return new DateTime.fromMillisecondsSinceEpoch(ms);
@@ -694,7 +707,7 @@ _callDartFunctionFastCaptureThis(callback, self, List arguments) {
   return Function.apply(callback, [self]..addAll(arguments));
 }
 
-F allowInterop<F extends Function>(F f) {
+Function/*=F*/ allowInterop/*<F extends Function>*/(Function/*=F*/ f) {
   if (JS('bool', 'typeof(#) == "function"', f)) {
     // Already supports interop, just use the existing function.
     return f;

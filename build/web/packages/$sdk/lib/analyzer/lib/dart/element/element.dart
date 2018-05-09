@@ -34,7 +34,10 @@
  * statements declares a local variable then the local variable will be
  * represented by an element.
  */
+library analyzer.dart.element.element;
+
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/resolution_base_classes.dart';
 import 'package:analyzer/dart/constant/value.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:analyzer/src/generated/engine.dart' show AnalysisContext;
@@ -42,8 +45,8 @@ import 'package:analyzer/src/generated/java_engine.dart';
 import 'package:analyzer/src/generated/resolver.dart';
 import 'package:analyzer/src/generated/source.dart';
 import 'package:analyzer/src/generated/utilities_dart.dart';
-import 'package:analyzer/src/task/api/model.dart' show AnalysisTarget;
 import 'package:analyzer/src/task/dart.dart';
+import 'package:analyzer/task/model.dart' show AnalysisTarget;
 
 /**
  * An element that represents a class.
@@ -470,6 +473,11 @@ abstract class CompilationUnitElement implements Element, UriReferencedElement {
   CompilationUnit computeNode();
 
   /**
+   * Return the element at the given [offset], maybe `null` if no such element.
+   */
+  Element getElementAt(int offset);
+
+  /**
    * Return the enum defined in this compilation unit that has the given [name],
    * or `null` if this compilation unit does not define an enum with the given
    * name.
@@ -561,7 +569,7 @@ abstract class ConstructorElement
  *
  * Clients may not extend, implement or mix-in this class.
  */
-abstract class Element implements AnalysisTarget {
+abstract class Element implements AnalysisTarget, ResolutionTarget {
   /**
    * A comparator that can be used to sort elements by their name offset.
    * Elements with a smaller offset will be sorted to be before elements with a
@@ -601,83 +609,29 @@ abstract class Element implements AnalysisTarget {
   Element get enclosingElement;
 
   /**
-   * Return `true` if this element has an annotation of the form
-   * `@alwaysThrows`.
-   */
-  bool get hasAlwaysThrows;
-
-  /**
-   * Return `true` if this element has an annotation of the form `@deprecated`
-   * or `@Deprecated('..')`.
-   */
-  bool get hasDeprecated;
-
-  /**
-   * Return `true` if this element has an annotation of the form `@factory`.
-   */
-  bool get hasFactory;
-
-  /**
-   * Return `true` if this element has an annotation of the form `@JS(..)`.
-   */
-  bool get hasJS;
-
-  /**
-   * Return `true` if this element has an annotation of the form `@override`.
-   */
-  bool get hasOverride;
-
-  /**
-   * Return `true` if this element has an annotation of the form `@protected`.
-   */
-  bool get hasProtected;
-
-  /**
-   * Return `true` if this element has an annotation of the form '@required'.
-   */
-  bool get hasRequired;
-
-  /**
-   * Return `true` if this element has an annotation of the form
-   * `@visibleForTesting`.
-   */
-  bool get hasVisibleForTesting;
-
-  /**
    * The unique integer identifier of this element.
    */
   int get id;
 
   /**
-   * Return `true` if this element has an annotation of the form
-   * '@alwaysThrows'.
-   */
-  @deprecated
-  bool get isAlwaysThrows;
-
-  /**
    * Return `true` if this element has an annotation of the form '@deprecated'
    * or '@Deprecated('..')'.
    */
-  @deprecated
   bool get isDeprecated;
 
   /**
    * Return `true` if this element has an annotation of the form '@factory'.
    */
-  @deprecated
   bool get isFactory;
 
   /**
    * Return `true` if this element has an annotation of the form '@JS(..)'.
    */
-  @deprecated
   bool get isJS;
 
   /**
    * Return `true` if this element has an annotation of the form '@override'.
    */
-  @deprecated
   bool get isOverride;
 
   /**
@@ -689,7 +643,6 @@ abstract class Element implements AnalysisTarget {
   /**
    * Return `true` if this element has an annotation of the form '@protected'.
    */
-  @deprecated
   bool get isProtected;
 
   /**
@@ -701,7 +654,6 @@ abstract class Element implements AnalysisTarget {
   /**
    * Return `true` if this element has an annotation of the form '@required'.
    */
-  @deprecated
   bool get isRequired;
 
   /**
@@ -711,11 +663,6 @@ abstract class Element implements AnalysisTarget {
    * that does not explicitly define any constructors.
    */
   bool get isSynthetic;
-
-  /// Return `true` if this element has an annotation of the form
-  /// '@visibleForTesting'.
-  @deprecated
-  bool get isVisibleForTesting;
 
   /**
    * Return the kind of element that this is.
@@ -777,7 +724,7 @@ abstract class Element implements AnalysisTarget {
    * Use the given [visitor] to visit this element. Return the value returned by
    * the visitor as a result of visiting this element.
    */
-  T accept<T>(ElementVisitor<T> visitor);
+  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor);
 
   /**
    * Return the documentation comment for this element as it appears in the
@@ -811,7 +758,8 @@ abstract class Element implements AnalysisTarget {
    * [predicate] returns `true`, or `null` if there is no such ancestor. Note
    * that this element will never be returned.
    */
-  E getAncestor<E extends Element>(Predicate<Element> predicate);
+  Element/*=E*/ getAncestor/*<E extends Element >*/(
+      Predicate<Element> predicate);
 
   /**
    * Return a display name for the given element that includes the path to the
@@ -845,7 +793,8 @@ abstract class Element implements AnalysisTarget {
  *
  * Clients may not extend, implement or mix-in this class.
  */
-abstract class ElementAnnotation implements ConstantEvaluationTarget {
+abstract class ElementAnnotation
+    implements ConstantEvaluationTarget, ResolutionTarget {
   /**
    * An empty list of annotations.
    */
@@ -864,12 +813,6 @@ abstract class ElementAnnotation implements ConstantEvaluationTarget {
    * being used as an annotation.
    */
   Element get element;
-
-  /**
-   * Return `true` if this annotation marks the associated function as always
-   * throwing.
-   */
-  bool get isAlwaysThrows;
 
   /**
    * Return `true` if this annotation marks the associated element as being
@@ -923,12 +866,6 @@ abstract class ElementAnnotation implements ConstantEvaluationTarget {
    * required.
    */
   bool get isRequired;
-
-  /**
-   * Return `true` if this annotation marks the associated member as being
-   * visible for testing.
-   */
-  bool get isVisibleForTesting;
 
   /**
    * Return a representation of the value of this annotation, forcing the value
@@ -1166,6 +1103,12 @@ abstract class ExecutableElement implements FunctionTypedElement {
   static const List<ExecutableElement> EMPTY_LIST = const <ExecutableElement>[];
 
   /**
+   * Return a list containing all of the functions defined within this
+   * executable element.
+   */
+  List<FunctionElement> get functions;
+
+  /**
    * Return `true` if this executable element did not have an explicit return
    * type specified for it in the original source. Note that if there was no
    * explicit return type, and if the element model is fully populated, then
@@ -1217,6 +1160,18 @@ abstract class ExecutableElement implements FunctionTypedElement {
    * synchronous.
    */
   bool get isSynchronous;
+
+  /**
+   * Return a list containing all of the labels defined within this executable
+   * element.
+   */
+  List<LabelElement> get labels;
+
+  /**
+   * Return a list containing all of the local variables defined within this
+   * executable element.
+   */
+  List<LocalVariableElement> get localVariables;
 }
 
 /**
@@ -1667,7 +1622,6 @@ abstract class MethodElement implements ClassMemberElement, ExecutableElement {
    * with Object in the returned type. If no covariant parameters are present,
    * returns `this`.
    */
-  @deprecated
   FunctionType getReifiedType(DartType objectType);
 }
 
@@ -1749,44 +1703,8 @@ abstract class ParameterElement
   bool get isInitializingFormal;
 
   /**
-   * Return `true` if this parameter is a named parameter. Named parameters are
-   * always optional, even when they are annotated with the `@required`
-   * annotation.
-   */
-  bool get isNamed;
-
-  /**
-   * Return `true` if this parameter is a required parameter. Required
-   * parameters are always positional.
-   *
-   * Note: this will return `false` for a named parameter that is annotated with
-   * the `@required` annotation.
-   */
-  // TODO(brianwilkerson) Rename this to `isRequired`.
-  bool get isNotOptional;
-
-  /**
-   * Return `true` if this parameter is an optional parameter. Optional
-   * parameters can either be positional or named.
-   */
-  bool get isOptional;
-
-  /**
-   * Return `true` if this parameter is both an optional and positional
-   * parameter.
-   */
-  bool get isOptionalPositional;
-
-  /**
-   * Return `true` if this parameter is a positional parameter. Positional
-   * parameters can either be required or optional.
-   */
-  bool get isPositional;
-
-  /**
    * Return the kind of this parameter.
    */
-  @deprecated
   ParameterKind get parameterKind;
 
   /**

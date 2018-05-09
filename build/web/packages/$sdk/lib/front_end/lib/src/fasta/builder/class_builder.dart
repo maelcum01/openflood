@@ -4,7 +4,7 @@
 
 library fasta.class_builder;
 
-import '../problems.dart' show internalProblem;
+import '../errors.dart' show internalError;
 
 import 'builder.dart'
     show
@@ -21,19 +21,9 @@ import 'builder.dart'
         TypeDeclarationBuilder,
         TypeVariableBuilder;
 
-import '../fasta_codes.dart'
-    show
-        LocatedMessage,
-        Message,
-        templateInternalProblemNotFoundIn,
-        templateInternalProblemSuperclassNotFound;
-
 abstract class ClassBuilder<T extends TypeBuilder, R>
     extends TypeDeclarationBuilder<T, R> {
   final List<TypeVariableBuilder> typeVariables;
-
-  /// List of type arguments provided by instantiate to bound.
-  List<TypeBuilder> get calculatedBounds => null;
 
   T supertype;
 
@@ -62,8 +52,6 @@ abstract class ClassBuilder<T extends TypeBuilder, R>
         constructorScopeBuilder = new ScopeBuilder(constructors),
         super(metadata, modifiers, name, parent, charOffset);
 
-  String get debugName => "ClassBuilder";
-
   /// Returns true if this class is the result of applying a mixin to its
   /// superclass.
   bool get isMixinApplication => mixedInType != null;
@@ -87,29 +75,21 @@ abstract class ClassBuilder<T extends TypeBuilder, R>
   int resolveConstructors(LibraryBuilder library) {
     if (constructorReferences == null) return 0;
     for (ConstructorReferenceBuilder ref in constructorReferences) {
-      ref.resolveIn(scope, library);
+      ref.resolveIn(scope);
     }
     return constructorReferences.length;
   }
 
   /// Used to lookup a static member of this class.
-  Builder findStaticBuilder(
-      String name, int charOffset, Uri fileUri, LibraryBuilder accessingLibrary,
+  Builder findStaticBuilder(String name, int charOffset, Uri fileUri,
       {bool isSetter: false}) {
-    if (accessingLibrary.origin != library.origin && name.startsWith("_")) {
-      return null;
-    }
     Builder builder = isSetter
         ? scope.lookupSetter(name, charOffset, fileUri, isInstanceScope: false)
         : scope.lookup(name, charOffset, fileUri, isInstanceScope: false);
     return builder;
   }
 
-  Builder findConstructorOrFactory(
-      String name, int charOffset, Uri uri, LibraryBuilder accessingLibrary) {
-    if (accessingLibrary.origin != library.origin && name.startsWith("_")) {
-      return null;
-    }
+  Builder findConstructorOrFactory(String name, int charOffset, Uri uri) {
     return constructors.lookup(name, charOffset, uri);
   }
 
@@ -178,11 +158,8 @@ abstract class ClassBuilder<T extends TypeBuilder, R>
         }
         supertype = t.supertype;
       } else {
-        internalProblem(
-            templateInternalProblemSuperclassNotFound
-                .withArguments(superclass.fullNameForErrors),
-            charOffset,
-            fileUri);
+        internalError("Superclass not found '${superclass.fullNameForErrors}'.",
+            fileUri, charOffset);
       }
       if (variables != null) {
         Map<TypeVariableBuilder, TypeBuilder> directSubstitutionMap =
@@ -209,22 +186,18 @@ abstract class ClassBuilder<T extends TypeBuilder, R>
   /// (and isn't a setter).
   MemberBuilder operator [](String name) {
     // TODO(ahe): Rename this to getLocalMember.
-    return scope.local[name] ??
-        internalProblem(
-            templateInternalProblemNotFoundIn.withArguments(
-                name, fullNameForErrors),
-            -1,
-            null);
+    return scope.local[name] ?? internalError("Not found: '$name'.");
   }
 
-  void addCompileTimeError(Message message, int charOffset, int length,
-      {List<LocatedMessage> context}) {
-    library.addCompileTimeError(message, charOffset, length, fileUri,
-        context: context);
+  void addCompileTimeError(int charOffset, String message) {
+    library.addCompileTimeError(charOffset, message, fileUri: fileUri);
   }
 
-  void addProblem(Message message, int charOffset, int length,
-      {List<LocatedMessage> context}) {
-    library.addProblem(message, charOffset, length, fileUri, context: context);
+  void addWarning(int charOffset, String message) {
+    library.addWarning(charOffset, message, fileUri: fileUri);
+  }
+
+  void addNit(int charOffset, String message) {
+    library.addNit(charOffset, message, fileUri: fileUri);
   }
 }

@@ -10,19 +10,6 @@ abstract class _HashSetBase<E> extends SetBase<E> {
   // It's possible to be more efficient if we have a way to create an empty
   // set of the correct type.
 
-  Set<E> _newSet();
-
-  Set<R> _newSimilarSet<R>();
-
-  Set<R> cast<R>() {
-    Set<Object> self = this;
-    return self is Set<R>
-        ? self
-        : Set.castFrom<E, R>(this, newSet: _newSimilarSet);
-  }
-
-  Set<R> retype<R>() => Set.castFrom<E, R>(this, newSet: _newSimilarSet);
-
   Set<E> difference(Set<Object> other) {
     Set<E> result = _newSet();
     for (var element in this) {
@@ -38,6 +25,8 @@ abstract class _HashSetBase<E> extends SetBase<E> {
     }
     return result;
   }
+
+  Set<E> _newSet();
 
   // Subclasses can optimize this further.
   Set<E> toSet() => _newSet()..addAll(this);
@@ -129,33 +118,22 @@ abstract class HashSet<E> implements Set<E> {
    * two entries that are equal, but not identical, then the first one is
    * the one in the resulting set.
    *
-   * All the [elements] should be instances of [E].
+   * All the [elements] should be assignable to [E].
    * The `elements` iterable itself may have any element type, so this
    * constructor can be used to down-cast a `Set`, for example as:
-   * ```dart
-   * Set<SuperType> superSet = ...;
-   * Set<SubType> subSet =
-   *     new HashSet<SubType>.from(superSet.whereType<SubType>());
-   * ```
+   *
+   *     Set<SuperType> superSet = ...;
+   *     Set<SubType> subSet =
+   *         new HashSet<SubType>.from(superSet.where((e) => e is SubType));
    */
   factory HashSet.from(Iterable elements) {
     HashSet<E> result = new HashSet<E>();
     for (final e in elements) {
-      result.add(e);
+      E element = e as Object/*=E*/;
+      result.add(element);
     }
     return result;
   }
-
-  /**
-   * Create a hash set containing all [elements].
-   *
-   * Creates a hash set as by `new HashSet<E>()` and adds all given [elements]
-   * to the set. The elements are added in order. If [elements] contains
-   * two entries that are equal, but not identical, then the first one is
-   * the one in the resulting set.
-   */
-  factory HashSet.of(Iterable<E> elements) =>
-      new HashSet<E>()..addAll(elements);
 
   /**
    * Provides an iterator that iterates over the elements of this set.

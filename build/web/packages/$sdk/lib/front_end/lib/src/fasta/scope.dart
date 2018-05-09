@@ -6,16 +6,7 @@ library fasta.scope;
 
 import 'builder/builder.dart' show Builder, TypeVariableBuilder;
 
-import 'fasta_codes.dart'
-    show
-        LocatedMessage,
-        Message,
-        messageInternalProblemExtendingUnmodifiableScope,
-        templateAccessError,
-        templateDuplicatedName,
-        templateDuplicatedNamePreviouslyUsedCause;
-
-import 'problems.dart' show internalProblem, unsupported;
+import 'errors.dart' show internalError;
 
 class MutableScope {
   /// Names declared in this scope.
@@ -28,13 +19,7 @@ class MutableScope {
   /// level scope.
   Scope parent;
 
-  final String debugName;
-
-  MutableScope(this.local, this.setters, this.parent, this.debugName) {
-    assert(debugName != null);
-  }
-
-  String toString() => "Scope($debugName, ${local.keys})";
+  MutableScope(this.local, this.setters, this.parent);
 }
 
 class Scope extends MutableScope {
@@ -46,34 +31,29 @@ class Scope extends MutableScope {
 
   Map<String, Builder> forwardDeclaredLabels;
 
-  Map<String, int> usedNames;
-
   Scope(Map<String, Builder> local, Map<String, Builder> setters, Scope parent,
-      String debugName, {this.isModifiable: true})
-      : super(local, setters = setters ?? const <String, Builder>{}, parent,
-            debugName);
+      {this.isModifiable: true})
+      : super(local, setters = setters ?? const <String, Builder>{}, parent);
 
   Scope.top({bool isModifiable: false})
-      : this(<String, Builder>{}, <String, Builder>{}, null, "top",
+      : this(<String, Builder>{}, <String, Builder>{}, null,
             isModifiable: isModifiable);
 
   Scope.immutable()
       : this(const <String, Builder>{}, const <String, Builder>{}, null,
-            "immutable",
             isModifiable: false);
 
-  Scope.nested(Scope parent, String debugName, {bool isModifiable: true})
-      : this(<String, Builder>{}, null, parent, debugName,
-            isModifiable: isModifiable);
+  Scope.nested(Scope parent, {bool isModifiable: true})
+      : this(<String, Builder>{}, null, parent, isModifiable: isModifiable);
 
   /// Don't use this. Use [becomePartOf] instead.
-  void set local(_) => unsupported("local=", -1, null);
+  void set local(_) => internalError("Unsupported operation.");
 
   /// Don't use this. Use [becomePartOf] instead.
-  void set setters(_) => unsupported("setters=", -1, null);
+  void set setters(_) => internalError("Unsupported operation.");
 
   /// Don't use this. Use [becomePartOf] instead.
-  void set parent(_) => unsupported("parent=", -1, null);
+  void set parent(_) => internalError("Unsupported operation.");
 
   /// This scope becomes equivalent to [scope]. This is used for parts to
   /// become part of their library's scope.
@@ -85,14 +65,13 @@ class Scope extends MutableScope {
     super.parent = scope.parent;
   }
 
-  Scope createNestedScope(String debugName, {bool isModifiable: true}) {
-    return new Scope.nested(this, debugName, isModifiable: isModifiable);
+  Scope createNestedScope({bool isModifiable: true}) {
+    return new Scope.nested(this, isModifiable: isModifiable);
   }
 
   Scope withTypeVariables(List<TypeVariableBuilder> typeVariables) {
     if (typeVariables == null) return this;
-    Scope newScope =
-        new Scope.nested(this, "type variables", isModifiable: false);
+    Scope newScope = new Scope.nested(this, isModifiable: false);
     for (TypeVariableBuilder t in typeVariables) {
       newScope.local[t.name] = t;
     }
@@ -107,14 +86,7 @@ class Scope extends MutableScope {
   ///     x = 42;
   ///     print("The answer is $x.");
   Scope createNestedLabelScope() {
-    return new Scope(local, setters, parent, "label", isModifiable: true);
-  }
-
-  void recordUse(String name, int charOffset, Uri fileUri) {
-    if (isModifiable) {
-      usedNames ??= <String, int>{};
-      usedNames.putIfAbsent(name, () => charOffset);
-    }
+    return new Scope(local, setters, parent, isModifiable: true);
   }
 
   Builder lookupIn(String name, int charOffset, Uri fileUri,
@@ -132,7 +104,6 @@ class Scope extends MutableScope {
 
   Builder lookup(String name, int charOffset, Uri fileUri,
       {bool isInstanceScope: true}) {
-    recordUse(name, charOffset, fileUri);
     Builder builder =
         lookupIn(name, charOffset, fileUri, local, isInstanceScope);
     if (builder != null) return builder;
@@ -149,7 +120,6 @@ class Scope extends MutableScope {
 
   Builder lookupSetter(String name, int charOffset, Uri fileUri,
       {bool isInstanceScope: true}) {
-    recordUse(name, charOffset, fileUri);
     Builder builder =
         lookupIn(name, charOffset, fileUri, setters, isInstanceScope);
     if (builder != null) return builder;
@@ -171,8 +141,7 @@ class Scope extends MutableScope {
       labels ??= <String, Builder>{};
       labels[name] = target;
     } else {
-      internalProblem(
-          messageInternalProblemExtendingUnmodifiableScope, -1, null);
+      internalError("Can't extend an unmodifiable scope.");
     }
   }
 
@@ -182,13 +151,12 @@ class Scope extends MutableScope {
     forwardDeclaredLabels[name] = target;
   }
 
-  bool claimLabel(String name) {
-    if (forwardDeclaredLabels == null ||
-        forwardDeclaredLabels.remove(name) == null) return false;
+  void claimLabel(String name) {
+    if (forwardDeclaredLabels == null) return;
+    forwardDeclaredLabels.remove(name);
     if (forwardDeclaredLabels.length == 0) {
       forwardDeclaredLabels = null;
     }
-    return true;
   }
 
   Map<String, Builder> get unclaimedForwardDeclarations {
@@ -199,25 +167,13 @@ class Scope extends MutableScope {
     return (labels == null ? null : labels[name]) ?? parent?.lookupLabel(name);
   }
 
-  /// Declares that the meaning of [name] in this scope is [builder].
-  ///
-  /// If name was used previously in this scope, this method returns a message
-  /// that can be used as context for reporting a compile-time error about
-  /// [name] being used before its declared. [fileUri] is used to bind the
-  /// location of this message.
-  LocatedMessage declare(String name, Builder builder, Uri fileUri) {
+  // TODO(ahe): Rename to extend or something.
+  void operator []=(String name, Builder member) {
     if (isModifiable) {
-      if (usedNames?.containsKey(name) ?? false) {
-        return templateDuplicatedNamePreviouslyUsedCause
-            .withArguments(name)
-            .withLocation(fileUri, usedNames[name], name.length);
-      }
-      local[name] = builder;
+      local[name] = member;
     } else {
-      internalProblem(
-          messageInternalProblemExtendingUnmodifiableScope, -1, null);
+      internalError("Can't extend an unmodifiable scope.");
     }
-    return null;
   }
 
   void merge(Scope scope,
@@ -295,7 +251,7 @@ abstract class ProblemBuilder extends Builder {
 
   bool get hasProblem => true;
 
-  Message get message;
+  String get message;
 
   @override
   String get fullNameForErrors => name;
@@ -329,12 +285,12 @@ class AccessErrorBuilder extends ProblemBuilder {
 
   bool get isLocal => builder.isLocal;
 
-  Message get message => templateAccessError.withArguments(name);
+  String get message => "Access error: '$name'.";
 }
 
 class AmbiguousBuilder extends ProblemBuilder {
   AmbiguousBuilder(String name, Builder builder, int charOffset, Uri fileUri)
       : super(name, builder, charOffset, fileUri);
 
-  Message get message => templateDuplicatedName.withArguments(name);
+  String get message => "Duplicated named: '$name'.";
 }

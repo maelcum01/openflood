@@ -26,27 +26,12 @@ abstract class ErrorCode {
   final String correction;
 
   /**
-   * Whether this error is caused by an unresolved identifier.
-   */
-  final bool isUnresolvedIdentifier;
-
-  /**
    * Initialize a newly created error code to have the given [name]. The message
    * associated with the error will be created from the given [message]
    * template. The correction associated with the error will be created from the
    * given [correction] template.
    */
-  const ErrorCode(this.name, this.message, [this.correction])
-      : isUnresolvedIdentifier = false;
-
-  /**
-   * Initialize a newly created error code to have the given [name]. The message
-   * associated with the error will be created from the given [message]
-   * template. The correction associated with the error will be created from the
-   * given [correction] template.
-   */
-  const ErrorCode.temporary(this.name, this.message,
-      {this.correction, this.isUnresolvedIdentifier: false});
+  const ErrorCode(this.name, this.message, [this.correction]);
 
   /**
    * The severity of the error.

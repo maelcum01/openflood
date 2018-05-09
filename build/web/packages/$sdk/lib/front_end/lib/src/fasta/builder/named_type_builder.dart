@@ -9,45 +9,47 @@ import 'builder.dart'
         Builder,
         InvalidTypeBuilder,
         PrefixBuilder,
-        QualifiedName,
         Scope,
         TypeBuilder,
         TypeDeclarationBuilder;
 
 abstract class NamedTypeBuilder<T extends TypeBuilder, R> extends TypeBuilder {
-  final Object name;
+  final String name;
 
-  List<T> arguments;
+  final List<T> arguments;
 
   TypeDeclarationBuilder<T, R> builder;
 
-  NamedTypeBuilder(this.name, this.arguments);
+  NamedTypeBuilder(this.name, this.arguments, int charOffset, Uri fileUri)
+      : super(charOffset, fileUri);
 
-  InvalidTypeBuilder<T, R> buildInvalidType(int charOffset, Uri fileUri);
+  InvalidTypeBuilder<T, R> buildInvalidType(String name);
 
-  @override
   void bind(TypeDeclarationBuilder builder) {
-    this.builder = builder?.origin;
+    this.builder = builder;
   }
 
-  @override
-  void resolveIn(Scope scope, int charOffset, Uri fileUri) {
+  void resolveIn(Scope scope) {
     if (builder != null) return;
-    final name = this.name;
-    Builder member;
-    if (name is QualifiedName) {
-      var prefix = scope.lookup(name.prefix, charOffset, fileUri);
-      if (prefix is PrefixBuilder) {
-        member = prefix.lookup(name.suffix, name.charOffset, fileUri);
-      }
-    } else {
-      member = scope.lookup(name, charOffset, fileUri);
-    }
+    Builder member = scope.lookup(name, charOffset, fileUri);
     if (member is TypeDeclarationBuilder) {
-      builder = member.origin;
+      builder = member;
       return;
     }
-    builder = buildInvalidType(charOffset, fileUri);
+    if (name.contains(".")) {
+      int index = name.lastIndexOf(".");
+      String first = name.substring(0, index);
+      String last = name.substring(name.lastIndexOf(".") + 1);
+      var prefix = scope.lookup(first, charOffset, fileUri);
+      if (prefix is PrefixBuilder) {
+        member = prefix.lookup(last, charOffset, fileUri);
+      }
+      if (member is TypeDeclarationBuilder) {
+        builder = member;
+        return;
+      }
+    }
+    builder = buildInvalidType(name);
   }
 
   String get debugName => "NamedTypeBuilder";

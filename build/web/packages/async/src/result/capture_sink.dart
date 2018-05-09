@@ -4,11 +4,12 @@
 
 import 'dart:async';
 
-import 'result.dart';
+import '../result.dart';
 
-/// Used by [Result.captureSink].
+/// Use [Result.captureSinkTransformer].
+@Deprecated("Will be removed in async 2.0.0.")
 class CaptureSink<T> implements EventSink<T> {
-  final EventSink<Result<T>> _sink;
+  final EventSink _sink;
 
   CaptureSink(EventSink<Result<T>> sink) : _sink = sink;
 

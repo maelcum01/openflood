@@ -207,7 +207,7 @@ class Request {
    */
   factory Request.fromString(String data) {
     try {
-      var result = json.decode(data);
+      var result = JSON.decode(data);
       if (result is Map) {
         return new Request.fromJson(result as Map<String, dynamic>);
       }
@@ -470,26 +470,6 @@ class Response {
 
   /**
    * Initialize a newly created instance to represent the
-   * GET_IMPORTED_ELEMENTS_INVALID_FILE error condition.
-   */
-  Response.getImportedElementsInvalidFile(Request request)
-      : this(request.id,
-            error: new RequestError(
-                RequestErrorCode.GET_IMPORTED_ELEMENTS_INVALID_FILE,
-                'Error during `analysis.getImportedElements`: invalid file.'));
-
-  /**
-   * Initialize a newly created instance to represent the
-   * GET_KYTHE_ENTRIES_INVALID_FILE error condition.
-   */
-  Response.getKytheEntriesInvalidFile(Request request)
-      : this(request.id,
-            error: new RequestError(
-                RequestErrorCode.GET_KYTHE_ENTRIES_INVALID_FILE,
-                'Error during `analysis.getKytheEntries`: invalid file.'));
-
-  /**
-   * Initialize a newly created instance to represent the
    * GET_NAVIGATION_INVALID_FILE error condition.
    */
   Response.getNavigationInvalidFile(Request request)
@@ -507,16 +487,6 @@ class Response {
             error: new RequestError(
                 RequestErrorCode.GET_REACHABLE_SOURCES_INVALID_FILE,
                 'Error during `analysis.getReachableSources`: invalid file.'));
-
-  /**
-   * Initialize a newly created instance to represent the
-   * IMPORT_ELEMENTS_INVALID_FILE error condition.
-   */
-  Response.importElementsInvalidFile(Request request)
-      : this(request.id,
-            error: new RequestError(
-                RequestErrorCode.IMPORT_ELEMENTS_INVALID_FILE,
-                'Error during `edit.importElements`: invalid file.'));
 
   /**
    * Initialize a newly created instance to represent an error condition caused

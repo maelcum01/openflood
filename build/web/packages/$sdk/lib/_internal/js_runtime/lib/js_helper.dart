@@ -6,9 +6,8 @@ library _js_helper;
 
 import 'dart:_js_embedded_names'
     show
-        DEFERRED_LIBRARY_PARTS,
-        DEFERRED_PART_URIS,
-        DEFERRED_PART_HASHES,
+        DEFERRED_LIBRARY_URIS,
+        DEFERRED_LIBRARY_HASHES,
         GET_TYPE_FROM_NAME,
         GET_ISOLATE_TAG,
         INITIALIZE_LOADED_HUNK,
@@ -92,28 +91,16 @@ String isCheckPropertyToJsConstructorName(String isCheckProperty) {
 // TODO(floitsch): move this to foreign_helper.dart or similar.
 @ForceInline()
 bool isDartFunctionType(Object type) {
-  // Function type test is using the `in` operator which doesn't work on
-  // primitive types.
-  assert(!(type == null || type is num || type is String));
   return JS_BUILTIN(
       'returns:bool;effects:none;depends:none', JsBuiltin.isFunctionType, type);
 }
 
-/// Returns true if the given [type] is a FutureOr type object.
+/// Creates a function type object.
 // TODO(floitsch): move this to foreign_helper.dart or similar.
 @ForceInline()
-bool isDartFutureOrType(Object type) {
-  // FutureOr test is using the `in` operator which doesn't work on primitive
-  // types.
-  assert(!(type == null || type is num || type is String));
-  return JS_BUILTIN(
-      'returns:bool;effects:none;depends:none', JsBuiltin.isFutureOrType, type);
-}
-
-@ForceInline()
-bool isDartVoidTypeRti(Object type) {
-  return JS_BUILTIN(
-      'returns:bool;effects:none;depends:none', JsBuiltin.isVoidType, type);
+createDartFunctionTypeRti() {
+  return JS_BUILTIN('returns:=Object;effects:none;depends:none',
+      JsBuiltin.createFunctionTypeRti);
 }
 
 /// Retrieves the class name from type information stored on the constructor of
@@ -172,14 +159,6 @@ bool isNullType(Object type) {
       JsBuiltin.isGivenTypeRti,
       type,
       JS_GET_NAME(JsGetName.NULL_CLASS_TYPE_NAME));
-}
-
-/// Returns whether the given type is the dynamic type.
-// TODO(floitsch): move this to foreign_helper.dart or similar.
-@ForceInline()
-bool isDartDynamicTypeRti(type) {
-  return JS_BUILTIN(
-      'returns:bool;effects:none;depends:none', JsBuiltin.isDynamicType, type);
 }
 
 /// Returns whether the given type is _the_ Dart Object type.
@@ -262,19 +241,16 @@ String S(value) {
   return res;
 }
 
-// Called from generated code.
 createInvocationMirror(
-    String name, internalName, kind, arguments, argumentNames, types) {
-  // TODO(sra): [types] (the number of type arguments) could be omitted in the
-  // generated stub code to save an argument. Then we would use `types ?? 0`.
+    String name, internalName, kind, arguments, argumentNames) {
   return new JSInvocationMirror(
-      name, internalName, kind, arguments, argumentNames, types);
+      name, internalName, kind, arguments, argumentNames);
 }
 
 createUnmangledInvocationMirror(
     Symbol symbol, internalName, kind, arguments, argumentNames) {
   return new JSInvocationMirror(
-      symbol, internalName, kind, arguments, argumentNames, 0);
+      symbol, internalName, kind, arguments, argumentNames);
 }
 
 void throwInvalidReflectionError(String memberName) {
@@ -333,15 +309,13 @@ class JSInvocationMirror implements Invocation {
   var /* String or Symbol */ _memberName;
   final String _internalName;
   final int _kind;
-  final List<Type> _typeArguments;
   final List _arguments;
   final List _namedArgumentNames;
-  final int _typeArgumentCount;
   /** Map from argument name to index in _arguments. */
   Map<String, dynamic> _namedIndices = null;
 
   JSInvocationMirror(this._memberName, this._internalName, this._kind,
-      this._arguments, this._namedArgumentNames, this._typeArgumentCount);
+      this._arguments, this._namedArgumentNames);
 
   Symbol get memberName {
     if (_memberName is Symbol) return _memberName;
@@ -364,21 +338,9 @@ class JSInvocationMirror implements Invocation {
   bool get isSetter => _kind == SETTER;
   bool get isAccessor => _kind != METHOD;
 
-  List<Type> get typeArguments {
-    if (_typeArgumentCount == 0) return const <Type>[];
-    int start = _arguments.length - _typeArgumentCount;
-    var list = <Type>[];
-    for (int index = 0; index < _typeArgumentCount; index++) {
-      list.add(
-          createRuntimeType(runtimeTypeToString(_arguments[start + index])));
-    }
-    return list;
-  }
-
   List get positionalArguments {
     if (isGetter) return const [];
-    var argumentCount =
-        _arguments.length - _namedArgumentNames.length - _typeArgumentCount;
+    var argumentCount = _arguments.length - _namedArgumentNames.length;
     if (argumentCount == 0) return const [];
     var list = [];
     for (var index = 0; index < argumentCount; index++) {
@@ -390,8 +352,7 @@ class JSInvocationMirror implements Invocation {
   Map<Symbol, dynamic> get namedArguments {
     if (isAccessor) return const <Symbol, dynamic>{};
     int namedArgumentCount = _namedArgumentNames.length;
-    int namedArgumentsStartIndex =
-        _arguments.length - namedArgumentCount - _typeArgumentCount;
+    int namedArgumentsStartIndex = _arguments.length - namedArgumentCount;
     if (namedArgumentCount == 0) return const <Symbol, dynamic>{};
     var map = new Map<Symbol, dynamic>();
     for (int i = 0; i < namedArgumentCount; i++) {
@@ -407,7 +368,7 @@ class JSInvocationMirror implements Invocation {
     var name = _internalName;
     var arguments = _arguments;
     var interceptedNames = JS_EMBEDDED_GLOBAL('', INTERCEPTED_NAMES);
-    bool isIntercepted = JS('bool',
+    bool isIntercepted = JS("bool",
         'Object.prototype.hasOwnProperty.call(#, #)', interceptedNames, name);
     if (isIntercepted) {
       receiver = interceptor;
@@ -482,7 +443,7 @@ class CachedInvocation {
       this.cachedInterceptor);
 
   bool get isNoSuchMethod => false;
-  bool get isGetterStub => JS('bool', '!!#.\$getterStub', jsFunction);
+  bool get isGetterStub => JS("bool", "!!#.\$getterStub", jsFunction);
 
   /// Applies [jsFunction] to [victim] with [arguments].
   /// Users of this class must take care to check the arguments first.
@@ -494,7 +455,7 @@ class CachedInvocation {
       arguments = [victim]..addAll(arguments);
       if (cachedInterceptor != null) receiver = cachedInterceptor;
     }
-    return JS('var', '#.apply(#, #)', jsFunction, receiver, arguments);
+    return JS("var", "#.apply(#, #)", jsFunction, receiver, arguments);
   }
 }
 
@@ -547,7 +508,7 @@ class CachedCatchAllInvocation extends CachedInvocation {
     for (int i = providedArgumentCount; i < fullParameterCount; i++) {
       arguments.add(getMetadata(info.defaultValue(i)));
     }
-    return JS('var', '#.apply(#, #)', jsFunction, receiver, arguments);
+    return JS("var", "#.apply(#, #)", jsFunction, receiver, arguments);
   }
 }
 
@@ -614,8 +575,8 @@ class ReflectionInfo {
 
     int requiredParametersInfo =
         JS('int', '#[#]', data, REQUIRED_PARAMETERS_INFO);
-    int requiredParameterCount = JS('int', '# >> 2', requiredParametersInfo);
-    bool isAccessor = (requiredParametersInfo & 2) == 2;
+    int requiredParameterCount = JS('int', '# >> 1', requiredParametersInfo);
+    bool isAccessor = (requiredParametersInfo & 1) == 1;
 
     int optionalParametersInfo =
         JS('int', '#[#]', data, OPTIONAL_PARAMETERS_INFO);
@@ -758,7 +719,14 @@ class Primitives {
     return JS('int', '#', hash);
   }
 
-  static int parseInt(String source, int radix) {
+  @NoInline()
+  static int _parseIntError(String source, int handleError(String source)) {
+    if (handleError == null) throw new FormatException(source);
+    return handleError(source);
+  }
+
+  static int parseInt(
+      String source, int radix, int handleError(String source)) {
     checkString(source);
     var re = JS('', r'/^\s*[+-]?((0x[a-f0-9]+)|(\d+)|([a-z0-9]+))\s*$/i');
     var match = JS('JSExtendableArray|Null', '#.exec(#)', re, source);
@@ -770,7 +738,7 @@ class Primitives {
       // TODO(sra): It might be that the match failed due to unrecognized U+0085
       // spaces.  We could replace them with U+0020 spaces and try matching
       // again.
-      return null;
+      return _parseIntError(source, handleError);
     }
     String decimalMatch = match[decimalIndex];
     if (radix == null) {
@@ -782,7 +750,7 @@ class Primitives {
         // Cannot fail because we know that the digits are all hex.
         return JS('int', r'parseInt(#, 16)', source);
       }
-      return null;
+      return _parseIntError(source, handleError);
     }
 
     if (radix is! int) {
@@ -821,7 +789,7 @@ class Primitives {
       for (int i = 0; i < digitsPart.length; i++) {
         int characterCode = digitsPart.codeUnitAt(i) | 0x20;
         if (characterCode > maxCharCode) {
-          return null;
+          return _parseIntError(source, handleError);
         }
       }
     }
@@ -830,7 +798,16 @@ class Primitives {
     return JS('int', r'parseInt(#, #)', source, radix);
   }
 
-  static double parseDouble(String source) {
+  @NoInline()
+  static double _parseDoubleError(
+      String source, double handleError(String source)) {
+    if (handleError == null) {
+      throw new FormatException('Invalid double', source);
+    }
+    return handleError(source);
+  }
+
+  static double parseDouble(String source, double handleError(String source)) {
     checkString(source);
     // Notice that JS parseFloat accepts garbage at the end of the string.
     // Accept only:
@@ -843,7 +820,7 @@ class Primitives {
         r'/^\s*[+-]?(?:Infinity|NaN|'
         r'(?:\.\d+|\d+(?:\.\d*)?)(?:[eE][+-]?\d+)?)\s*$/.test(#)',
         source)) {
-      return null;
+      return _parseDoubleError(source, handleError);
     }
     var result = JS('num', r'parseFloat(#)', source);
     if (result.isNaN) {
@@ -851,7 +828,7 @@ class Primitives {
       if (trimmed == 'NaN' || trimmed == '+NaN' || trimmed == '-NaN') {
         return result;
       }
-      return null;
+      return _parseDoubleError(source, handleError);
     }
     return result;
   }
@@ -982,12 +959,9 @@ class Primitives {
     return null;
   }
 
-  /// Version of `String.fromCharCode.apply` that chunks the conversion to avoid
-  /// stack overflows due to very large argument arrays.
-  ///
-  /// [array] is pre-validated as a JSArray of int values but is not typed as
-  /// <int> so it can be called with any JSArray.
-  static String _fromCharCodeApply(List array) {
+  // This is to avoid stack overflows due to very large argument arrays in
+  // apply().  It fixes http://dartbug.com/6919
+  static String _fromCharCodeApply(List<int> array) {
     const kMaxApply = 500;
     int end = array.length;
     if (end <= kMaxApply) {
@@ -1076,7 +1050,7 @@ class Primitives {
 
   static String flattenString(String str) {
     return JS('returns:String;depends:none;effects:none;throws:never;gvn:true',
-        '#.charCodeAt(0) == 0 ? # : #', str, str, str);
+        "#.charCodeAt(0) == 0 ? # : #", str, str, str);
   }
 
   static String getTimeZoneName(DateTime receiver) {
@@ -1111,7 +1085,7 @@ class Primitives {
     //       (Opera): Wed Nov 20 2013 11:03:38 GMT+0100
     match = JS('JSArray|Null', r'/(?:GMT|UTC)[+-]\d{4}/.exec(#.toString())', d);
     if (match != null) return match[0];
-    return '';
+    return "";
   }
 
   static int getTimeZoneOffsetInMinutes(DateTime receiver) {
@@ -1462,7 +1436,7 @@ class Primitives {
         return functionNoSuchMethod(function, arguments, namedArguments);
       }
 
-      int defaultsLength = JS('int', '#.length', defaultValues);
+      int defaultsLength = JS('int', "#.length", defaultValues);
       int maxArguments = requiredParameterCount + defaultsLength;
       if (argumentCount > maxArguments) {
         // The function expects fewer arguments.
@@ -1748,7 +1722,7 @@ Error diagnoseRangeError(start, end, length) {
     }
   }
   // The above should always match, but if it does not, use the following.
-  return new ArgumentError.value(end, 'end');
+  return new ArgumentError.value(end, "end");
 }
 
 stringLastIndexOfUnchecked(receiver, element, start) =>
@@ -1835,10 +1809,6 @@ throwExpression(ex) {
 
 throwRuntimeError(message) {
   throw new RuntimeError(message);
-}
-
-throwUnsupportedError(message) {
-  throw new UnsupportedError(message);
 }
 
 throwAbstractClassInstantiationError(className) {
@@ -2039,7 +2009,7 @@ class TypeErrorDecoder {
     // have been escaped already), as we will soon be inserting
     // regular expression syntax that we want interpreted by RegExp.
     List<String> match =
-        JS('JSExtendableArray|Null', r'#.match(/\\\$[a-zA-Z]+\\\$/g)', message);
+        JS('JSExtendableArray|Null', r"#.match(/\\\$[a-zA-Z]+\\\$/g)", message);
     if (match == null) match = [];
 
     // Find the positions within the substring matches of the error message
@@ -2117,7 +2087,9 @@ class TypeErrorDecoder {
     //
     // "(.*)\\.(.*) is not a function"
 
-    var function = JS('', r"""function($expr$) {
+    var function = JS(
+        '',
+        r"""function($expr$) {
   var $argumentsExpr$ = '$arguments$';
   try {
     $expr$.$method$($argumentsExpr$);
@@ -2132,7 +2104,9 @@ class TypeErrorDecoder {
   /// literal "null" expression.
   static String provokeCallErrorOnNull() {
     // See [provokeCallErrorOn] for a detailed explanation.
-    var function = JS('', r"""function() {
+    var function = JS(
+        '',
+        r"""function() {
   var $argumentsExpr$ = '$arguments$';
   try {
     null.$method$($argumentsExpr$);
@@ -2147,7 +2121,9 @@ class TypeErrorDecoder {
   /// (void 0), that is, "undefined".
   static String provokeCallErrorOnUndefined() {
     // See [provokeCallErrorOn] for a detailed explanation.
-    var function = JS('', r"""function() {
+    var function = JS(
+        '',
+        r"""function() {
   var $argumentsExpr$ = '$arguments$';
   try {
     (void 0).$method$($argumentsExpr$);
@@ -2162,7 +2138,9 @@ class TypeErrorDecoder {
   /// error.
   static String provokePropertyErrorOn(expression) {
     // See [provokeCallErrorOn] for a detailed explanation.
-    var function = JS('', r"""function($expr$) {
+    var function = JS(
+        '',
+        r"""function($expr$) {
   try {
     $expr$.$method$;
   } catch (e) {
@@ -2176,7 +2154,9 @@ class TypeErrorDecoder {
   /// error directly on literal "null" expression.
   static String provokePropertyErrorOnNull() {
     // See [provokeCallErrorOn] for a detailed explanation.
-    var function = JS('', r"""function() {
+    var function = JS(
+        '',
+        r"""function() {
   try {
     null.$method$;
   } catch (e) {
@@ -2190,7 +2170,9 @@ class TypeErrorDecoder {
   /// error directly on (void 0), that is, "undefined".
   static String provokePropertyErrorOnUndefined() {
     // See [provokeCallErrorOn] for a detailed explanation.
-    var function = JS('', r"""function() {
+    var function = JS(
+        '',
+        r"""function() {
   try {
     (void 0).$method$;
   } catch (e) {
@@ -2261,7 +2243,7 @@ class ExceptionAndStackTrace {
  */
 unwrapException(ex) {
   /// If error implements Error, save [ex] in [error.$thrownJsError].
-  /// Otherwise, do nothing. Later, the stack trace can then be extracted from
+  /// Otherwise, do nothing. Later, the stack trace can then be extraced from
   /// [ex].
   saveStackTrace(error) {
     if (error is Error) {
@@ -2434,7 +2416,7 @@ class _StackTrace implements StackTrace {
     String trace;
     if (JS('bool', '# !== null', _exception) &&
         JS('bool', 'typeof # === "object"', _exception)) {
-      trace = JS('String|Null', r'#.stack', _exception);
+      trace = JS("String|Null", r"#.stack", _exception);
     }
     return _trace = (trace == null) ? '' : trace;
   }
@@ -2794,13 +2776,13 @@ abstract class Closure implements Function {
     }
   }
 
-  static bool get isCsp => JS_GET_FLAG('USE_CONTENT_SECURITY_POLICY');
+  static bool get isCsp => JS_GET_FLAG("USE_CONTENT_SECURITY_POLICY");
 
   static forwardCallTo(receiver, function, bool isIntercepted) {
     if (isIntercepted) return forwardInterceptedCallTo(receiver, function);
     String stubName = JS('String|Null', '#.\$stubName', function);
     int arity = JS('int', '#.length', function);
-    var lookedUpFunction = JS('', '#[#]', receiver, stubName);
+    var lookedUpFunction = JS("", "#[#]", receiver, stubName);
     // The receiver[stubName] may not be equal to the function if we try to
     // forward to a super-method. Especially when we create a bound closure
     // of a super-call we need to make sure that we don't forward back to the
@@ -2932,8 +2914,8 @@ abstract class Closure implements Function {
     String receiverField = BoundClosure.receiverFieldName();
     String stubName = JS('String|Null', '#.\$stubName', function);
     int arity = JS('int', '#.length', function);
-    bool isCsp = JS_GET_FLAG('USE_CONTENT_SECURITY_POLICY');
-    var lookedUpFunction = JS('', '#[#]', receiver, stubName);
+    bool isCsp = JS_GET_FLAG("USE_CONTENT_SECURITY_POLICY");
+    var lookedUpFunction = JS("", "#[#]", receiver, stubName);
     // The receiver[stubName] may not be equal to the function if we try to
     // forward to a super-method. Especially when we create a bound closure
     // of a super-call we need to make sure that we don't forward back to the
@@ -3003,7 +2985,7 @@ class StaticClosure extends TearOffClosure {
   String toString() {
     String name =
         JS('String|Null', '#[#]', this, STATIC_FUNCTION_NAME_PROPERTY_NAME);
-    if (name == null) return 'Closure of unknown static method';
+    if (name == null) return "Closure of unknown static method";
     return "Closure '$name'";
   }
 }
@@ -3099,64 +3081,6 @@ class BoundClosure extends TearOffClosure {
       }
     }
   }
-}
-
-/// Support class for generic function type instantiation (binding of types).
-///
-abstract class Instantiation extends Closure {
-  final Closure _genericClosure;
-  Instantiation(this._genericClosure) {
-    // TODO(sra): Copy some metadata used by Function.apply.
-
-    // Mark support code as used.  The JS condition is inscrutable to dart2js,
-    // so the 'if (false)' is in the final program.
-    // TODO(sra): Find a better way to do this. Generating the signature methods
-    // earlier as SSA on the instantiation closures should achieve this.
-    if (JS('bool', 'false')) {
-      // [instantiatedGenericFunctionType] is called from injected $signature
-      // methods with runtime type representations.
-      instantiatedGenericFunctionType(JS('', '0'), JS('', '0'));
-    }
-  }
-
-  /// Returns a list of the bound types.
-  List get _types;
-
-  String toString() {
-    var types = "<${_types.join(', ')}>";
-    // TODO(sra): Refactor Closure formatting to place type arguments inside,
-    // e.g. "Closure 'map<String>' of Instance of 'JSArray<int>'".
-    return '$_genericClosure with $types';
-  }
-}
-
-/// Instantiation classes are subclasses of [Instantiation]. For now we have a
-/// few canned subclasses. Later we might generate the classes on demand.
-class Instantiation1<T1> extends Instantiation {
-  Instantiation1(Closure f) : super(f);
-  List get _types => [T1];
-}
-
-class Instantiation2<T1, T2> extends Instantiation {
-  Instantiation2(Closure f) : super(f);
-  List get _types => [T1, T2];
-}
-
-class Instantiation3<T1, T2, T3> extends Instantiation {
-  Instantiation3(Closure f) : super(f);
-  List get _types => [T1, T2, T3];
-}
-
-Instantiation instantiate1<U>(Closure f) {
-  return new Instantiation1<U>(f);
-}
-
-Instantiation instantiate2<U, V>(Closure f) {
-  return new Instantiation2<U, V>(f);
-}
-
-Instantiation instantiate3<U, V, W>(Closure f) {
-  return new Instantiation3<U, V, W>(f);
 }
 
 bool jsHasOwnProperty(var jsObject, String property) {
@@ -3278,7 +3202,8 @@ stringTypeCheck(value) {
 
 stringTypeCast(value) {
   if (value is String || value == null) return value;
-  throw new CastErrorImplementation(value, 'String');
+  // TODO(lrn): When reified types are available, pass value.class and String.
+  throw new CastErrorImplementation(Primitives.objectTypeName(value), 'String');
 }
 
 doubleTypeCheck(value) {
@@ -3289,7 +3214,7 @@ doubleTypeCheck(value) {
 
 doubleTypeCast(value) {
   if (value is double || value == null) return value;
-  throw new CastErrorImplementation(value, 'double');
+  throw new CastErrorImplementation(Primitives.objectTypeName(value), 'double');
 }
 
 numTypeCheck(value) {
@@ -3300,7 +3225,7 @@ numTypeCheck(value) {
 
 numTypeCast(value) {
   if (value is num || value == null) return value;
-  throw new CastErrorImplementation(value, 'num');
+  throw new CastErrorImplementation(Primitives.objectTypeName(value), 'num');
 }
 
 boolTypeCheck(value) {
@@ -3311,7 +3236,7 @@ boolTypeCheck(value) {
 
 boolTypeCast(value) {
   if (value is bool || value == null) return value;
-  throw new CastErrorImplementation(value, 'bool');
+  throw new CastErrorImplementation(Primitives.objectTypeName(value), 'bool');
 }
 
 intTypeCheck(value) {
@@ -3322,7 +3247,7 @@ intTypeCheck(value) {
 
 intTypeCast(value) {
   if (value is int || value == null) return value;
-  throw new CastErrorImplementation(value, 'int');
+  throw new CastErrorImplementation(Primitives.objectTypeName(value), 'int');
 }
 
 void propertyTypeError(value, property) {
@@ -3332,8 +3257,9 @@ void propertyTypeError(value, property) {
 
 void propertyTypeCastError(value, property) {
   // Cuts the property name to the class name.
+  String actualType = Primitives.objectTypeName(value);
   String expectedType = property.substring(3, property.length);
-  throw new CastErrorImplementation(value, expectedType);
+  throw new CastErrorImplementation(actualType, expectedType);
 }
 
 /**
@@ -3462,7 +3388,7 @@ listTypeCheck(value) {
 
 listTypeCast(value) {
   if (value is List || value == null) return value;
-  throw new CastErrorImplementation(value, 'List');
+  throw new CastErrorImplementation(Primitives.objectTypeName(value), 'List');
 }
 
 listSuperTypeCheck(value, property) {
@@ -3533,19 +3459,20 @@ functionTypeCast(value, functionTypeRti) {
   if (functionTypeTest(value, functionTypeRti)) return value;
 
   var self = runtimeTypeToString(functionTypeRti);
-  throw new CastErrorImplementation(value, self);
+  var functionTypeObject = extractFunctionTypeObjectFrom(value);
+  var pretty;
+  if (functionTypeObject != null) {
+    pretty = runtimeTypeToString(functionTypeObject);
+  } else {
+    pretty = Primitives.objectTypeName(value);
+  }
+  throw new CastErrorImplementation(pretty, self);
 }
 
 checkMalformedType(value, message) {
   if (value == null) return value;
   throw new TypeErrorImplementation.fromMessage(message);
 }
-
-futureOrTest(o, futureOrRti) => checkSubtypeOfRuntimeType(o, futureOrRti);
-
-futureOrCheck(o, futureOrRti) => assertSubtypeOfRuntimeType(o, futureOrRti);
-
-futureOrCast(o, futureOrRti) => subtypeOfRuntimeTypeCast(o, futureOrRti);
 
 @NoInline()
 void checkDeferredIsLoaded(String loadId, String uri) {
@@ -3568,10 +3495,12 @@ abstract class JavaScriptIndexingBehavior<E> extends JSMutableIndexable<E> {}
 class TypeErrorImplementation extends Error implements TypeError {
   final String message;
 
-  /// Normal type error caused by a failed subtype test.
+  /**
+   * Normal type error caused by a failed subtype test.
+   */
   TypeErrorImplementation(Object value, String type)
-      : message = "TypeError: ${Error.safeToString(value)}: "
-            "type '${_typeDescription(value)}' is not a subtype of type '$type'";
+      : message = "type '${Primitives.objectTypeName(value)}' is not a subtype "
+            "of type '$type'";
 
   TypeErrorImplementation.fromMessage(String this.message);
 
@@ -3583,28 +3512,19 @@ class CastErrorImplementation extends Error implements CastError {
   // TODO(lrn): Rename to CastError (and move implementation into core).
   final String message;
 
-  /// Normal cast error caused by a failed type cast.
-  CastErrorImplementation(Object value, Object type)
-      : message = "CastError: ${Error.safeToString(value)}: "
-            "type '${_typeDescription(value)}' is not a subtype of type '$type'";
+  /**
+   * Normal cast error caused by a failed type cast.
+   */
+  CastErrorImplementation(Object actualType, Object expectedType)
+      : message = "CastError: Casting value of type '$actualType' to"
+            " incompatible type '$expectedType'";
 
   String toString() => message;
 }
 
-String _typeDescription(value) {
-  if (value is Closure) {
-    var functionTypeObject = extractFunctionTypeObjectFrom(value);
-    if (functionTypeObject != null) {
-      return runtimeTypeToString(functionTypeObject);
-    }
-    return 'Closure';
-  }
-  return Primitives.objectTypeName(value);
-}
-
 class FallThroughErrorImplementation extends FallThroughError {
   FallThroughErrorImplementation();
-  String toString() => 'Switch case fall-through.';
+  String toString() => "Switch case fall-through.";
 }
 
 /**
@@ -3662,7 +3582,7 @@ void throwCyclicInit(String staticName) {
 class RuntimeError extends Error {
   final message;
   RuntimeError(this.message);
-  String toString() => 'RuntimeError: $message';
+  String toString() => "RuntimeError: $message";
 }
 
 class DeferredNotLoadedError extends Error implements NoSuchMethodError {
@@ -3671,7 +3591,7 @@ class DeferredNotLoadedError extends Error implements NoSuchMethodError {
   DeferredNotLoadedError(this.libraryName);
 
   String toString() {
-    return 'Deferred library $libraryName was not loaded.';
+    return "Deferred library $libraryName was not loaded.";
   }
 }
 
@@ -3682,7 +3602,7 @@ class UnimplementedNoSuchMethodError extends Error
 
   UnimplementedNoSuchMethodError(this._message);
 
-  String toString() => 'Unsupported operation: $_message';
+  String toString() => "Unsupported operation: $_message";
 }
 
 /**
@@ -3692,13 +3612,13 @@ class UnimplementedNoSuchMethodError extends Error
  */
 int random64() {
   // TODO(lrn): Use a secure random source.
-  int int32a = JS('int', '(Math.random() * 0x100000000) >>> 0');
-  int int32b = JS('int', '(Math.random() * 0x100000000) >>> 0');
+  int int32a = JS("int", "(Math.random() * 0x100000000) >>> 0");
+  int int32b = JS("int", "(Math.random() * 0x100000000) >>> 0");
   return int32a + int32b * 0x100000000;
 }
 
 String jsonEncodeNative(String string) {
-  return JS('String', 'JSON.stringify(#)', string);
+  return JS("String", "JSON.stringify(#)", string);
 }
 
 /**
@@ -3723,88 +3643,43 @@ LoadLibraryFunctionType _loadLibraryWrapper(String loadId) {
 final Map<String, Future<Null>> _loadingLibraries = <String, Future<Null>>{};
 final Set<String> _loadedLibraries = new Set<String>();
 
-/// Events used to diagnose failures from deferred loading requests.
-final List<String> _eventLog = <String>[];
-
 typedef void DeferredLoadCallback();
 
 // Function that will be called every time a new deferred import is loaded.
 DeferredLoadCallback deferredLoadHook;
 
 Future<Null> loadDeferredLibrary(String loadId) {
-  // For each loadId there is a list of parts to load. The parts are represented
-  // by an index. There are two arrays, one that maps the index into a Uri and
-  // another that maps the index to a hash.
-  var partsMap = JS_EMBEDDED_GLOBAL('', DEFERRED_LIBRARY_PARTS);
-  List indexes = JS('JSExtendableArray|Null', '#[#]', partsMap, loadId);
-  if (indexes == null) return new Future.value(null);
-  List<String> uris = <String>[];
-  List<String> hashes = <String>[];
-  List index2uri = JS_EMBEDDED_GLOBAL('JSArray', DEFERRED_PART_URIS);
-  List index2hash = JS_EMBEDDED_GLOBAL('JSArray', DEFERRED_PART_HASHES);
-  for (int i = 0; i < indexes.length; i++) {
-    int index = JS('int', '#[#]', indexes, i);
-    uris.add(JS('String', '#[#]', index2uri, index));
-    hashes.add(JS('String', '#[#]', index2hash, index));
+  // For each loadId there is a list of hunk-uris to load, and a corresponding
+  // list of hashes. These are stored in the app-global scope.
+  var urisMap = JS_EMBEDDED_GLOBAL('', DEFERRED_LIBRARY_URIS);
+  List<String> uris = JS('JSExtendableArray|Null', '#[#]', urisMap, loadId);
+  if (uris == null) return new Future.value(null);
+
+  var hashesMap = JS_EMBEDDED_GLOBAL('', DEFERRED_LIBRARY_HASHES);
+  List<String> hashes = JS('JSExtendableArray|Null', '#[#]', hashesMap, loadId);
+
+  List<String> urisToLoad = <String>[];
+
+  var isHunkLoaded = JS_EMBEDDED_GLOBAL('', IS_HUNK_LOADED);
+  for (int i = 0; i < uris.length; ++i) {
+    if (JS('bool', '#(#)', isHunkLoaded, hashes[i])) continue;
+    urisToLoad.add(uris[i]);
   }
 
-  int total = hashes.length;
-  assert(total == uris.length);
-  List<bool> waitingForLoad = new List.filled(total, true);
-  int nextHunkToInitialize = 0;
-  var isHunkLoaded = JS_EMBEDDED_GLOBAL('', IS_HUNK_LOADED);
-  var isHunkInitialized = JS_EMBEDDED_GLOBAL('', IS_HUNK_INITIALIZED);
-  var initializer = JS_EMBEDDED_GLOBAL('', INITIALIZE_LOADED_HUNK);
-
-  void initializeSomeLoadedHunks() {
-    for (int i = nextHunkToInitialize; i < total; ++i) {
-      // A hunk is initialized only if all the preceeding hunks have been
-      // initialized.
-      if (waitingForLoad[i]) return;
-      nextHunkToInitialize++;
-
+  return Future.wait(urisToLoad.map(_loadHunk)).then((_) {
+    // Now all hunks have been loaded, we run the needed initializers.
+    var isHunkInitialized = JS_EMBEDDED_GLOBAL('', IS_HUNK_INITIALIZED);
+    var initializer = JS_EMBEDDED_GLOBAL('', INITIALIZE_LOADED_HUNK);
+    for (String hash in hashes) {
       // It is possible for a hash to be repeated. This happens when two
       // different parts both end up empty. Checking in the loop rather than
       // pre-filtering prevents duplicate hashes leading to duplicated
       // initializations.
       // TODO(29572): Merge small parts.
       // TODO(29635): Remove duplicate parts from tables and output files.
-      var uri = uris[i];
-      var hash = hashes[i];
-      if (JS('bool', '#(#)', isHunkInitialized, hash)) {
-        _eventLog.add(' - already initialized: $uri ($hash)');
-        continue;
-      }
-      // On strange scenarios, e.g. if js encounters parse errors, we might get
-      // an "success" callback on the script load but the hunk will be null.
-      if (JS('bool', '#(#)', isHunkLoaded, hash)) {
-        _eventLog.add(' - initialize: $uri ($hash)');
-        JS('void', '#(#)', initializer, hash);
-      } else {
-        _eventLog.add(' - missing hunk: $uri ($hash)');
-        throw new DeferredLoadException("Loading ${uris[i]} failed: "
-            "the code with hash '${hash}' was not loaded.\n"
-            "event log:\n${_eventLog.join("\n")}\n");
-      }
+      if (JS('bool', '#(#)', isHunkInitialized, hash)) continue;
+      JS('void', '#(#)', initializer, hash);
     }
-  }
-
-  Future loadAndInitialize(int i) {
-    if (JS('bool', '#(#)', isHunkLoaded, hashes[i])) {
-      waitingForLoad[i] = false;
-      return new Future.value();
-    }
-    return _loadHunk(uris[i]).then((_) {
-      waitingForLoad[i] = false;
-      initializeSomeLoadedHunks();
-    });
-  }
-
-  return Future.wait(new List.generate(total, loadAndInitialize)).then((_) {
-    initializeSomeLoadedHunks();
-    // At this point all hunks have been loaded, so there should be no pending
-    // initializations to do.
-    assert(nextHunkToInitialize == total);
     bool updated = _loadedLibraries.add(loadId);
     if (updated && deferredLoadHook != null) {
       deferredLoadHook();
@@ -3814,9 +3689,7 @@ Future<Null> loadDeferredLibrary(String loadId) {
 
 Future<Null> _loadHunk(String hunkName) {
   Future<Null> future = _loadingLibraries[hunkName];
-  _eventLog.add(' - _loadHunk: $hunkName');
   if (future != null) {
-    _eventLog.add('reuse: $hunkName');
     return future.then((_) => null);
   }
 
@@ -3824,30 +3697,23 @@ Future<Null> _loadHunk(String hunkName) {
 
   int index = uri.lastIndexOf('/');
   uri = '${uri.substring(0, index + 1)}$hunkName';
-  _eventLog.add(' - download: $hunkName from $uri');
 
   var deferredLibraryLoader = JS('', 'self.dartDeferredLibraryLoader');
   Completer<Null> completer = new Completer<Null>();
 
   void success() {
-    _eventLog.add(' - download success: $hunkName');
     completer.complete(null);
   }
 
-  void failure(error, String context, StackTrace stackTrace) {
-    _eventLog.add(' - download failed: $hunkName (context: $context)');
+  void failure([error, StackTrace stackTrace]) {
     _loadingLibraries[hunkName] = null;
-    stackTrace ??= StackTrace.current;
     completer.completeError(
-        new DeferredLoadException('Loading $uri failed: $error\n'
-            'event log:\n${_eventLog.join("\n")}\n'),
-        stackTrace);
+        new DeferredLoadException("Loading $uri failed: $error"), stackTrace);
   }
 
   var jsSuccess = convertDartClosureToJS(success, 0);
   var jsFailure = convertDartClosureToJS((error) {
-    failure(unwrapException(error), 'js-failure-wrapper',
-        getTraceFromException(error));
+    failure(unwrapException(error), getTraceFromException(error));
   }, 1);
 
   if (JS('bool', 'typeof # === "function"', deferredLibraryLoader)) {
@@ -3855,7 +3721,7 @@ Future<Null> _loadHunk(String hunkName) {
       JS('void', '#(#, #, #)', deferredLibraryLoader, uri, jsSuccess,
           jsFailure);
     } catch (error, stackTrace) {
-      failure(error, "invoking dartDeferredLibraryLoader hook", stackTrace);
+      failure(error, stackTrace);
     }
   } else if (isWorker()) {
     // We are in a web worker. Load the code with an XMLHttpRequest.
@@ -3873,9 +3739,8 @@ Future<Null> _loadHunk(String hunkName) {
         '#.addEventListener("load", #, false)',
         xhr,
         convertDartClosureToJS((event) {
-          int status = JS('int', '#.status', xhr);
-          if (status != 200) {
-            failure('Request status: $status', 'worker xhr', null);
+          if (JS('int', '#.status', xhr) != 200) {
+            failure("");
           }
           String code = JS('String', '#.responseText', xhr);
           try {
@@ -3884,16 +3749,12 @@ Future<Null> _loadHunk(String hunkName) {
             JS('void', '(new Function(#))()', code);
             success();
           } catch (error, stackTrace) {
-            failure(error, 'evaluating the code in worker xhr', stackTrace);
+            failure(error, stackTrace);
           }
         }, 1));
 
-    JS('void', '#.addEventListener("error", #, false)', xhr, (e) {
-      failure(e, 'xhr error handler', null);
-    });
-    JS('void', '#.addEventListener("abort", #, false)', xhr, (e) {
-      failure(e, 'xhr abort handler', null);
-    });
+    JS('void', '#.addEventListener("error", #, false)', xhr, failure);
+    JS('void', '#.addEventListener("abort", #, false)', xhr, failure);
     JS('void', '#.send()', xhr);
   } else {
     // We are in a dom-context.
@@ -3940,18 +3801,10 @@ class _AssertionError extends AssertionError {
 // unneeded code.
 class _UnreachableError extends AssertionError {
   _UnreachableError();
-  String toString() => 'Assertion failed: Reached dead code';
+  String toString() => "Assertion failed: Reached dead code";
 }
 
 @NoInline()
 void assertUnreachable() {
   throw new _UnreachableError();
 }
-
-// Hook to register new global object if necessary.
-// This is currently a no-op in dart2js.
-void registerGlobalObject(object) {}
-
-// Hook to register new browser classes.
-// This is currently a no-op in dart2js.
-void applyExtension(name, nativeObject) {}

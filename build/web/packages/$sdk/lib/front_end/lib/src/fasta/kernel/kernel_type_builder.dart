@@ -9,12 +9,9 @@ import 'package:kernel/ast.dart' show DartType, Supertype;
 import 'kernel_builder.dart' show LibraryBuilder, TypeBuilder;
 
 abstract class KernelTypeBuilder extends TypeBuilder {
-  const KernelTypeBuilder();
+  KernelTypeBuilder(int charOffset, Uri fileUri) : super(charOffset, fileUri);
 
   DartType build(LibraryBuilder library);
 
-  Supertype buildSupertype(LibraryBuilder library, int charOffset, Uri fileUri);
-
-  Supertype buildMixedInType(
-      LibraryBuilder library, int charOffset, Uri fileUri);
+  Supertype buildSupertype(LibraryBuilder library);
 }

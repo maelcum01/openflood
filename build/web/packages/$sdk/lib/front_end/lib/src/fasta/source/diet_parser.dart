@@ -4,15 +4,38 @@
 
 library fasta.diet_parser;
 
-import '../../scanner/token.dart' show Token;
+import '../fasta_codes.dart' show codeExpectedOpenParens;
 
-import '../parser.dart' show ClassMemberParser, Listener, MemberKind;
+import '../parser/class_member_parser.dart' show ClassMemberParser;
+
+import '../parser/listener.dart' show Listener;
+
+import '../parser/parser.dart' show MemberKind, optional;
+
+import '../scanner/token.dart' show BeginGroupToken;
+
+import '../../scanner/token.dart' show Token;
 
 // TODO(ahe): Move this to parser package.
 class DietParser extends ClassMemberParser {
   DietParser(Listener listener) : super(listener);
 
   Token parseFormalParameters(Token token, MemberKind kind) {
-    return skipFormalParameters(token, kind);
+    return skipFormals(token, kind);
+  }
+
+  Token skipFormals(Token token, MemberKind kind) {
+    listener.beginOptionalFormalParameters(token);
+    if (!optional('(', token)) {
+      if (optional(';', token)) {
+        reportRecoverableErrorCode(token, codeExpectedOpenParens);
+        return token;
+      }
+      return reportUnexpectedToken(token).next;
+    }
+    BeginGroupToken beginGroupToken = token;
+    Token endToken = beginGroupToken.endGroup;
+    listener.endFormalParameters(0, token, endToken, kind);
+    return endToken.next;
   }
 }

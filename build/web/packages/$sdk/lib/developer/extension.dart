@@ -73,7 +73,7 @@ class ServiceExtensionResponse {
 
   static String _errorCodeMessage(int errorCode) {
     _validateErrorCode(errorCode);
-    if (errorCode == invalidParams) {
+    if (errorCode == kInvalidParams) {
       return "Invalid params";
     }
     return "Server error";
@@ -92,17 +92,15 @@ class ServiceExtensionResponse {
     throw new ArgumentError.value(errorCode, "errorCode", "Out of range");
   }
 
-  // ignore: unused_element, called from runtime/lib/developer.dart
   bool _isError() => (_errorCode != null) && (_errorDetail != null);
 
-  // ignore: unused_element, called from runtime/lib/developer.dart
   String _toString() {
     if (_result != null) {
       return _result;
     } else {
       assert(_errorCode != null);
       assert(_errorDetail != null);
-      return json.encode({
+      return JSON.encode({
         'code': _errorCode,
         'message': _errorCodeMessage(_errorCode),
         'data': {'details': _errorDetail}
@@ -113,11 +111,12 @@ class ServiceExtensionResponse {
 
 /// A service protocol extension handler. Registered with [registerExtension].
 ///
-/// Must complete to a [ServiceExtensionResponse]. [method] is the method name
-/// of the service protocol request, and [parameters] is a map holding the
-/// parameters to the service protocol request.
+/// Must complete to a [ServiceExtensionResponse].
 ///
-/// *NOTE*: all parameter names and values are encoded as strings.
+/// [method] - the method name of the service protocol request.
+/// [parameters] - A map holding the parameters to the service protocol request.
+///
+/// *NOTE*: All parameter names and values are **encoded as strings**.
 typedef Future<ServiceExtensionResponse> ServiceExtensionHandler(
     String method, Map<String, String> parameters);
 
@@ -159,7 +158,7 @@ void postEvent(String eventKind, Map eventData) {
   if (eventData is! Map) {
     throw new ArgumentError.value(eventData, 'eventData', 'Must be a Map');
   }
-  String eventDataAsString = json.encode(eventData);
+  String eventDataAsString = JSON.encode(eventData);
   _postEvent(eventKind, eventDataAsString);
 }
 

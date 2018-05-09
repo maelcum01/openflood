@@ -4,65 +4,63 @@
 
 library fasta.builder;
 
-import '../../base/instrumentation.dart' show Instrumentation;
-
-import '../problems.dart' show unhandled, unsupported;
-
-import 'library_builder.dart' show LibraryBuilder;
-
-import 'class_builder.dart' show ClassBuilder;
-
-export '../scope.dart' show AccessErrorBuilder, Scope, ScopeBuilder;
-
-export '../source/unhandled_listener.dart' show Unhandled;
-
-export 'builtin_type_builder.dart' show BuiltinTypeBuilder;
+import '../errors.dart' show internalError;
 
 export 'class_builder.dart' show ClassBuilder;
 
-export 'constructor_reference_builder.dart' show ConstructorReferenceBuilder;
-
-export 'dynamic_type_builder.dart' show DynamicTypeBuilder;
-
-export 'enum_builder.dart' show EnumBuilder;
-
 export 'field_builder.dart' show FieldBuilder;
-
-export 'formal_parameter_builder.dart' show FormalParameterBuilder;
-
-export 'function_type_alias_builder.dart' show FunctionTypeAliasBuilder;
-
-export 'function_type_builder.dart' show FunctionTypeBuilder;
-
-export 'invalid_type_builder.dart' show InvalidTypeBuilder;
 
 export 'library_builder.dart' show LibraryBuilder;
 
-export 'member_builder.dart' show MemberBuilder;
-
-export 'metadata_builder.dart' show MetadataBuilder;
-
-export 'mixin_application_builder.dart' show MixinApplicationBuilder;
-
-export 'modifier_builder.dart' show ModifierBuilder;
-
-export 'named_type_builder.dart' show NamedTypeBuilder;
-
-export 'prefix_builder.dart' show PrefixBuilder;
-
 export 'procedure_builder.dart' show ProcedureBuilder;
-
-export 'qualified_name.dart' show QualifiedName;
 
 export 'type_builder.dart' show TypeBuilder;
 
-export 'type_declaration_builder.dart' show TypeDeclarationBuilder;
+export 'formal_parameter_builder.dart' show FormalParameterBuilder;
+
+export 'metadata_builder.dart' show MetadataBuilder;
 
 export 'type_variable_builder.dart' show TypeVariableBuilder;
 
-export 'unresolved_type.dart' show UnresolvedType;
+export 'function_type_alias_builder.dart' show FunctionTypeAliasBuilder;
+
+export 'mixin_application_builder.dart' show MixinApplicationBuilder;
+
+export 'enum_builder.dart' show EnumBuilder;
+
+export 'type_declaration_builder.dart' show TypeDeclarationBuilder;
+
+export 'named_type_builder.dart' show NamedTypeBuilder;
+
+export 'constructor_reference_builder.dart' show ConstructorReferenceBuilder;
+
+export '../source/unhandled_listener.dart' show Unhandled;
+
+export 'member_builder.dart' show MemberBuilder;
+
+export 'modifier_builder.dart' show ModifierBuilder;
+
+export 'prefix_builder.dart' show PrefixBuilder;
+
+export 'invalid_type_builder.dart' show InvalidTypeBuilder;
+
+export '../scope.dart' show AccessErrorBuilder, Scope, ScopeBuilder;
+
+export 'builtin_type_builder.dart' show BuiltinTypeBuilder;
+
+export 'dynamic_type_builder.dart' show DynamicTypeBuilder;
 
 export 'void_type_builder.dart' show VoidTypeBuilder;
+
+export 'function_type_builder.dart' show FunctionTypeBuilder;
+
+import 'library_builder.dart' show LibraryBuilder;
+
+import 'package:front_end/src/fasta/builder/class_builder.dart'
+    show ClassBuilder;
+
+import 'package:front_end/src/fasta/source/source_library_builder.dart'
+    show SourceLibraryBuilder;
 
 abstract class Builder {
   /// Used when multiple things with the same name are declared within the same
@@ -80,6 +78,15 @@ abstract class Builder {
   int get charOffset => -1;
 
   Uri get fileUri => null;
+
+  String get relativeFileUri {
+    throw "The relativeFileUri method should be only called on subclasses "
+        "which have an efficient implementation of `relativeFileUri`!";
+  }
+
+  /// Resolve types (lookup names in scope) recorded in this builder and return
+  /// the number of types resolved.
+  int resolveTypes(covariant Builder parent) => 0;
 
   /// Resolve constructors (lookup names in scope) recorded in this builder and
   /// return the number of constructors resolved.
@@ -117,13 +124,9 @@ abstract class Builder {
 
   bool get isSynthetic => false;
 
-  get target => unsupported("${runtimeType}.target", charOffset, fileUri);
+  get target => internalError("Unsupported operation $runtimeType.");
 
   bool get hasProblem => false;
-
-  bool get isPatch => this != origin;
-
-  Builder get origin => this;
 
   String get fullNameForErrors;
 
@@ -133,23 +136,9 @@ abstract class Builder {
       if (builder is LibraryBuilder) return builder.uri;
       builder = builder.parent;
     } while (builder != null);
-    return unhandled("no library parent", "${runtimeType}", -1, null);
+    return internalError("No library parent.");
   }
 
-  void prepareTopLevelInference(
-      covariant LibraryBuilder library, ClassBuilder currentClass) {}
-
-  void instrumentTopLevelInference(Instrumentation instrumentation) {}
-
-  /// Applies [patch] to this.
-  void applyPatch(Builder patch) {
-    unsupported("${runtimeType}.applyPatch", charOffset, fileUri);
-  }
-
-  /// Returns the number of patches that was finished.
-  int finishPatch() {
-    if (!isPatch) return 0;
-    unsupported("${runtimeType}.finishPatch", charOffset, fileUri);
-    return 0;
-  }
+  void prepareInitializerInference(
+      SourceLibraryBuilder library, ClassBuilder currentClass) {}
 }

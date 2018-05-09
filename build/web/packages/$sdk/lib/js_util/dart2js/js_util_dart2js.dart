@@ -7,8 +7,6 @@
 /// methods when the same effect cannot be achieved with @JS annotations.
 /// These methods would be extension methods on JSObject if Dart supported
 /// extension methods.
-///
-/// {@category Web}
 library dart.js_util;
 
 import 'dart:_foreign_helper' show JS;
@@ -111,7 +109,7 @@ callConstructor(Function constr, List arguments) {
   // the arguments list passed to apply().
   // After that, use the JavaScript 'new' operator which overrides any binding
   // of 'this' with the new instance.
-  var args = <dynamic>[null]..addAll(arguments);
+  var args = [null]..addAll(arguments);
   var factoryFunction = JS('', '#.bind.apply(#, #)', constr, constr, args);
   // Without this line, calling factoryFunction as a constructor throws
   JS('String', 'String(#)', factoryFunction);

@@ -2,19 +2,17 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:async';
 import 'dart:collection';
 import 'dart:io' as io;
 
+import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/file_system/file_system.dart'
     show File, Folder, ResourceProvider, ResourceUriResolver;
 import 'package:analyzer/file_system/physical_file_system.dart';
+import 'package:analyzer/source/package_map_resolver.dart';
 import 'package:analyzer/src/context/builder.dart';
-import 'package:analyzer/src/dart/analysis/driver.dart';
-import 'package:analyzer/src/dart/analysis/file_state.dart';
 import 'package:analyzer/src/dart/sdk/sdk.dart';
-import 'package:analyzer/src/file_system/file_system.dart';
-import 'package:analyzer/src/generated/engine.dart' hide AnalysisResult;
+import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/sdk.dart';
 import 'package:analyzer/src/generated/source.dart';
 import 'package:analyzer/src/generated/source_io.dart';
@@ -23,10 +21,7 @@ import 'package:analyzer/src/lint/linter.dart';
 import 'package:analyzer/src/lint/project.dart';
 import 'package:analyzer/src/lint/registry.dart';
 import 'package:analyzer/src/services/lint.dart';
-import 'package:analyzer/src/source/package_map_resolver.dart';
 import 'package:analyzer/src/util/sdk.dart';
-import 'package:front_end/src/api_prototype/byte_store.dart';
-import 'package:front_end/src/base/performance_logger.dart';
 import 'package:package_config/packages.dart' show Packages;
 import 'package:package_config/packages_file.dart' as pkgfile show parse;
 import 'package:package_config/src/packages_impl.dart' show MapPackages;
@@ -46,15 +41,14 @@ void printAndFail(String message, {int exitCode: 15}) {
   io.exit(exitCode);
 }
 
-AnalysisOptions _buildAnalyzerOptions(LinterOptions options) {
+AnalysisOptions _buildAnalyzerOptions(DriverOptions options) {
   AnalysisOptionsImpl analysisOptions = new AnalysisOptionsImpl();
   analysisOptions.strongMode = options.strongMode;
   analysisOptions.hint = false;
-  analysisOptions.previewDart2 = options.previewDart2;
   analysisOptions.lint = options.enableLints;
   analysisOptions.generateSdkErrors = options.showSdkWarnings;
+  analysisOptions.enableAssertInitializer = options.enableAssertInitializer;
   analysisOptions.enableTiming = options.enableTiming;
-  analysisOptions.lintRules = options.enabledLints?.toList(growable: false);
   return analysisOptions;
 }
 
@@ -65,6 +59,10 @@ class DriverOptions {
 
   /// The path to the dart SDK.
   String dartSdkPath;
+
+  /// Whether the parser is able to parse asserts in the initializer list of a
+  /// constructor
+  bool enableAssertInitializer = false;
 
   /// Whether to show lint warnings.
   bool enableLints = true;
@@ -84,23 +82,12 @@ class DriverOptions {
   /// Whether to use Dart's Strong Mode analyzer.
   bool strongMode = true;
 
-  /// Whether to use Dart 2.0 features.
-  bool previewDart2 = false;
-
   /// The mock SDK (to speed up testing) or `null` to use the actual SDK.
   DartSdk mockSdk;
 
-  /// Return `true` is the parser is able to parse asserts in the initializer
-  /// list of a constructor.
-  @deprecated
-  bool get enableAssertInitializer => true;
-
-  /// Set whether the parser is able to parse asserts in the initializer list of
-  /// a constructor to match [enable].
-  @deprecated
-  void set enableAssertInitializer(bool enable) {
-    // Ignored because the option is now always enabled.
-  }
+  /// Whether to show lints for the transitive closure of imported and exported
+  /// libraries.
+  bool visitTransitiveClosure = false;
 }
 
 class LintDriver {
@@ -124,8 +111,8 @@ class LintDriver {
     ContextBuilder builder = new ContextBuilder(resourceProvider, null, null);
 
     DartSdk sdk = options.mockSdk ??
-        new FolderBasedDartSdk(resourceProvider,
-            resourceProvider.getFolder(sdkDir), options.strongMode);
+        new FolderBasedDartSdk(
+            resourceProvider, resourceProvider.getFolder(sdkDir));
 
     List<UriResolver> resolvers = [new DartUriResolver(sdk)];
 
@@ -151,51 +138,42 @@ class LintDriver {
     return resolvers;
   }
 
-  ResourceProvider get resourceProvider => options.resourceProvider;
-
   String get sdkDir {
     // In case no SDK has been specified, fall back to inferring it.
     return options.dartSdkPath ?? getSdkPath();
   }
 
-  Future<List<AnalysisErrorInfo>> analyze(Iterable<io.File> files) async {
+  List<AnalysisErrorInfo> analyze(Iterable<io.File> files) {
+    AnalysisContext context = AnalysisEngine.instance.createAnalysisContext();
+    context.analysisOptions = _buildAnalyzerOptions(options);
+    registerLinters(context);
+
+    Packages packages = _getPackageConfig();
+
+    context.sourceFactory = new SourceFactory(resolvers, packages);
     AnalysisEngine.instance.logger = new StdLogger();
 
-    SourceFactory sourceFactory =
-        new SourceFactory(resolvers, _getPackageConfig());
-
-    PerformanceLog log = new PerformanceLog(null);
-    AnalysisDriverScheduler scheduler = new AnalysisDriverScheduler(log);
-    AnalysisDriver analysisDriver = new AnalysisDriver(
-        scheduler,
-        log,
-        resourceProvider,
-        new MemoryByteStore(),
-        new FileContentOverlay(),
-        null,
-        sourceFactory,
-        _buildAnalyzerOptions(options));
-    analysisDriver.results.listen((_) {});
-    analysisDriver.exceptions.listen((_) {});
-    scheduler.start();
-
     List<Source> sources = [];
+    ChangeSet changeSet = new ChangeSet();
     for (io.File file in files) {
-      File sourceFile =
-          resourceProvider.getFile(p.normalize(file.absolute.path));
+      File sourceFile = PhysicalResourceProvider.INSTANCE
+          .getFile(p.normalize(file.absolute.path));
       Source source = sourceFile.createSource();
-      Uri uri = sourceFactory.restoreUri(source);
+      Uri uri = context.sourceFactory.restoreUri(source);
       if (uri != null) {
         // Ensure that we analyze the file using its canonical URI (e.g. if
         // it's in "/lib", analyze it using a "package:" URI).
         source = sourceFile.createSource(uri);
       }
-
       sources.add(source);
-      analysisDriver.addFile(source.fullName);
+      changeSet.addedSource(source);
     }
+    context.applyChanges(changeSet);
 
-    DartProject project = await DartProject.create(analysisDriver, sources);
+    // Temporary location
+    var project = new DartProject(context, sources);
+    // This will get pushed into the generator (or somewhere comparable) when
+    // we have a proper plugin.
     Registry.ruleRegistry.forEach((lint) {
       if (lint is ProjectVisitor) {
         (lint as ProjectVisitor).visit(project);
@@ -203,12 +181,28 @@ class LintDriver {
     });
 
     List<AnalysisErrorInfo> errors = [];
+
     for (Source source in sources) {
-      ErrorsResult errorsResult =
-          await analysisDriver.getErrors(source.fullName);
-      errors.add(new AnalysisErrorInfoImpl(
-          errorsResult.errors, errorsResult.lineInfo));
+      context.computeErrors(source);
+      errors.add(context.getErrors(source));
       _sourcesAnalyzed.add(source);
+    }
+
+    if (options.visitTransitiveClosure) {
+      // In the process of computing errors for all the sources in [sources],
+      // the analyzer has visited the transitive closure of all libraries
+      // referenced by those sources.  So now we simply need to visit all
+      // library sources known to the analysis context, and all parts they
+      // refer to.
+      for (Source librarySource in context.librarySources) {
+        for (Source source in _getAllUnitSources(context, librarySource)) {
+          if (!_sourcesAnalyzed.contains(source)) {
+            context.computeErrors(source);
+            errors.add(context.getErrors(source));
+            _sourcesAnalyzed.add(source);
+          }
+        }
+      }
     }
 
     return errors;
@@ -218,6 +212,18 @@ class LintDriver {
     if (options.enableLints) {
       setLints(context, options.enabledLints?.toList(growable: false));
     }
+  }
+
+  /// Yield the sources for all the compilation units constituting
+  /// [librarySource] (including the defining compilation unit).
+  Iterable<Source> _getAllUnitSources(
+      AnalysisContext context, Source librarySource) {
+    List<Source> result = <Source>[librarySource];
+    result.addAll(context
+        .getLibraryElement(librarySource)
+        .parts
+        .map((CompilationUnitElement e) => e.source));
+    return result;
   }
 
   Packages _getPackageConfig() {

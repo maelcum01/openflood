@@ -17,19 +17,11 @@ import 'package:path/path.dart' show posix;
 import 'package:path/src/context.dart';
 
 /**
- * A contributor for calculating uri suggestions for import and part directives.
+ * A contributor for calculating uri suggestions
+ * for import and part directives.
  */
 class UriContributor extends DartCompletionContributor {
   _UriSuggestionBuilder builder;
-
-  /**
-   * A flag indicating whether file: and package: URI suggestions should
-   * be included in the list of completion suggestions.
-   */
-  // TODO(danrubel): remove this flag and related functionality
-  // once the UriContributor limits file: and package: URI suggestions
-  // to only those paths within context roots.
-  static bool suggestFilePaths = true;
 
   @override
   Future<List<CompletionSuggestion>> computeSuggestions(
@@ -103,17 +95,13 @@ class _UriSuggestionBuilder extends SimpleAstVisitor {
       String partialUri = _extractPartialUri(node);
       if (partialUri != null) {
         _addDartSuggestions();
-        if (UriContributor.suggestFilePaths) {
-          _addPackageSuggestions(partialUri);
-          _addFileSuggestions(partialUri);
-        }
+        _addPackageSuggestions(partialUri);
+        _addFileSuggestions(partialUri);
       }
     } else if (parent is PartDirective && parent.uri == node) {
       String partialUri = _extractPartialUri(node);
       if (partialUri != null) {
-        if (UriContributor.suggestFilePaths) {
-          _addFileSuggestions(partialUri);
-        }
+        _addFileSuggestions(partialUri);
       }
     }
   }
@@ -149,15 +137,7 @@ class _UriSuggestionBuilder extends SimpleAstVisitor {
     }
     String uriPrefix = parentUri == '.' ? '' : parentUri;
 
-    // Only handle file uris in the format file:///xxx or /xxx
-    String parentUriScheme = Uri.parse(parentUri).scheme;
-    if (!parentUri.startsWith('file://') && parentUriScheme != '') {
-      return;
-    }
-
-    String dirPath = resProvider.pathContext.fromUri(parentUri);
-    dirPath = resContext.normalize(dirPath);
-
+    String dirPath = resContext.normalize(parentUri);
     if (resContext.isRelative(dirPath)) {
       String sourceDirPath = resContext.dirname(source.fullName);
       if (resContext.isAbsolute(sourceDirPath)) {
@@ -182,15 +162,11 @@ class _UriSuggestionBuilder extends SimpleAstVisitor {
         for (Resource child in dir.getChildren()) {
           String completion;
           if (child is Folder) {
-            if (!child.shortName.startsWith('.')) {
-              completion = '$uriPrefix${child.shortName}/';
-            }
-          } else if (child is File) {
-            if (child.shortName.endsWith('.dart')) {
-              completion = '$uriPrefix${child.shortName}';
-            }
+            completion = '$uriPrefix${child.shortName}/';
+          } else {
+            completion = '$uriPrefix${child.shortName}';
           }
-          if (completion != null && completion != source.shortName) {
+          if (completion != source.shortName) {
             _addSuggestion(completion);
           }
         }

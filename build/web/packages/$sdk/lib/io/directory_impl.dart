@@ -14,24 +14,19 @@ class _Directory extends FileSystemEntity implements Directory {
     }
   }
 
-  external static _current(_Namespace namespace);
-  external static _setCurrent(_Namespace namespace, path);
-  external static _createTemp(_Namespace namespace, String path);
-  external static String _systemTemp(_Namespace namespace);
-  external static _exists(_Namespace namespace, String path);
-  external static _create(_Namespace namespace, String path);
-  external static _deleteNative(
-      _Namespace namespace, String path, bool recursive);
-  external static _rename(_Namespace namespace, String path, String newPath);
-  external static void _fillWithDirectoryListing(
-      _Namespace namespace,
-      List<FileSystemEntity> list,
-      String path,
-      bool recursive,
-      bool followLinks);
+  external static _current();
+  external static _setCurrent(path);
+  external static _createTemp(String path);
+  external static String _systemTemp();
+  external static _exists(String path);
+  external static _create(String path);
+  external static _deleteNative(String path, bool recursive);
+  external static _rename(String path, String newPath);
+  external static void _fillWithDirectoryListing(List<FileSystemEntity> list,
+      String path, bool recursive, bool followLinks);
 
   static Directory get current {
-    var result = _current(_Namespace._namespace);
+    var result = _current();
     if (result is OSError) {
       throw new FileSystemException(
           "Getting current working directory failed", "", result);
@@ -41,11 +36,7 @@ class _Directory extends FileSystemEntity implements Directory {
 
   static void set current(path) {
     if (path is Directory) path = path.path;
-    if (!_EmbedderConfig._mayChdir) {
-      throw new UnsupportedError(
-          "This embedder disallows setting Directory.current");
-    }
-    var result = _setCurrent(_Namespace._namespace, path);
+    var result = _setCurrent(path);
     if (result is ArgumentError) throw result;
     if (result is OSError) {
       throw new FileSystemException(
@@ -58,8 +49,7 @@ class _Directory extends FileSystemEntity implements Directory {
   }
 
   Future<bool> exists() {
-    return _File._dispatchWithNamespace(_DIRECTORY_EXISTS, [null, path]).then(
-        (response) {
+    return _IOService._dispatch(_DIRECTORY_EXISTS, [path]).then((response) {
       if (_isErrorResponse(response)) {
         throw _exceptionOrErrorFromResponse(response, "Exists failed");
       }
@@ -68,7 +58,7 @@ class _Directory extends FileSystemEntity implements Directory {
   }
 
   bool existsSync() {
-    var result = _exists(_Namespace._namespace, path);
+    var result = _exists(path);
     if (result is OSError) {
       throw new FileSystemException("Exists failed", path, result);
     }
@@ -90,8 +80,7 @@ class _Directory extends FileSystemEntity implements Directory {
         }
       });
     } else {
-      return _File._dispatchWithNamespace(_DIRECTORY_CREATE, [null, path]).then(
-          (response) {
+      return _IOService._dispatch(_DIRECTORY_CREATE, [path]).then((response) {
         if (_isErrorResponse(response)) {
           throw _exceptionOrErrorFromResponse(response, "Creation failed");
         }
@@ -107,14 +96,13 @@ class _Directory extends FileSystemEntity implements Directory {
         parent.createSync(recursive: true);
       }
     }
-    var result = _create(_Namespace._namespace, path);
+    var result = _create(path);
     if (result is OSError) {
       throw new FileSystemException("Creation failed", path, result);
     }
   }
 
-  static Directory get systemTemp =>
-      new Directory(_systemTemp(_Namespace._namespace));
+  static Directory get systemTemp => new Directory(_systemTemp());
 
   Future<Directory> createTemp([String prefix]) {
     if (prefix == null) prefix = '';
@@ -128,8 +116,8 @@ class _Directory extends FileSystemEntity implements Directory {
     } else {
       fullPrefix = "$path${Platform.pathSeparator}$prefix";
     }
-    return _File._dispatchWithNamespace(
-        _DIRECTORY_CREATE_TEMP, [null, fullPrefix]).then((response) {
+    return _IOService
+        ._dispatch(_DIRECTORY_CREATE_TEMP, [fullPrefix]).then((response) {
       if (_isErrorResponse(response)) {
         throw _exceptionOrErrorFromResponse(
             response, "Creation of temporary directory failed");
@@ -150,7 +138,7 @@ class _Directory extends FileSystemEntity implements Directory {
     } else {
       fullPrefix = "$path${Platform.pathSeparator}$prefix";
     }
-    var result = _createTemp(_Namespace._namespace, fullPrefix);
+    var result = _createTemp(fullPrefix);
     if (result is OSError) {
       throw new FileSystemException(
           "Creation of temporary directory failed", fullPrefix, result);
@@ -159,8 +147,8 @@ class _Directory extends FileSystemEntity implements Directory {
   }
 
   Future<Directory> _delete({bool recursive: false}) {
-    return _File._dispatchWithNamespace(
-        _DIRECTORY_DELETE, [null, path, recursive]).then((response) {
+    return _IOService
+        ._dispatch(_DIRECTORY_DELETE, [path, recursive]).then((response) {
       if (_isErrorResponse(response)) {
         throw _exceptionOrErrorFromResponse(response, "Deletion failed");
       }
@@ -169,15 +157,15 @@ class _Directory extends FileSystemEntity implements Directory {
   }
 
   void _deleteSync({bool recursive: false}) {
-    var result = _deleteNative(_Namespace._namespace, path, recursive);
+    var result = _deleteNative(path, recursive);
     if (result is OSError) {
       throw new FileSystemException("Deletion failed", path, result);
     }
   }
 
   Future<Directory> rename(String newPath) {
-    return _File._dispatchWithNamespace(
-        _DIRECTORY_RENAME, [null, path, newPath]).then((response) {
+    return _IOService
+        ._dispatch(_DIRECTORY_RENAME, [path, newPath]).then((response) {
       if (_isErrorResponse(response)) {
         throw _exceptionOrErrorFromResponse(response, "Rename failed");
       }
@@ -189,7 +177,7 @@ class _Directory extends FileSystemEntity implements Directory {
     if (newPath is! String) {
       throw new ArgumentError();
     }
-    var result = _rename(_Namespace._namespace, path, newPath);
+    var result = _rename(path, newPath);
     if (result is OSError) {
       throw new FileSystemException("Rename failed", path, result);
     }
@@ -212,7 +200,6 @@ class _Directory extends FileSystemEntity implements Directory {
     }
     var result = <FileSystemEntity>[];
     _fillWithDirectoryListing(
-        _Namespace._namespace,
         result,
         FileSystemEntity._ensureTrailingPathSeparators(path),
         recursive,
@@ -274,7 +261,6 @@ class _AsyncDirectoryLister {
         onListen: onListen, onResume: onResume, onCancel: onCancel, sync: true);
   }
 
-  // WARNING:
   // Calling this function will increase the reference count on the native
   // object that implements the async directory lister operations. It should
   // only be called to pass the pointer to the IO Service, which will decrement
@@ -286,8 +272,8 @@ class _AsyncDirectoryLister {
   Stream<FileSystemEntity> get stream => controller.stream;
 
   void onListen() {
-    _File._dispatchWithNamespace(_DIRECTORY_LIST_START,
-        [null, path, recursive, followLinks]).then((response) {
+    _IOService._dispatch(
+        _DIRECTORY_LIST_START, [path, recursive, followLinks]).then((response) {
       if (response is int) {
         _ops = new _AsyncDirectoryListerOps(response);
         next();

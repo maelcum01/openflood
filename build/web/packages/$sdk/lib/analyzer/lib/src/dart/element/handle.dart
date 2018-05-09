@@ -44,16 +44,10 @@ class ClassElementHandle extends ElementHandle implements ClassElement {
   List<FieldElement> get fields => actualElement.fields;
 
   @override
-  bool get hasJS => actualElement.hasJS;
-
-  @override
   bool get hasNonFinalField => actualElement.hasNonFinalField;
 
   @override
   bool get hasReferenceToSuper => actualElement.hasReferenceToSuper;
-
-  @override
-  bool get hasRequired => actualElement.hasRequired;
 
   @override
   bool get hasStaticMember => actualElement.hasStaticMember;
@@ -68,7 +62,7 @@ class ClassElementHandle extends ElementHandle implements ClassElement {
   bool get isEnum => actualElement.isEnum;
 
   @override
-  bool get isJS => actualElement.hasJS;
+  bool get isJS => actualElement.isJS;
 
   @override
   bool get isMixinApplication => actualElement.isMixinApplication;
@@ -80,7 +74,7 @@ class ClassElementHandle extends ElementHandle implements ClassElement {
   bool get isProxy => actualElement.isProxy;
 
   @override
-  bool get isRequired => actualElement.hasRequired;
+  bool get isRequired => actualElement.isRequired;
 
   @override
   bool get isValidMixin => actualElement.isValidMixin;
@@ -240,6 +234,11 @@ class CompilationUnitElementHandle extends ElementHandle
   CompilationUnit computeNode() => actualElement.computeNode();
 
   @override
+  Element getElementAt(int offset) {
+    return actualElement.getElementAt(offset);
+  }
+
+  @override
   ClassElement getEnum(String enumName) => actualElement.getEnum(enumName);
 
   @override
@@ -351,64 +350,34 @@ abstract class ElementHandle implements Element {
   Element get enclosingElement => actualElement.enclosingElement;
 
   @override
-  bool get hasAlwaysThrows => actualElement.hasAlwaysThrows;
-
-  @override
-  bool get hasDeprecated => actualElement.hasDeprecated;
-
-  @override
-  bool get hasFactory => actualElement.hasFactory;
-
-  @override
   int get hashCode => _location.hashCode;
 
   @override
-  bool get hasJS => actualElement.hasJS;
+  bool get isDeprecated => actualElement.isDeprecated;
 
   @override
-  bool get hasOverride => actualElement.hasOverride;
+  bool get isFactory => actualElement.isFactory;
 
   @override
-  bool get hasProtected => actualElement.hasProtected;
+  bool get isJS => actualElement.isJS;
 
   @override
-  bool get hasRequired => actualElement.hasRequired;
-
-  @override
-  bool get hasVisibleForTesting => actualElement.hasVisibleForTesting;
-
-  @override
-  bool get isAlwaysThrows => actualElement.hasAlwaysThrows;
-
-  @override
-  bool get isDeprecated => actualElement.hasDeprecated;
-
-  @override
-  bool get isFactory => actualElement.hasFactory;
-
-  @override
-  bool get isJS => actualElement.hasJS;
-
-  @override
-  bool get isOverride => actualElement.hasOverride;
+  bool get isOverride => actualElement.isOverride;
 
   @override
   bool get isPrivate => actualElement.isPrivate;
 
   @override
-  bool get isProtected => actualElement.hasProtected;
+  bool get isProtected => actualElement.isProtected;
 
   @override
   bool get isPublic => actualElement.isPublic;
 
   @override
-  bool get isRequired => actualElement.hasRequired;
+  bool get isRequired => actualElement.isRequired;
 
   @override
   bool get isSynthetic => actualElement.isSynthetic;
-
-  @override
-  bool get isVisibleForTesting => actualElement.hasVisibleForTesting;
 
   @override
   LibraryElement get library =>
@@ -443,7 +412,8 @@ abstract class ElementHandle implements Element {
       object is Element && object.location == _location;
 
   @override
-  T accept<T>(ElementVisitor<T> visitor) => actualElement.accept(visitor);
+  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
+      actualElement.accept(visitor);
 
   @override
   String computeDocumentationComment() => documentationComment;
@@ -452,7 +422,8 @@ abstract class ElementHandle implements Element {
   AstNode computeNode() => actualElement.computeNode();
 
   @override
-  E getAncestor<E extends Element>(Predicate<Element> predicate) =>
+  Element/*=E*/ getAncestor/*<E extends Element >*/(
+          Predicate<Element> predicate) =>
       actualElement.getAncestor(predicate);
 
   @override
@@ -514,6 +485,9 @@ abstract class ExecutableElementHandle extends ElementHandle
       super.actualElement as ExecutableElement;
 
   @override
+  List<FunctionElement> get functions => actualElement.functions;
+
+  @override
   bool get hasImplicitReturnType => actualElement.hasImplicitReturnType;
 
   @override
@@ -536,6 +510,12 @@ abstract class ExecutableElementHandle extends ElementHandle
 
   @override
   bool get isSynchronous => actualElement.isSynchronous;
+
+  @override
+  List<LabelElement> get labels => actualElement.labels;
+
+  @override
+  List<LocalVariableElement> get localVariables => actualElement.localVariables;
 
   @override
   List<ParameterElement> get parameters => actualElement.parameters;
@@ -938,7 +918,6 @@ class MethodElementHandle extends ExecutableElementHandle
   @override
   MethodDeclaration computeNode() => actualElement.computeNode();
 
-  @deprecated
   @override
   FunctionType getReifiedType(DartType objectType) =>
       actualElement.getReifiedType(objectType);
@@ -974,7 +953,6 @@ class ParameterElementHandle extends VariableElementHandle
   @override
   ElementKind get kind => ElementKind.PARAMETER;
 
-  @deprecated
   @override
   ParameterKind get parameterKind => actualElement.parameterKind;
 

@@ -34,17 +34,11 @@ class AnalysisServerMemoryUsageTest
   static const int vmServicePort = 12345;
 
   int getMemoryUsage() {
-    String vmService =
-        'http://localhost:$vmServicePort/_getAllocationProfile\?isolateId=isolates/root\&gc=full';
-    ProcessResult result;
-    if (Platform.isWindows) {
-      result = _run(
-          'powershell', <String>['-Command', '(curl "$vmService").Content']);
-    } else {
-      result = _run('curl', <String>[vmService]);
-    }
-    Map jsonData = json.decode(result.stdout);
-    Map heaps = jsonData['result']['heaps'];
+    ProcessResult result = _run('curl', <String>[
+      'localhost:$vmServicePort/_getAllocationProfile\?isolateId=isolates/root\&gc=full'
+    ]);
+    Map json = JSON.decode(result.stdout);
+    Map heaps = json['result']['heaps'];
     int newSpace = heaps['new']['used'];
     int oldSpace = heaps['old']['used'];
     return newSpace + oldSpace;
@@ -59,9 +53,9 @@ class AnalysisServerMemoryUsageTest
 
   /**
    * The server is automatically started before every test.
-  */
+   */
   @override
-  Future setUp({bool useCFE: false}) {
+  Future setUp() {
     onAnalysisErrors.listen((AnalysisErrorsParams params) {
       currentAnalysisErrors[params.file] = params.errors;
     });
@@ -74,10 +68,7 @@ class AnalysisServerMemoryUsageTest
       outOfTestExpect(serverConnected.isCompleted, isFalse);
       serverConnected.complete();
     });
-    return startServer(
-      servicesPort: vmServicePort,
-      cfe: useCFE,
-    ).then((_) {
+    return startServer(servicesPort: vmServicePort).then((_) {
       server.listenToOutput(dispatchNotification);
       server.exitCode.then((_) {
         skipShutdown = true;
@@ -105,7 +96,7 @@ class AnalysisServerMemoryUsageTest
    */
   ProcessResult _run(String executable, List<String> arguments) {
     return Process.runSync(executable, arguments,
-        stderrEncoding: utf8, stdoutEncoding: utf8);
+        stderrEncoding: UTF8, stdoutEncoding: UTF8);
   }
 
   /**

@@ -4,11 +4,9 @@
 
 library fasta.scanner.utf8_bytes_scanner;
 
-import 'dart:convert' show unicodeBomCharacterRune, utf8;
+import 'dart:convert' show UNICODE_BOM_CHARACTER_RUNE, UTF8;
 
-import '../../scanner/token.dart' show SyntheticStringToken, TokenType;
-
-import '../../scanner/token.dart' as analyzer show StringToken;
+import '../../scanner/token.dart' show TokenType;
 
 import '../scanner.dart' show unicodeReplacementCharacter;
 
@@ -82,8 +80,11 @@ class Utf8BytesScanner extends ArrayBasedScanner {
    * is not the case, the entire array is copied before scanning.
    */
   Utf8BytesScanner(this.bytes,
-      {bool includeComments: false, bool scanGenericMethodComments: false})
+      {bool includeComments: false,
+      bool scanGenericMethodComments: false,
+      bool scanLazyAssignmentOperators: false})
       : super(includeComments, scanGenericMethodComments,
+            scanLazyAssignmentOperators,
             numberOfBytesHint: bytes.length) {
     assert(bytes.last == 0);
     // Skip a leading BOM.
@@ -133,13 +134,13 @@ class Utf8BytesScanner extends ArrayBasedScanner {
     // TODO(lry): measurably slow, decode creates first a Utf8Decoder and a
     // _Utf8Decoder instance. Also the sublist is eagerly allocated.
     String codePoint =
-        utf8.decode(bytes.sublist(startOffset, end), allowMalformed: true);
+        UTF8.decode(bytes.sublist(startOffset, end), allowMalformed: true);
     if (codePoint.length == 0) {
       // The UTF-8 decoder discards leading BOM characters.
       // TODO(floitsch): don't just assume that removed characters were the
       // BOM.
       assert(containsBomAt(startOffset));
-      codePoint = new String.fromCharCode(unicodeBomCharacterRune);
+      codePoint = new String.fromCharCode(UNICODE_BOM_CHARACTER_RUNE);
     }
     if (codePoint.length == 1) {
       utf8Slack += (numBytes - 1);
@@ -152,11 +153,7 @@ class Utf8BytesScanner extends ArrayBasedScanner {
       scanSlackOffset = byteOffset;
       stringOffsetSlackOffset = byteOffset;
       // In case of a surrogate pair, return a single code point.
-      // Gracefully degrade given invalid UTF-8.
-      var runes = codePoint.runes.iterator;
-      if (!runes.moveNext()) return unicodeReplacementCharacter;
-      var codeUnit = runes.current;
-      return !runes.moveNext() ? codeUnit : unicodeReplacementCharacter;
+      return codePoint.runes.single;
     } else {
       return unicodeReplacementCharacter;
     }
@@ -176,7 +173,7 @@ class Utf8BytesScanner extends ArrayBasedScanner {
     int end = byteOffset;
     // TODO(lry): this measurably slows down the scanner for files with unicode.
     String s =
-        utf8.decode(bytes.sublist(startScanOffset, end), allowMalformed: true);
+        UTF8.decode(bytes.sublist(startScanOffset, end), allowMalformed: true);
     utf8Slack += (end - startScanOffset) - s.length;
   }
 
@@ -204,20 +201,11 @@ class Utf8BytesScanner extends ArrayBasedScanner {
   }
 
   @override
-  analyzer.StringToken createSubstringToken(
-      TokenType type, int start, bool asciiOnly,
+  StringToken createSubstringToken(TokenType type, int start, bool asciiOnly,
       [int extraOffset = 0]) {
     return new StringToken.fromUtf8Bytes(
         type, bytes, start, byteOffset + extraOffset, asciiOnly, tokenStart,
         precedingComments: comments);
-  }
-
-  @override
-  analyzer.StringToken createSyntheticSubstringToken(
-      TokenType type, int start, bool asciiOnly, String syntheticChars) {
-    String source = StringToken.decodeUtf8(bytes, start, byteOffset, asciiOnly);
-    return new SyntheticStringToken(
-        type, source + syntheticChars, tokenStart, source.length);
   }
 
   @override

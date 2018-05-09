@@ -447,10 +447,11 @@ class ExtractLocalRefactoringImpl extends RefactoringImpl
 
   bool _isPartOfConstantExpression(AstNode node) {
     if (node is TypedLiteral) {
-      return node.isConst;
+      return node.constKeyword != null;
     }
     if (node is InstanceCreationExpression) {
-      return node.isConst;
+      InstanceCreationExpression creation = node;
+      return creation.isConst;
     }
     if (node is ArgumentList ||
         node is ConditionalExpression ||

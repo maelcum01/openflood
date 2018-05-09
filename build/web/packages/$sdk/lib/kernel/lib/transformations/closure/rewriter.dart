@@ -27,19 +27,14 @@ abstract class AstRewriter {
   /// Inserts an expression or statement that extends the context.
   void insertExtendContext(VectorSet extender);
 
-  /// Inserts an expression that sets a parameter to NULL, so we don't have
-  /// unnecessary references to it.
-  void insertZeroOutParameter(VariableDeclaration parameter);
-
   void _createDeclaration() {
     assert(contextDeclaration == null && vectorCreation == null);
 
-    // Context size is set to 2 initially, because the 0-th element of it holds
-    // the vector of type arguments that the VM creates, and the 1-st element
-    // works as a link to the parent context.
-    vectorCreation = new VectorCreation(2);
+    // Context size is set to 1 initially, because the 0-th element of it works
+    // as a link to the parent context.
+    vectorCreation = new VectorCreation(1);
     contextDeclaration = new VariableDeclaration.forValue(vectorCreation,
-        type: const DynamicType());
+        type: new VectorType());
     contextDeclaration.name = "#context";
   }
 }
@@ -56,7 +51,7 @@ class BlockRewriter extends AstRewriter {
     return _currentBlock != block ? new BlockRewriter(block) : this;
   }
 
-  void transformStatements(ClosureConverter converter) {
+  void transformStatements(Block block, ClosureConverter converter) {
     while (_insertionIndex < _currentBlock.statements.length) {
       var original = _currentBlock.statements[_insertionIndex];
       var transformed = original.accept(converter);
@@ -79,27 +74,25 @@ class BlockRewriter extends AstRewriter {
     _createDeclaration();
     _insertStatement(contextDeclaration);
     if (accessParent is! NullLiteral) {
-      // Index 1 of a context always points to the parent.
+      // Index 0 of a context always points to the parent.
       _insertStatement(new ExpressionStatement(
-          new VectorSet(new VariableGet(contextDeclaration), 1, accessParent)));
+          new VectorSet(new VariableGet(contextDeclaration), 0, accessParent)));
     }
   }
 
   void insertExtendContext(VectorSet extender) {
     _insertStatement(new ExpressionStatement(extender));
   }
-
-  void insertZeroOutParameter(VariableDeclaration parameter) {
-    _insertStatement(
-        new ExpressionStatement(new VariableSet(parameter, new NullLiteral())));
-  }
 }
 
-class InitializerListRewriter extends AstRewriter {
-  final Constructor parentConstructor;
-  final List<Initializer> prefix = [];
+/// Creates and updates the context as [Let] bindings around the initializer
+/// expression.
+class InitializerRewriter extends AstRewriter {
+  final Expression initializingExpression;
 
-  InitializerListRewriter(this.parentConstructor);
+  InitializerRewriter(this.initializingExpression) {
+    assert(initializingExpression.parent is FieldInitializer);
+  }
 
   @override
   BlockRewriter forNestedBlock(Block block) {
@@ -109,24 +102,19 @@ class InitializerListRewriter extends AstRewriter {
   @override
   void insertContextDeclaration(Expression accessParent) {
     _createDeclaration();
-    var init = new LocalInitializer(contextDeclaration);
-    init.parent = parentConstructor;
-    prefix.add(init);
+    FieldInitializer parent = initializingExpression.parent;
+    Let binding = new Let(contextDeclaration, initializingExpression);
+    initializingExpression.parent = binding;
+    parent.value = binding;
+    binding.parent = parent;
   }
 
   @override
   void insertExtendContext(VectorSet extender) {
-    var init = new LocalInitializer(
-        new VariableDeclaration(null, initializer: extender));
-    init.parent = parentConstructor;
-    prefix.add(init);
-  }
-
-  @override
-  void insertZeroOutParameter(VariableDeclaration parameter) {
-    var init = new LocalInitializer(new VariableDeclaration(null,
-        initializer: new VariableSet(parameter, new NullLiteral())));
-    init.parent = parentConstructor;
-    prefix.add(init);
+    Let parent = initializingExpression.parent;
+    Let binding = new Let(new VariableDeclaration(null, initializer: extender),
+        initializingExpression);
+    parent.body = binding;
+    binding.parent = parent;
   }
 }

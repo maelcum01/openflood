@@ -16,9 +16,6 @@ class KernelVariableBuilder extends Builder {
       : variable = variable,
         super(parent, variable.fileOffset, fileUri);
 
-  @override
-  int get charOffset => variable.fileOffset;
-
   bool get isLocal => true;
 
   bool get isConst => variable.isConst;

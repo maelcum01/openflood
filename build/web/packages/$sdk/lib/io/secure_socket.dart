@@ -30,28 +30,19 @@ abstract class SecureSocket implements Socket {
    * to continue the [SecureSocket] connection.
    *
    * [supportedProtocols] is an optional list of protocols (in decreasing
-   * order of preference) to use during the ALPN protocol negotiation with the
+   * order of preference) to use during the ALPN protocol negogiation with the
    * server.  Example values are "http/1.1" or "h2".  The selected protocol
    * can be obtained via [SecureSocket.selectedProtocol].
-   *
-   * The argument [timeout] is used to specify the maximum allowed time to wait
-   * for a connection to be established. If [timeout] is longer than the system
-   * level timeout duration, a timeout may occur sooner than specified in
-   * [timeout]. On timeout, a [SocketException] is thrown and all ongoing
-   * connection attempts to [host] are cancelled.
-
    */
   static Future<SecureSocket> connect(host, int port,
       {SecurityContext context,
       bool onBadCertificate(X509Certificate certificate),
-      List<String> supportedProtocols,
-      Duration timeout}) {
+      List<String> supportedProtocols}) {
     return RawSecureSocket
         .connect(host, port,
             context: context,
             onBadCertificate: onBadCertificate,
-            supportedProtocols: supportedProtocols,
-            timeout: timeout)
+            supportedProtocols: supportedProtocols)
         .then((rawSocket) => new SecureSocket._(rawSocket));
   }
 
@@ -196,18 +187,17 @@ abstract class RawSecureSocket implements RawSocket {
    * to continue the [RawSecureSocket] connection.
    *
    * [supportedProtocols] is an optional list of protocols (in decreasing
-   * order of preference) to use during the ALPN protocol negotiation with the
+   * order of preference) to use during the ALPN protocol negogiation with the
    * server.  Example values are "http/1.1" or "h2".  The selected protocol
    * can be obtained via [RawSecureSocket.selectedProtocol].
    */
   static Future<RawSecureSocket> connect(host, int port,
       {SecurityContext context,
       bool onBadCertificate(X509Certificate certificate),
-      List<String> supportedProtocols,
-      Duration timeout}) {
+      List<String> supportedProtocols}) {
     _RawSecureSocket._verifyFields(
         host, port, false, false, false, onBadCertificate);
-    return RawSocket.connect(host, port, timeout: timeout).then((socket) {
+    return RawSocket.connect(host, port).then((socket) {
       return secure(socket,
           context: context,
           onBadCertificate: onBadCertificate,
@@ -364,17 +354,17 @@ class _FilterStatus {
 class _RawSecureSocket extends Stream<RawSocketEvent>
     implements RawSecureSocket {
   // Status states
-  static const int HANDSHAKE = 201;
-  static const int CONNECTED = 202;
-  static const int CLOSED = 203;
+  static final int HANDSHAKE = 201;
+  static final int CONNECTED = 202;
+  static final int CLOSED = 203;
 
   // Buffer identifiers.
   // These must agree with those in the native C++ implementation.
-  static const int READ_PLAINTEXT = 0;
-  static const int WRITE_PLAINTEXT = 1;
-  static const int READ_ENCRYPTED = 2;
-  static const int WRITE_ENCRYPTED = 3;
-  static const int NUM_BUFFERS = 4;
+  static final int READ_PLAINTEXT = 0;
+  static final int WRITE_PLAINTEXT = 1;
+  static final int READ_ENCRYPTED = 2;
+  static final int WRITE_ENCRYPTED = 3;
+  static final int NUM_BUFFERS = 4;
 
   // Is a buffer identifier for an encrypted buffer?
   static bool _isBufferEncrypted(int identifier) =>

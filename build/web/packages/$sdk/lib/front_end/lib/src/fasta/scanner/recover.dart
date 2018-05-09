@@ -8,7 +8,7 @@ import '../../scanner/token.dart' show TokenType;
 
 import '../fasta_codes.dart'
     show
-        Code,
+        FastaCode,
         codeAsciiControlCharacter,
         codeEncoding,
         codeExpectedHexDigit,
@@ -22,7 +22,7 @@ import '../fasta_codes.dart'
 
 import '../../scanner/token.dart' show Token;
 
-import 'token.dart' show StringToken;
+import 'token.dart' show StringToken, SymbolToken;
 
 import 'error_token.dart' show NonAsciiIdentifierToken, ErrorToken;
 
@@ -124,24 +124,27 @@ Token defaultRecoveryStrategy(
     }
     String value = new String.fromCharCodes(codeUnits);
     return synthesizeToken(charOffset, value, TokenType.IDENTIFIER)
-      ..setNext(next);
+      ..next = next;
   }
 
   recoverExponent() {
-    return errorTail.next;
+    return synthesizeToken(errorTail.charOffset, "NaN", TokenType.DOUBLE)
+      ..next = errorTail.next;
   }
 
   recoverString() {
-    return errorTail.next;
+    // TODO(ahe): Improve this.
+    return skipToEof(errorTail);
   }
 
   recoverHexDigit() {
-    return synthesizeToken(errorTail.charOffset, "0", TokenType.INT)
-      ..setNext(errorTail.next);
+    return synthesizeToken(errorTail.charOffset, "-1", TokenType.INT)
+      ..next = errorTail.next;
   }
 
   recoverStringInterpolation() {
-    return errorTail.next;
+    // TODO(ahe): Improve this.
+    return skipToEof(errorTail);
   }
 
   recoverComment() {
@@ -151,30 +154,32 @@ Token defaultRecoveryStrategy(
 
   recoverUnmatched() {
     // TODO(ahe): Try to use top-level keywords (such as `class`, `typedef`,
-    // and `enum`) and indentation to recover.
+    // and `enum`) and identation to recover.
     return errorTail.next;
   }
 
   for (Token current = tokens; !current.isEof; current = current.next) {
-    while (current is ErrorToken) {
+    if (current is ErrorToken) {
       ErrorToken first = current;
       Token next = current;
+      bool treatAsWhitespace = false;
       do {
         current = next;
         if (errorTail == null) {
           error = next;
         } else {
-          errorTail.setNext(next);
+          errorTail.next = next;
+          next.previous = errorTail;
         }
         errorTail = next;
         next = next.next;
       } while (next is ErrorToken && first.errorCode == next.errorCode);
 
-      Code code = first.errorCode;
+      FastaCode code = first.errorCode;
       if (code == codeEncoding ||
           code == codeNonAsciiWhitespace ||
           code == codeAsciiControlCharacter) {
-        current = errorTail.next;
+        treatAsWhitespace = true;
       } else if (code == codeNonAsciiIdentifier) {
         current = recoverIdentifier(first);
         assert(current.next != null);
@@ -197,27 +202,30 @@ Token defaultRecoveryStrategy(
         current = recoverUnmatched();
         assert(current.next != null);
       } else {
-        current = errorTail.next;
+        treatAsWhitespace = true;
       }
+      if (treatAsWhitespace) continue;
     }
     if (goodTail == null) {
       good = current;
     } else {
-      goodTail.setNext(current);
+      goodTail.next = current;
+      current.previous = goodTail;
     }
     beforeGoodTail = goodTail;
     goodTail = current;
   }
 
-  new Token.eof(-1).setNext(error);
+  error.previous = new SymbolToken.eof(-1)..next = error;
   Token tail;
   if (good != null) {
-    errorTail.setNext(good);
+    errorTail.next = good;
+    good.previous = errorTail;
     tail = goodTail;
   } else {
     tail = errorTail;
   }
-  if (!tail.isEof) tail.setNext(new Token.eof(tail.end));
+  if (!tail.isEof) tail.next = new SymbolToken.eof(tail.end)..previous = tail;
   return error;
 }
 
@@ -240,17 +248,4 @@ String closeBraceFor(String openBrace) {
     '<': '>',
     r'${': '}',
   }[openBrace];
-}
-
-String closeQuoteFor(String openQuote) {
-  return const {
-    '"': '"',
-    "'": "'",
-    '"""': '"""',
-    "'''": "'''",
-    'r"': '"',
-    "r'": "'",
-    'r"""': '"""',
-    "r'''": "'''",
-  }[openQuote];
 }

@@ -14,31 +14,6 @@ _deserializeMessage(message) {
   return new _Deserializer().deserialize(message);
 }
 
-bool _isIsolateMessage(message) {
-  if (_isPrimitive(message)) return true;
-  if (message is! JSArray) return false;
-  if (message.isEmpty) return false;
-  switch (message.first) {
-    case "ref":
-    case "buffer":
-    case "typed":
-    case "fixed":
-    case "extendable":
-    case "mutable":
-    case "const":
-    case "map":
-    case "sendport":
-    case "raw sendport":
-    case "js-object":
-    case "function":
-    case "capability":
-    case "dart":
-      return true;
-    default:
-      return false;
-  }
-}
-
 /// Clones the message.
 ///
 /// Contrary to a `_deserializeMessage(_serializeMessage(x))` the `_clone`
@@ -58,7 +33,7 @@ class _Serializer {
 
   /// Returns a message that can be transmitted through web-worker channels.
   serialize(x) {
-    if (_isPrimitive(x)) return serializePrimitive(x);
+    if (isPrimitive(x)) return serializePrimitive(x);
 
     int serializationId = serializedObjectIds[x];
     if (serializationId != null) return makeRef(serializationId);
@@ -69,7 +44,7 @@ class _Serializer {
     if (x is NativeByteBuffer) return serializeByteBuffer(x);
     if (x is NativeTypedData) return serializeTypedData(x);
     if (x is JSIndexable) return serializeJSIndexable(x);
-    if (x is InternalMap) return serializeMap(x as dynamic);
+    if (x is InternalMap) return serializeMap(x);
 
     if (x is JSObject) return serializeJSObject(x);
 
@@ -98,6 +73,7 @@ class _Serializer {
 
   makeRef(int serializationId) => ["ref", serializationId];
 
+  bool isPrimitive(x) => x == null || x is String || x is num || x is bool;
   serializePrimitive(primitive) => primitive;
 
   serializeByteBuffer(NativeByteBuffer buffer) {
@@ -214,7 +190,7 @@ class _Deserializer {
 
   /// Returns a message that can be transmitted through web-worker channels.
   deserialize(x) {
-    if (_isPrimitive(x)) return deserializePrimitive(x);
+    if (isPrimitive(x)) return deserializePrimitive(x);
 
     if (x is! JSArray) throw new ArgumentError("Bad serialized message: $x");
 
@@ -252,6 +228,7 @@ class _Deserializer {
     }
   }
 
+  bool isPrimitive(x) => x == null || x is String || x is num || x is bool;
   deserializePrimitive(x) => x;
 
   // ['ref', id].
@@ -408,5 +385,3 @@ class _Deserializer {
         '', '#(#, #, #)', initializeObject, classId, emptyInstance, fields);
   }
 }
-
-bool _isPrimitive(x) => x == null || x is String || x is num || x is bool;

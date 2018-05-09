@@ -4,6 +4,8 @@
 
 import 'dart:async';
 
+import '../typed/stream.dart';
+
 /// Simple delegating wrapper around a [Stream].
 ///
 /// Subclasses can override individual methods, or use this to expose only the
@@ -21,5 +23,6 @@ class DelegatingStream<T> extends StreamView<T> {
   /// original generic type, by asserting that its events are instances of `T`
   /// whenever they're provided. If they're not, the stream throws a
   /// [CastError].
-  static Stream<T> typed<T>(Stream stream) => stream.cast();
+  static Stream<T> typed<T>(Stream stream) =>
+      stream is Stream<T> ? stream : new TypeSafeStream<T>(stream);
 }

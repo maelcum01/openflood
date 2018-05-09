@@ -6,8 +6,8 @@ library kernel.transformations.closure.context;
 
 import '../../ast.dart'
     show
+        Class,
         Expression,
-        FunctionNode,
         NullLiteral,
         StringLiteral,
         Throw,
@@ -116,6 +116,8 @@ class LocalContext extends Context {
       this.converter, this.parent, this.self, this.vectorCreation);
 
   factory LocalContext(ClosureConverter converter, Context parent) {
+    Class contextClass = converter.contextClass;
+    assert(contextClass.constructors.length == 1);
     converter.rewriter.insertContextDeclaration(parent.expression);
 
     return new LocalContext._internal(
@@ -130,17 +132,13 @@ class LocalContext extends Context {
   Accessor get accessor => new VariableAccessor(self, null, TreeNode.noOffset);
 
   void extend(VariableDeclaration variable, Expression value) {
-    // Increase index by 2, because the type arguments vector occupies position
-    // 0, the parent occupies position 1, and all other variables are therefore
-    // shifted by 2.
+    // Increase index by 1, because the parent occupies item 0, and all other
+    // variables are therefore shifted by 1.
     VectorSet initializer =
-        new VectorSet(expression, variables.length + 2, value);
+        new VectorSet(expression, variables.length + 1, value);
     value.parent = initializer;
 
     converter.rewriter.insertExtendContext(initializer);
-    if (variable.parent is FunctionNode) {
-      converter.rewriter.insertZeroOutParameter(variable);
-    }
 
     ++vectorCreation.length;
     variables.add(variable);
@@ -155,23 +153,21 @@ class LocalContext extends Context {
 
   Expression lookup(VariableDeclaration variable) {
     var index = variables.indexOf(variable);
-    // Increase index by 2 in case of success, because the type arguments vector
-    // occupies position 0, the parent occupies position 1, and all other
-    // variables are therefore shifted by 2.
+    // Increase index by 1 in case of success, because the parent occupies
+    // item 0, and all other variables are therefore shifted by 1.
     return index == -1
         ? parent.lookup(variable)
-        : new VectorGet(expression, index + 2);
+        : new VectorGet(expression, index + 1);
   }
 
   Expression assign(VariableDeclaration variable, Expression value,
       {bool voidContext: false}) {
     var index = variables.indexOf(variable);
-    // Increase index by 2 in case of success, because the type arguments vector
-    // occupies position 0, the parent occupies position 1, and all other
-    // variables are therefore shifted by 2.
+    // Increase index by 1 in case of success, because the parent occupies
+    // item 0, and all other variables are therefore shifted by 1.
     return index == -1
         ? parent.assign(variable, value, voidContext: voidContext)
-        : new VectorSet(expression, index + 2, value);
+        : new VectorSet(expression, index + 1, value);
   }
 
   Context toNestedContext([Accessor accessor]) {
@@ -217,13 +213,12 @@ class NestedContext extends Context {
     for (var variables in variabless) {
       var index = variables.indexOf(variable);
       if (index != -1) {
-        // Increase index by 2 in case of success, because the type arguments
-        // vector occupies position 0, the parent occupies item 1, and all other
-        // variables are therefore shifted by 2.
-        return new VectorGet(context, index + 2);
+        // Increase index by 1, because the parent occupies item 0, and all
+        // other variables are therefore shifted by 1.
+        return new VectorGet(context, index + 1);
       }
-      // Item 1 of a context always points to its parent.
-      context = new VectorGet(context, 1);
+      // Item 0 of a context always points to its parent.
+      context = new VectorGet(context, 0);
     }
     throw 'Unbound NestedContext.lookup($variable)';
   }
@@ -234,13 +229,12 @@ class NestedContext extends Context {
     for (List<VariableDeclaration> variables in variabless) {
       var index = variables.indexOf(variable);
       if (index != -1) {
-        // Increase index by 2 in case of success, because the type arguments
-        // vector occupies position 0, the parent occupies item 1, and all other
-        // variables are therefore shifted by 2.
-        return new VectorSet(context, index + 2, value);
+        // Increase index by 1, because the parent occupies item 0, and all
+        // other variables are therefore shifted by 1.
+        return new VectorSet(context, index + 1, value);
       }
-      // Item 1 of a context always points to its parent.
-      context = new VectorGet(context, 1);
+      // Item 0 of a context always points to its parent.
+      context = new VectorGet(context, 0);
     }
     throw 'Unbound NestedContext.lookup($variable)';
   }

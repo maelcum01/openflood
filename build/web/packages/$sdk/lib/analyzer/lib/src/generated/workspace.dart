@@ -14,12 +14,6 @@ import 'package:analyzer/src/generated/source.dart';
  */
 abstract class Workspace {
   /**
-   * Return `true` if this workspace defines a single "project"
-   * and that "project" depends upon flutter,
-   */
-  bool get hasFlutterDependency => false;
-
-  /**
    * Return a map of package sources.
    */
   Map<String, List<Folder>> get packageMap;
@@ -28,6 +22,12 @@ abstract class Workspace {
    * The [UriResolver] that can resolve `package` URIs.
    */
   UriResolver get packageUriResolver;
+
+  /**
+   * Return `true` if this workspace defines a single "project"
+   * and that "project" depends upon flutter,
+   */
+  bool get hasFlutterDependency => false;
 
   /**
    * Create the [SourceFactory] for resolving Uris to [Source]s.

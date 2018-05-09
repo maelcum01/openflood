@@ -11,8 +11,6 @@
  * To use this library in your code:
  *
  *     import 'dart:isolate';
- *
- * {@category VM}
  */
 library dart.isolate;
 
@@ -69,13 +67,9 @@ class IsolateSpawnException implements Exception {
  */
 class Isolate {
   /** Argument to `ping` and `kill`: Ask for immediate action. */
-  static const int immediate = 0;
-  @Deprecated("Use immediate instead")
-  static const int IMMEDIATE = immediate;
+  static const int IMMEDIATE = 0;
   /** Argument to `ping` and `kill`: Ask for action before the next event. */
-  static const int beforeNextEvent = 1;
-  @Deprecated("Use beforeNextEvent instead")
-  static const int BEFORE_NEXT_EVENT = beforeNextEvent;
+  static const int BEFORE_NEXT_EVENT = 1;
 
   /**
    * Control port used to send control messages to the isolate.
@@ -158,7 +152,7 @@ class Isolate {
   external static Isolate get current;
 
   /**
-   * The location of the package configuration of the current isolate, if any.
+   * Returns the package root of the current isolate, if any.
    *
    * If the isolate is using a [packageConfig] or the isolate has not been
    * setup for package resolution, this getter returns `null`, otherwise it
@@ -168,7 +162,7 @@ class Isolate {
   external static Future<Uri> get packageRoot;
 
   /**
-   * The package root of the current isolate, if any.
+   * Returns the package root of the current isolate, if any.
    *
    * If the isolate is using a [packageRoot] or the isolate has not been
    * setup for package resolution, this getter returns `null`, otherwise it
@@ -213,7 +207,7 @@ class Isolate {
    * as if by an initial call of `isolate.pause(isolate.pauseCapability)`.
    * To resume the isolate, call `isolate.resume(isolate.pauseCapability)`.
    *
-   * If the [errorsAreFatal], [onExit] and/or [onError] parameters are provided,
+   * If the [errorAreFatal], [onExit] and/or [onError] parameters are provided,
    * the isolate will act as if, respectively, [setErrorsFatal],
    * [addOnExitListener] and [addErrorListener] were called with the
    * corresponding parameter and was processed before the isolate starts
@@ -230,8 +224,7 @@ class Isolate {
    * Returns a future which will complete with an [Isolate] instance if the
    * spawning succeeded. It will complete with an error otherwise.
    */
-  external static Future<Isolate> spawn<T>(
-      void entryPoint(T message), T message,
+  external static Future<Isolate> spawn(void entryPoint(message), var message,
       {bool paused: false,
       bool errorsAreFatal,
       SendPort onExit,
@@ -259,7 +252,7 @@ class Isolate {
    * as if by an initial call of `isolate.pause(isolate.pauseCapability)`.
    * To resume the isolate, call `isolate.resume(isolate.pauseCapability)`.
    *
-   * If the [errorsAreFatal], [onExit] and/or [onError] parameters are provided,
+   * If the [errorAreFatal], [onExit] and/or [onError] parameters are provided,
    * the isolate will act as if, respectively, [setErrorsFatal],
    * [addOnExitListener] and [addErrorListener] were called with the
    * corresponding parameter and was processed before the isolate starts
@@ -383,7 +376,7 @@ class Isolate {
   external void resume(Capability resumeCapability);
 
   /**
-   * Requests an exit message on [responsePort] when the isolate terminates.
+   * Requests an exist message on [responsePort] when the isolate terminates.
    *
    * The isolate will send [response] as a message on [responsePort] as the last
    * thing before it terminates. It will run no further code after the message
@@ -423,7 +416,7 @@ class Isolate {
    *
    * If the same port has been passed via [addOnExitListener] more than once,
    * only one call to `removeOnExitListener` is needed to stop it from receiving
-   * exit messages.
+   * exit messagees.
    *
    * Closing the receive port that is associated with the [responsePort] does
    * not stop the isolate from sending uncaught errors, they are just going to
@@ -458,18 +451,18 @@ class Isolate {
    * The isolate is requested to terminate itself.
    * The [priority] argument specifies when this must happen.
    *
-   * The [priority], when provided, must be one of [immediate] or
-   * [beforeNextEvent] (the default).
+   * The [priority], when provided, must be one of [IMMEDIATE] or
+   * [BEFORE_NEXT_EVENT] (the default).
    * The shutdown is performed at different times depending on the priority:
    *
-   * * `immediate`: The isolate shuts down as soon as possible.
+   * * `IMMEDIATE`: The isolate shuts down as soon as possible.
    *     Control messages are handled in order, so all previously sent control
    *     events from this isolate will all have been processed.
    *     The shutdown should happen no later than if sent with
-   *     `beforeNextEvent`.
+   *     `BEFORE_NEXT_EVENT`.
    *     It may happen earlier if the system has a way to shut down cleanly
    *     at an earlier time, even during the execution of another event.
-   * * `beforeNextEvent`: The shutdown is scheduled for the next time
+   * * `BEFORE_NEXT_EVENT`: The shutdown is scheduled for the next time
    *     control returns to the event loop of the receiving isolate,
    *     after the current event, and any already scheduled control events,
    *     are completed.
@@ -478,7 +471,7 @@ class Isolate {
    * of the isolate identified by [controlPort],
    * the kill request is ignored by the receiving isolate.
    */
-  external void kill({int priority: beforeNextEvent});
+  external void kill({int priority: BEFORE_NEXT_EVENT});
 
   /**
    * Requests that the isolate send [response] on the [responsePort].
@@ -491,20 +484,20 @@ class Isolate {
    * If the isolate is alive, it will eventually send `response`
    * (defaulting to `null`) on the response port.
    *
-   * The [priority] must be one of [immediate] or [beforeNextEvent].
+   * The [priority] must be one of [IMMEDIATE] or [BEFORE_NEXT_EVENT].
    * The response is sent at different times depending on the ping type:
    *
-   * * `immediate`: The isolate responds as soon as it receives the
+   * * `IMMEDIATE`: The isolate responds as soon as it receives the
    *     control message. This is after any previous control message
    *     from the same isolate has been received and processed,
    *     but may be during execution of another event.
-   * * `beforeNextEvent`: The response is scheduled for the next time
+   * * `BEFORE_NEXT_EVENT`: The response is scheduled for the next time
    *     control returns to the event loop of the receiving isolate,
    *     after the current event, and any already scheduled control events,
    *     are completed.
    */
   external void ping(SendPort responsePort,
-      {Object response, int priority: immediate});
+      {Object response, int priority: IMMEDIATE});
 
   /**
    * Requests that uncaught errors of the isolate are sent back to [port].
@@ -540,7 +533,7 @@ class Isolate {
    *
    * If the same port has been passed via [addErrorListener] more than once,
    * only one call to `removeErrorListener` is needed to stop it from receiving
-   * uncaught errors.
+   * unaught errors.
    *
    * Uncaught errors message may still be sent by the isolate
    * until this request is received and processed.
@@ -699,12 +692,12 @@ abstract class RawReceivePort {
    * can not be paused. The data-handler must be set before the first
    * event is received.
    */
-  external factory RawReceivePort([Function handler]);
+  external factory RawReceivePort([void handler(event)]);
 
   /**
    * Sets the handler that is invoked for every incoming message.
    *
-   * The handler is invoked in the root-zone ([Zone.root]).
+   * The handler is invoked in the root-zone ([Zone.ROOT]).
    */
   void set handler(Function newHandler);
 

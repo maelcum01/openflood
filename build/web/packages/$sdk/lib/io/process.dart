@@ -46,10 +46,6 @@ void exit(int code) {
   if (code is! int) {
     throw new ArgumentError("Integer value for exit code expected");
   }
-  if (!_EmbedderConfig._mayExit) {
-    throw new UnsupportedError(
-        "This embedder disallows calling dart:io's exit()");
-  }
   _ProcessUtils._exit(code);
 }
 
@@ -95,10 +91,6 @@ void sleep(Duration duration) {
   if (milliseconds < 0) {
     throw new ArgumentError("sleep: duration cannot be negative");
   }
-  if (!_EmbedderConfig._maySleep) {
-    throw new UnsupportedError(
-        "This embedder disallows calling dart:io's sleep()");
-  }
   _ProcessUtils._sleep(milliseconds);
 }
 
@@ -141,15 +133,12 @@ enum ProcessStartMode {
   /// Normal child process.
   NORMAL,
 
-  /// Stdio handles are inherited by the child process.
-  INHERIT_STDIO,
-
   /// Detached child process with no open communication channel.
   DETACHED,
 
   /// Detached child process with stdin, stdout and stderr still open
   /// for communication with the child.
-  DETACHED_WITH_STDIO,
+  DETACHED_WITH_STDIO
 }
 
 /**
@@ -197,7 +186,7 @@ enum ProcessStartMode {
  *     main() {
  *       Process.start('cat', []).then((Process process) {
  *         process.stdout
- *             .transform(utf8.decoder)
+ *             .transform(UTF8.decoder)
  *             .listen((data) { print(data); });
  *         process.stdin.writeln('Hello, world!');
  *         process.stdin.writeln('Hello, galaxy!');

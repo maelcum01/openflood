@@ -94,7 +94,7 @@ class InstrumentationInputConverter extends CommonInputConverter {
 
   Map<String, dynamic> decodeJson(String line, String text) {
     try {
-      return asMap(json.decode(text));
+      return asMap(JSON.decode(text));
     } catch (e, s) {
       throw new AnalysisException(
           'Failed to decode JSON: $text\n$line', new CaughtException(e, s));
@@ -109,7 +109,7 @@ class InstrumentationInputConverter extends CommonInputConverter {
   static bool isFormat(String line) {
     List<String> fields = _parseFields(line);
     if (fields.length < 2) return false;
-    int timeStamp = int.tryParse(fields[0]) ?? -1;
+    int timeStamp = int.parse(fields[0], onError: (_) => -1);
     String opCode = fields[1];
     return timeStamp > 0 && opCode == 'Ver';
   }

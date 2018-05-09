@@ -4,10 +4,9 @@
 
 library fasta.kernel_interface_type_builder;
 
-import 'package:kernel/ast.dart' show DartType, Supertype;
+import 'package:kernel/ast.dart' show DartType, DynamicType, Supertype;
 
-import '../messages.dart'
-    show noLength, templateSupertypeIsIllegal, templateSupertypeIsTypeVariable;
+import '../messages.dart' show warning;
 
 import 'kernel_builder.dart'
     show
@@ -22,46 +21,47 @@ import 'kernel_builder.dart'
 class KernelNamedTypeBuilder
     extends NamedTypeBuilder<KernelTypeBuilder, DartType>
     implements KernelTypeBuilder {
-  KernelNamedTypeBuilder(Object name, List<KernelTypeBuilder> arguments)
-      : super(name, arguments);
+  KernelNamedTypeBuilder(String name, List<KernelTypeBuilder> arguments,
+      int charOffset, Uri fileUri)
+      : super(name, arguments, charOffset, fileUri);
 
-  KernelInvalidTypeBuilder buildInvalidType(int charOffset, Uri fileUri) {
-    // TODO(ahe): Consider if it makes sense to pass a QualifiedName to
-    // KernelInvalidTypeBuilder?
-    return new KernelInvalidTypeBuilder("$name", charOffset, fileUri);
+  KernelInvalidTypeBuilder buildInvalidType(String name) {
+    // TODO(ahe): Record error instead of printing.
+    warning(fileUri, charOffset, "Type not found: '$name'.");
+    return new KernelInvalidTypeBuilder(name, charOffset, fileUri);
   }
 
-  Supertype handleInvalidSupertype(
-      LibraryBuilder library, int charOffset, Uri fileUri) {
-    var template = builder.isTypeVariable
-        ? templateSupertypeIsTypeVariable
-        : templateSupertypeIsIllegal;
-    library.addCompileTimeError(
-        template.withArguments("$name"), charOffset, noLength, fileUri);
+  DartType handleMissingType() {
+    // TODO(ahe): Record error instead of printing.
+    warning(fileUri, charOffset, "No type for: '$name'.");
+    return const DynamicType();
+  }
+
+  Supertype handleMissingSupertype() {
+    warning(fileUri, charOffset, "No type for: '$name'.");
+    return null;
+  }
+
+  Supertype handleInvalidSupertype(LibraryBuilder library) {
+    String message = builder.isTypeVariable
+        ? "The type variable '$name' can't be used as supertype."
+        : "The type '$name' can't be used as supertype.";
+    library.addCompileTimeError(charOffset, message, fileUri: fileUri);
     return null;
   }
 
   DartType build(LibraryBuilder library) {
+    if (builder == null) return handleMissingType();
     return builder.buildType(library, arguments);
   }
 
-  Supertype buildSupertype(
-      LibraryBuilder library, int charOffset, Uri fileUri) {
+  Supertype buildSupertype(LibraryBuilder library) {
+    if (builder == null) return handleMissingSupertype();
     if (builder is KernelClassBuilder) {
       KernelClassBuilder builder = this.builder;
       return builder.buildSupertype(library, arguments);
     } else {
-      return handleInvalidSupertype(library, charOffset, fileUri);
-    }
-  }
-
-  Supertype buildMixedInType(
-      LibraryBuilder library, int charOffset, Uri fileUri) {
-    if (builder is KernelClassBuilder) {
-      KernelClassBuilder builder = this.builder;
-      return builder.buildMixedInType(library, arguments);
-    } else {
-      return handleInvalidSupertype(library, charOffset, fileUri);
+      return handleInvalidSupertype(library);
     }
   }
 
@@ -82,23 +82,10 @@ class KernelNamedTypeBuilder
         i++;
       }
       if (arguments != null) {
-        return new KernelNamedTypeBuilder(name, arguments)..bind(builder);
+        return new KernelNamedTypeBuilder(name, arguments, charOffset, fileUri)
+          ..builder = builder;
       }
     }
     return this;
-  }
-
-  KernelNamedTypeBuilder clone(List<TypeBuilder> newTypes) {
-    List<KernelTypeBuilder> clonedArguments;
-    if (arguments != null) {
-      clonedArguments = new List<KernelTypeBuilder>(arguments.length);
-      for (int i = 0; i < clonedArguments.length; i++) {
-        clonedArguments[i] = arguments[i].clone(newTypes);
-      }
-    }
-    KernelNamedTypeBuilder newType =
-        new KernelNamedTypeBuilder(name, clonedArguments);
-    newTypes.add(newType);
-    return newType;
   }
 }

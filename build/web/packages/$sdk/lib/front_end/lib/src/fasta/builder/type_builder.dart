@@ -5,17 +5,23 @@
 library fasta.type_builder;
 
 import 'builder.dart'
-    show LibraryBuilder, Scope, TypeDeclarationBuilder, TypeVariableBuilder;
+    show
+        Builder,
+        LibraryBuilder,
+        Scope,
+        TypeDeclarationBuilder,
+        TypeVariableBuilder;
 
-abstract class TypeBuilder {
-  const TypeBuilder();
+// TODO(ahe): Make const class.
+abstract class TypeBuilder extends Builder {
+  TypeBuilder(int charOffset, Uri fileUri) : super(null, charOffset, fileUri);
 
-  void resolveIn(Scope scope, int charOffset, Uri fileUri) {}
+  void resolveIn(Scope scope);
 
-  void bind(TypeDeclarationBuilder builder) {}
+  void bind(TypeDeclarationBuilder builder);
 
   /// May return null, for example, for mixin applications.
-  Object get name;
+  String get name;
 
   String get debugName;
 
@@ -25,15 +31,12 @@ abstract class TypeBuilder {
 
   TypeBuilder subst(Map<TypeVariableBuilder, TypeBuilder> substitution) => this;
 
-  /// Clones the type builder recursively without binding the subterms to
-  /// existing declaration or type variable builders.  All newly built types
-  /// are added to [newTypes], so that they can be added to a proper scope and
-  /// resolved later.
-  TypeBuilder clone(List<TypeBuilder> newTypes);
-
   build(LibraryBuilder library);
 
-  buildInvalidType(int charOffset, Uri fileUri);
-
-  String get fullNameForErrors => "${printOn(new StringBuffer())}";
+  @override
+  String get fullNameForErrors {
+    StringBuffer sb = new StringBuffer();
+    printOn(sb);
+    return "$sb";
+  }
 }

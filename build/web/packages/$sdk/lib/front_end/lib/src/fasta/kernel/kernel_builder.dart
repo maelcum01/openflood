@@ -17,8 +17,6 @@ export 'kernel_function_type_builder.dart' show KernelFunctionTypeBuilder;
 export 'kernel_function_type_alias_builder.dart'
     show KernelFunctionTypeAliasBuilder;
 
-export 'kernel_prefix_builder.dart' show KernelPrefixBuilder;
-
 export 'kernel_named_type_builder.dart' show KernelNamedTypeBuilder;
 
 export 'kernel_library_builder.dart' show KernelLibraryBuilder;
@@ -30,7 +28,6 @@ export 'kernel_procedure_builder.dart'
     show
         KernelConstructorBuilder,
         KernelFunctionBuilder,
-        KernelRedirectingFactoryBuilder,
         KernelProcedureBuilder;
 
 export 'kernel_type_builder.dart' show KernelTypeBuilder;
@@ -43,36 +40,75 @@ export 'kernel_variable_builder.dart' show KernelVariableBuilder;
 
 export 'kernel_invalid_type_builder.dart' show KernelInvalidTypeBuilder;
 
-export 'load_library_builder.dart' show LoadLibraryBuilder;
+import 'package:kernel/text/ast_to_text.dart' show Printer;
 
 import 'package:kernel/ast.dart'
     show
-        Combinator,
+        Class,
         Constructor,
         DartType,
         DynamicType,
+        Field,
         Initializer,
+        Library,
+        Member,
         Procedure,
         RedirectingInitializer,
         TypeParameter;
 
-import '../builder/builder.dart' show LibraryBuilder;
+import '../errors.dart' show inputError;
 
-import '../combinator.dart' as fasta;
+import '../builder/builder.dart' show LibraryBuilder;
 
 List<DartType> computeDefaultTypeArguments(LibraryBuilder library,
     List<TypeParameter> typeParameters, List<DartType> arguments) {
-  // TODO(scheglov): Use TypeSchemaEnvironment.instantiateToBounds
-  if (arguments == null || arguments.length != typeParameters.length) {
-    // TODO(scheglov): Check that we report a warning.
+  // TODO(ahe): Not sure what to do if `arguments.length !=
+  // cls.typeParameters.length`.
+  if (arguments == null) {
     return new List<DartType>.filled(
         typeParameters.length, const DynamicType());
+  }
+  if (arguments.length < typeParameters.length) {
+    arguments = new List<DartType>.from(arguments);
+    for (int i = arguments.length; i < typeParameters.length; i++) {
+      arguments.add(const DynamicType());
+    }
+  } else if (arguments.length > typeParameters.length) {
+    return arguments.sublist(0, typeParameters.length);
   }
   return arguments;
 }
 
+dynamic memberError(Member member, Object error, [int charOffset]) {
+  String name = member.name?.name;
+  if (name == "") {
+    name = Printer.emptyNameString;
+  } else if (name == null) {
+    name = "<anon>";
+  }
+  Library library = member.enclosingLibrary;
+  Class cls = member.enclosingClass;
+  String fileUri;
+  if (member is Procedure) {
+    fileUri = member.fileUri;
+  } else if (member is Field) {
+    fileUri = member.fileUri;
+  }
+  fileUri ??= cls?.fileUri ?? library.fileUri;
+  Uri uri = fileUri == null ? library.importUri : Uri.base.resolve(fileUri);
+  charOffset ??= -1;
+  if (charOffset == -1) {
+    charOffset = member.fileOffset ?? -1;
+  }
+  if (charOffset == -1) {
+    charOffset = cls?.fileOffset ?? -1;
+  }
+  name = (cls == null ? "" : "${cls.name}::") + name;
+  return inputError(uri, charOffset, "Error in $name: $error");
+}
+
 int compareProcedures(Procedure a, Procedure b) {
-  int i = "${a.fileUri}".compareTo("${b.fileUri}");
+  int i = a.fileUri.compareTo(b.fileUri);
   if (i != 0) return i;
   return a.fileOffset.compareTo(b.fileOffset);
 }
@@ -81,24 +117,4 @@ bool isRedirectingGenerativeConstructorImplementation(Constructor constructor) {
   List<Initializer> initializers = constructor.initializers;
   return initializers.length == 1 &&
       initializers.single is RedirectingInitializer;
-}
-
-List<Combinator> toKernelCombinators(List<fasta.Combinator> fastaCombinators) {
-  if (fastaCombinators == null) {
-    // Note: it's safe to return null here as Kernel's LibraryDependency will
-    // convert null to an empty list.
-    return null;
-  }
-
-  List<Combinator> result = new List<Combinator>.filled(
-      fastaCombinators.length, null,
-      growable: true);
-  for (int i = 0; i < fastaCombinators.length; i++) {
-    fasta.Combinator combinator = fastaCombinators[i];
-    List<String> nameList = combinator.names.toList();
-    result[i] = combinator.isShow
-        ? new Combinator.show(nameList)
-        : new Combinator.hide(nameList);
-  }
-  return result;
 }
