@@ -5258,9 +5258,9 @@
   }], ["", "main.dart",, F, {
     "^": "",
     main: [function() {
-      var boardView = new F.BoardView(null);
+      var boardView = new F.BoardView(null, null);
       boardView.boardModel = F.Board$(4, 6);
-      boardView.render$0();
+      boardView.init$0();
     }, "call$0", "main__main$closure", 0, 0, 2],
     Tile: {
       "^": "Object;color'"
@@ -5287,8 +5287,8 @@
       }
     },
     BoardView: {
-      "^": "Object;boardModel",
-      render$0: function() {
+      "^": "Object;boardModel,tileViews",
+      init$0: function() {
         var t1, rootTag, t2, t3, _i, row, rowElem, t4, tile, button;
         t1 = document;
         rootTag = t1.querySelector("#main");
@@ -5301,12 +5301,12 @@
             button = t1.createElement("button");
             button.textContent = "A";
             rowElem.appendChild(button);
-            W._EventStreamSubscription$(button, "click", new F.BoardView_render_closure(button, tile), false);
+            W._EventStreamSubscription$(button, "click", new F.BoardView_init_closure(button, tile), false);
           }
         }
       }
     },
-    BoardView_render_closure: {
+    BoardView_init_closure: {
       "^": "Closure:1;button,tile",
       call$1: function(e) {
         this.button.textContent = "B";
