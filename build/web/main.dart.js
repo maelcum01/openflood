@@ -6385,7 +6385,7 @@
     BoardView_init_closure: {
       "^": "Closure:2;tile,button",
       call$1: function(e) {
-        this.button.textContent = "B";
+        this.button.textContent = "C";
         J.set$color$x(this.tile, "#ff0000");
       }
     }

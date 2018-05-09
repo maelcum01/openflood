@@ -59,7 +59,7 @@ class BoardView
         var button = new ButtonElement();
         button.text = "A";
         rowElem.append(button);
-        button.onClick.listen((e){button.text = "B"; tile.color = "#ff0000";});
+        button.onClick.listen((e){button.text = "C"; tile.color = "#ff0000";});
       }
     }
   }
