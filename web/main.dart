@@ -7,7 +7,7 @@ import 'dart:convert';
 
 void main()
 {
-  HttpRequest.getString("/levels.json").then((s) {
+  HttpRequest.getString("levels.json").then((s) {
      //anon func with s as param on http success
     List levels = JSON.decode(s);
 
