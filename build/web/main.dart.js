@@ -8111,7 +8111,7 @@
     "^": "",
     main: [function() {
       var t1, onError, t2;
-      t1 = W.HttpRequest_getString("/levels.json", null, null).then$1(new F.main_closure());
+      t1 = W.HttpRequest_getString("levels.json", null, null).then$1(new F.main_closure());
       onError = new F.main_closure0();
       t2 = $.Zone__current;
       if (t2 !== C.C__RootZone)
