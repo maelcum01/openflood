@@ -1,6 +1,7 @@
 [
   {
-    "board":[
+    "board":
+    [
        ["red","green","yellow","blue"],
        ["green","yellow","red","blue"],
        ["green","blue","blue","yellow"],
@@ -11,7 +12,8 @@
     "colors":["red","yellow","green","blue"]
   },
   {
-    "board": [
+    "board":
+    [
        ["red","green","yellow","blue"],
        ["green","yellow","red","blue"],
        ["green","blue","blue","yellow"],

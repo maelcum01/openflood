@@ -3,17 +3,15 @@ import 'dart:async';
 import 'dart:convert';
 
 
-
-
 void main()
 {
-  HttpRequest.getString("levels.json").then((s) {
-     //anon func with s as param on http success
-    List levels = JSON.decode(s);
-
+  HttpRequest.getString("levels.json").then((s)   //anon func with s as param on http success
+  {
+    var levels = JSON.decode(s);
     var gameController = new GameController(levels);
     gameController.loadLevel(0);
-    }).catchError((e) {
+  }).catchError((e)
+  {
       print(e);
   });
 
@@ -22,7 +20,10 @@ void main()
 class GameController
 {
   List levels = [];
-  Map currentLevel = null;
+  Map currentLevel = {};
+  var boardView = null;
+  var boardModel = null;
+
 
   GameController(var levels)
   {
@@ -30,30 +31,53 @@ class GameController
     print(levels);
   }
 
-
   loadLevel(var level)
   {
     Map currentLevel = levels[level];
     this.currentLevel = currentLevel;
-    var board = new Board(currentLevel["level"], currentLevel["boardSize"],currentLevel["colors"], currentLevel["board"]);
-
-    var boardView = new BoardView();
-    boardView.boardModel = board;
-    boardView.init();
+    this.boardModel = new BoardModel(currentLevel["level"], currentLevel["boardSize"],currentLevel["colors"], currentLevel["board"]);
+    this.boardView = new BoardView(boardModel.x,boardModel.y,boardModel.colors);
+    initButtons();
+    updateColors();
   }
 
+  initButtons()
+  {
+    for(var colorButton in boardView.buttonBar.children)
+    {
+      var color = colorButton.style.backgroundColor;
+      colorButton.onClick.listen((e)
+      {
+        boardModel.setColor(color);
+        updateColors();
+        if(boardModel.checkWin())
+        {
+          boardView.statusBar.innerHtml = "You win!";
+        }
+      });
+    }
+  }
+  updateColors()
+  {
+    for(var i = 0; i < boardModel.tiles.length; i++)
+    {
+      for(var j = 0; j < boardModel.tiles[i].length; j++)
+      {
+        var color = boardModel.tiles[i][j];
+        boardView.boardElem.children[i].children[j].style.backgroundColor = color;
+      }
+    }
+  }
 }
 
-//Eventlistener hinzufügen, event muss ausgelöst werden, wenn das board oder ein Tile verändert wird
-//im eventlistener muss das board neu gerendert werden.
-class Board
+class BoardModel
 {
   var x,y;
   var colors = [];
   var tiles = [];
   var level = 0;
 
-  Board(var level, var size,var colors, var initialTiles)
+  BoardModel(var level, var size,var colors, var initialTiles)
   {
     this.level = level;
     this.x = size;
@@ -65,9 +89,9 @@ class Board
   setColor(var newColor)
   {
     var oldColor = tiles[0][0];
-    for(var i = 0; i<tiles.length;i++)
+    for(var i = 0; i < tiles.length; i++)
     {
-      for(var j = 0; j< tiles[i].length;j++)
+      for(var j = 0; j < tiles[i].length; j++)
       {
         if(tiles[i][j] == oldColor)
         {
@@ -83,9 +107,9 @@ class Board
   checkWin()
   {
     var color = tiles[0][0];
-    for(var i = 0; i<tiles.length;i++)
+    for(var i = 0; i <tiles.length; i++)
     {
-      for(var j = 0; j< tiles[i].length;j++)
+      for(var j = 0; j < tiles[i].length; j++)
       {
         if(tiles[i][j] != color)
         {
@@ -99,7 +123,6 @@ class Board
 
 class BoardView
 {
-  var boardModel;
   var tileViews;
   var rootElem = null;
   var boardElem = null;
@@ -108,9 +131,17 @@ class BoardView
   var buttonBar = null;
   var titleBar = null;
   var statusBar = null;
-  // list
-  // for, for - which tile zu welchem button/farbe(backgroundcolor)
-  // on board view update render
+  var x = 0;
+  var y = 0;
+  var colors;
+
+  BoardView(var x , var y, var colors)
+  {
+    this.x = x;
+    this.y = y;
+    this.colors = colors;
+    init();
+  }
 
   init()
   {
@@ -119,26 +150,24 @@ class BoardView
     rootElem.style.width = "480px";
 
     this.titleBar = new Element.tag("H1");
-    this.titleBar.innerHtml = "Level " + boardModel.level.toString();
+    this.titleBar.innerHtml = "";
     rootElem.children.add(titleBar);
 
-    this.width = double.parse(rootElem.style.width.replaceAll("px", ""))/boardModel.x;
+    this.width = double.parse(rootElem.style.width.replaceAll("px", ""))/x; // pixel per tile
     this.height = width;
     this.boardElem = new Element.div();
     rootElem.children.add(boardElem);
 
-    for(List row in boardModel.tiles)
+    for(var rowY = 0; rowY< y;rowY++)
     {
       var rowElem = new Element.div();
       boardElem.children.add(rowElem);
-      for (var tileColor in row)
+      for (var tileX = 0; tileX < x;tileX++)
       {
         var tileElem = new DivElement();
         rowElem.append(tileElem);
         tileElem.style.display = "inline-block";
-        tileElem.style.backgroundColor = tileColor;
         tileElem.style.border = "solid 1px grey";
-
         tileElem.style.width = (width * 0.95).toString()+"px";
         tileElem.style.height = height.toString()+"px";
       }
@@ -146,7 +175,7 @@ class BoardView
 
     this.buttonBar = new Element.div();
     rootElem.children.add(buttonBar);
-    for(var color in boardModel.colors)
+    for(var color in this.colors)
     {
       var colorButton = new ButtonElement();
       buttonBar.children.add(colorButton);
@@ -154,27 +183,8 @@ class BoardView
       colorButton.style.width =(width * 0.95).toString()+"px";
       colorButton.style.height= height.toString()+"px";
 
-      colorButton.onClick.listen((e) {
-        boardModel.setColor(color);
-        updateColors();
-        if(boardModel.checkWin()) {
-          statusBar.innerHtml = "You won!";
-        }
-      });
     }
-
     this.statusBar = new Element.div();
     rootElem.children.add(this.statusBar);
-
-  }
-
-  updateColors()
-  {
-    for(var i=0;i<boardModel.tiles.length;i++) {
-      for(var j=0;j<boardModel.tiles[i].length;j++) {
-        var color = boardModel.tiles[i][j];
-        boardElem.children[i].children[j].style.backgroundColor = color;
-      }
-    }
   }
 }
