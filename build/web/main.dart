@@ -174,10 +174,12 @@ class BoardView
     }
 
     this.buttonBar = new Element.div();
+    this.buttonBar.classes.add("buttonBar");
     rootElem.children.add(buttonBar);
     for(var color in this.colors)
     {
       var colorButton = new ButtonElement();
+      colorButton.classes.add("colorButton");
       buttonBar.children.add(colorButton);
       colorButton.style.backgroundColor= color;
       colorButton.style.width =(width * 0.95).toString()+"px";
