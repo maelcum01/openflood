@@ -12,3 +12,17 @@ html, body {
 h1 {
     text-align: center;
 }
+
+#main {
+    background-color: lightgray;
+}
+
+.colorButton
+{
+    border-radius: 15px;
+}
+
+.buttonBar
+{
+    padding: 1rem 0 1rem 0;
+}
