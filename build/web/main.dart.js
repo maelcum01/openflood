@@ -857,7 +857,8 @@
       substring$2: function(receiver, startIndex, endIndex) {
         if (endIndex == null)
           endIndex = receiver.length;
-        H.checkInt(endIndex);
+        if (typeof endIndex !== "number" || Math.floor(endIndex) !== endIndex)
+          H.throwExpression(H.argumentErrorValue(endIndex));
         if (startIndex < 0)
           throw H.wrapException(P.RangeError$value(startIndex, null, null));
         if (typeof endIndex !== "number")
@@ -2273,11 +2274,6 @@
     },
     argumentErrorValue: function(object) {
       return new P.ArgumentError(true, object, null, null);
-    },
-    checkInt: function(value) {
-      if (typeof value !== "number" || Math.floor(value) !== value)
-        throw H.wrapException(H.argumentErrorValue(value));
-      return value;
     },
     wrapException: function(ex) {
       var wrapper;
@@ -6651,6 +6647,10 @@
       $asRectangle: Isolate.functionThatReturnsNull,
       "%": ";DOMRectReadOnly"
     },
+    DomTokenList: {
+      "^": "Interceptor;length=",
+      "%": "DOMTokenList"
+    },
     _ChildrenElementList: {
       "^": "ListBase;_html$_element<,_childElements",
       get$length: function(_) {
@@ -8003,6 +8003,59 @@
       $isInterceptor: 1,
       "%": "SVGImageElement"
     },
+    Length: {
+      "^": "Interceptor;",
+      $isObject: 1,
+      "%": "SVGLength"
+    },
+    LengthList: {
+      "^": "Interceptor_ListMixin_ImmutableListMixin2;",
+      get$length: function(receiver) {
+        return receiver.length;
+      },
+      $index: function(receiver, index) {
+        if (index >>> 0 !== index || index >= receiver.length)
+          throw H.wrapException(P.IndexError$(index, receiver, null, null, null));
+        return receiver.getItem(index);
+      },
+      $indexSet: function(receiver, index, value) {
+        throw H.wrapException(new P.UnsupportedError("Cannot assign element of immutable List."));
+      },
+      elementAt$1: function(receiver, index) {
+        return this.$index(receiver, index);
+      },
+      $isList: 1,
+      $asList: function() {
+        return [P.Length];
+      },
+      $isEfficientLengthIterable: 1,
+      $asEfficientLengthIterable: function() {
+        return [P.Length];
+      },
+      "%": "SVGLengthList"
+    },
+    Interceptor_ListMixin2: {
+      "^": "Interceptor+ListMixin;",
+      $asList: function() {
+        return [P.Length];
+      },
+      $asEfficientLengthIterable: function() {
+        return [P.Length];
+      },
+      $isList: 1,
+      $isEfficientLengthIterable: 1
+    },
+    Interceptor_ListMixin_ImmutableListMixin2: {
+      "^": "Interceptor_ListMixin2+ImmutableListMixin;",
+      $asList: function() {
+        return [P.Length];
+      },
+      $asEfficientLengthIterable: function() {
+        return [P.Length];
+      },
+      $isList: 1,
+      $isEfficientLengthIterable: 1
+    },
     MarkerElement: {
       "^": "SvgElement;",
       $isInterceptor: 1,
@@ -8012,6 +8065,59 @@
       "^": "SvgElement;",
       $isInterceptor: 1,
       "%": "SVGMaskElement"
+    },
+    Number: {
+      "^": "Interceptor;",
+      $isObject: 1,
+      "%": "SVGNumber"
+    },
+    NumberList: {
+      "^": "Interceptor_ListMixin_ImmutableListMixin3;",
+      get$length: function(receiver) {
+        return receiver.length;
+      },
+      $index: function(receiver, index) {
+        if (index >>> 0 !== index || index >= receiver.length)
+          throw H.wrapException(P.IndexError$(index, receiver, null, null, null));
+        return receiver.getItem(index);
+      },
+      $indexSet: function(receiver, index, value) {
+        throw H.wrapException(new P.UnsupportedError("Cannot assign element of immutable List."));
+      },
+      elementAt$1: function(receiver, index) {
+        return this.$index(receiver, index);
+      },
+      $isList: 1,
+      $asList: function() {
+        return [P.Number];
+      },
+      $isEfficientLengthIterable: 1,
+      $asEfficientLengthIterable: function() {
+        return [P.Number];
+      },
+      "%": "SVGNumberList"
+    },
+    Interceptor_ListMixin3: {
+      "^": "Interceptor+ListMixin;",
+      $asList: function() {
+        return [P.Number];
+      },
+      $asEfficientLengthIterable: function() {
+        return [P.Number];
+      },
+      $isList: 1,
+      $isEfficientLengthIterable: 1
+    },
+    Interceptor_ListMixin_ImmutableListMixin3: {
+      "^": "Interceptor_ListMixin3+ImmutableListMixin;",
+      $asList: function() {
+        return [P.Number];
+      },
+      $asEfficientLengthIterable: function() {
+        return [P.Number];
+      },
+      $isList: 1,
+      $isEfficientLengthIterable: 1
     },
     PatternElement: {
       "^": "SvgElement;",
@@ -8326,11 +8432,14 @@
           }
           ++rowY;
         }
-        this.buttonBar = t1.createElement("div");
+        t2 = t1.createElement("div");
+        this.buttonBar = t2;
+        t2.classList.add("buttonBar");
         J.get$children$x(this.rootElem).add$1(0, this.buttonBar);
         for (t2 = J.get$iterator$ax(this.colors); t2.moveNext$0();) {
           color = t2.get$current();
           colorButton = t1.createElement("button");
+          colorButton.classList.add("colorButton");
           this.buttonBar.appendChild(colorButton);
           t3 = colorButton.style;
           t3.toString;
