@@ -23,6 +23,7 @@ class GameController
   Map currentLevel = {};
   var boardView = null;
   var boardModel = null;
+  var thisLevel = 0;
 
 
   GameController(var levels)
@@ -53,6 +54,8 @@ class GameController
         if(boardModel.checkWin())
         {
           boardView.statusBar.innerHtml = "You win!";
+          thisLevel++;
+          this.loadLevel(thisLevel);
         }
       });
     }
@@ -118,6 +121,7 @@ class BoardModel
       }
     }
     return true;
+
   }
 }
 

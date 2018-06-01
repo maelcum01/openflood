@@ -8233,13 +8233,26 @@
     main_closure: {
       "^": "Closure:1;",
       call$1: function(s) {
-        var levels, gameController, currentLevel, t1, t2, t3, t4, t5;
+        var levels, gameController;
         levels = C.JsonCodec_null_null.decode$1(s);
-        gameController = new F.GameController([], P.LinkedHashMap__makeEmpty(), null, null);
+        gameController = new F.GameController([], P.LinkedHashMap__makeEmpty(), null, null, 0);
         gameController.levels = levels;
         P.print(levels);
-        currentLevel = J.$index$asx(levels, 0);
-        gameController.currentLevel = currentLevel;
+        gameController.loadLevel$1(0);
+      }
+    },
+    main_closure0: {
+      "^": "Closure:1;",
+      call$1: function(e) {
+        P.print(e);
+      }
+    },
+    GameController: {
+      "^": "Object;levels,currentLevel,boardView,boardModel,thisLevel",
+      loadLevel$1: function(level) {
+        var currentLevel, t1, t2, t3, t4, t5;
+        currentLevel = J.$index$asx(this.levels, level);
+        this.currentLevel = currentLevel;
         t1 = J.getInterceptor$asx(currentLevel);
         t2 = t1.$index(currentLevel, "level");
         t3 = t1.$index(currentLevel, "boardSize");
@@ -8251,25 +8264,16 @@
         t5.y = t3;
         t5.colors = t4;
         t5.tiles = t1;
-        gameController.boardModel = t5;
+        this.boardModel = t5;
         t5 = new F.BoardView(null, null, null, 50, 50, null, null, null, 0, 0, null);
         t5.x = t3;
         t5.y = t3;
         t5.colors = t4;
         t5.init$0();
-        gameController.boardView = t5;
-        gameController.initButtons$0();
-        gameController.updateColors$0();
-      }
-    },
-    main_closure0: {
-      "^": "Closure:1;",
-      call$1: function(e) {
-        P.print(e);
-      }
-    },
-    GameController: {
-      "^": "Object;levels,currentLevel,boardView,boardModel",
+        this.boardView = t5;
+        this.initButtons$0();
+        this.updateColors$0();
+      },
       initButtons$0: function() {
         var t1, colorButton, t2, color;
         for (t1 = this.boardView.buttonBar, t1 = new W._ChildrenElementList(t1, t1.children), t1 = t1.toList$0(t1), t1 = new J.ArrayIterator(t1, t1.length, 0, null); t1.moveNext$0();) {
@@ -8312,12 +8316,14 @@
     GameController_initButtons_closure: {
       "^": "Closure:1;$this,color",
       call$1: function(e) {
-        var t1 = this.$this;
+        var t1, t2;
+        t1 = this.$this;
         t1.boardModel.setColor$1(this.color);
         t1.updateColors$0();
         if (t1.boardModel.checkWin$0()) {
-          t1 = t1.boardView.statusBar;
-          (t1 && C.DivElement_methods).setInnerHtml$1(t1, "You win!");
+          t2 = t1.boardView.statusBar;
+          (t2 && C.DivElement_methods).setInnerHtml$1(t2, "You win!");
+          t1.loadLevel$1(++t1.thisLevel);
         }
       }
     },

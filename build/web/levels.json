@@ -14,10 +14,11 @@
   {
     "board":
     [
-       ["red","green","yellow","blue"],
-       ["green","yellow","red","blue"],
-       ["green","blue","blue","yellow"],
-       ["blue","blue","yellow","red"]
+       ["red","green","yellow","blue","red"],
+       ["green","yellow","red","blue","yellow"],
+       ["green","blue","blue","yellow","blue"],
+       ["blue","blue","yellow","red","yellow"],
+       ["yellow","blue","yellow","red","red"]
     ],
     "boardSize":5,
     "level":"2",
