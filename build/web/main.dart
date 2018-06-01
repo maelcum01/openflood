@@ -121,7 +121,6 @@ class BoardModel
       }
     }
     return true;
-
   }
 }
 
