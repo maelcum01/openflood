@@ -25,7 +25,10 @@ class GameController
   var boardModel = null;
   var thisLevel = 0;
   var turns = 0;
-
+  Future sleepF()
+  {
+    return new Future.delayed(const Duration(seconds: 5), () => "1");
+  }
 
   GameController(var levels)
   {
@@ -58,6 +61,7 @@ class GameController
           boardView.statusBar.innerHtml = "YOU WIN!";
           thisLevel++;
           turns=0;
+          sleepF();
           this.loadLevel(thisLevel);
         }
         else
