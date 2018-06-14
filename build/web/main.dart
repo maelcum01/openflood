@@ -48,14 +48,14 @@ class GameController
     for(var colorButton in boardView.buttonBar.children)
     {
       var color = colorButton.style.backgroundColor;
-      boardView.gameInfo.innerHtml = "TURN: "+turns.toString()+"/"+boardModel.maxSteps.toString();
+      boardView.gameInfo.innerHtml = "TURN: "+turns.toString()+"/"+boardModel.maxSteps.toString()+" | " +"SCORE: "+boardModel.score.toString();
       colorButton.onClick.listen((e)
       {
         boardModel.setColor(color);
         updateColors();
         if(boardModel.checkWin())
         {
-          boardView.statusBar.innerHtml = "You win!";
+          boardView.statusBar.innerHtml = "YOU WIN!";
           thisLevel++;
           turns=0;
           this.loadLevel(thisLevel);
@@ -65,11 +65,11 @@ class GameController
           if(turns<boardModel.maxSteps)
           {
             turns++;
-            boardView.gameInfo.innerHtml = "TURN: "+turns.toString()+"/"+boardModel.maxSteps.toString();
+            boardView.gameInfo.innerHtml = "TURN: "+turns.toString()+"/"+boardModel.maxSteps.toString()+" | " +"SCORE: "+boardModel.score.toString();
           }
           else
           {
-            boardView.statusBar.innerHtml = "You loose! :-(";
+            boardView.statusBar.innerHtml = "YOU LOOSE! :-(";
           }
         }
       });
@@ -95,6 +95,7 @@ class BoardModel
   var tiles = [];
   var level = 0;
   var maxSteps = 0;
+  var score = 0;
 
   BoardModel(var level, var size, var colors, var initialTiles, var maxSteps)
   {
@@ -116,6 +117,7 @@ class BoardModel
         if(tiles[i][j] == oldColor)
         {
           tiles[i][j] = newColor;
+          score +=2;
         }
         else
         {
