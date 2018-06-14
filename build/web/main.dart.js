@@ -8235,7 +8235,7 @@
       call$1: function(s) {
         var levels, gameController;
         levels = C.JsonCodec_null_null.decode$1(s);
-        gameController = new F.GameController([], P.LinkedHashMap__makeEmpty(), null, null, 0);
+        gameController = new F.GameController([], P.LinkedHashMap__makeEmpty(), null, null, 0, 0);
         gameController.levels = levels;
         P.print(levels);
         gameController.loadLevel$1(0);
@@ -8248,38 +8248,42 @@
       }
     },
     GameController: {
-      "^": "Object;levels,currentLevel,boardView,boardModel,thisLevel",
+      "^": "Object;levels,currentLevel,boardView,boardModel,thisLevel,turns",
       loadLevel$1: function(level) {
-        var currentLevel, t1, t2, t3, t4, t5;
+        var currentLevel, t1, t2, t3, t4, t5, t6;
         currentLevel = J.$index$asx(this.levels, level);
         this.currentLevel = currentLevel;
         t1 = J.getInterceptor$asx(currentLevel);
         t2 = t1.$index(currentLevel, "level");
         t3 = t1.$index(currentLevel, "boardSize");
         t4 = t1.$index(currentLevel, "colors");
-        t1 = t1.$index(currentLevel, "board");
-        t5 = new F.BoardModel(null, null, [], [], 0);
-        t5.level = t2;
-        t5.x = t3;
-        t5.y = t3;
-        t5.colors = t4;
-        t5.tiles = t1;
-        this.boardModel = t5;
-        t5 = new F.BoardView(null, null, null, 50, 50, null, null, null, 0, 0, null);
-        t5.x = t3;
-        t5.y = t3;
-        t5.colors = t4;
-        t5.init$0();
-        this.boardView = t5;
+        t5 = t1.$index(currentLevel, "board");
+        t1 = t1.$index(currentLevel, "maxSteps");
+        t6 = new F.BoardModel(null, null, [], [], 0, 0);
+        t6.level = t2;
+        t6.x = t3;
+        t6.y = t3;
+        t6.colors = t4;
+        t6.tiles = t5;
+        t6.maxSteps = t1;
+        this.boardModel = t6;
+        t6 = new F.BoardView(null, null, null, 50, 50, null, null, null, null, 0, 0, null);
+        t6.x = t3;
+        t6.y = t3;
+        t6.colors = t4;
+        t6.init$0();
+        this.boardView = t6;
         this.initButtons$0();
         this.updateColors$0();
       },
       initButtons$0: function() {
-        var t1, colorButton, t2, color;
+        var t1, colorButton, t2, color, t3;
         for (t1 = this.boardView.buttonBar, t1 = new W._ChildrenElementList(t1, t1.children), t1 = t1.toList$0(t1), t1 = new J.ArrayIterator(t1, t1.length, 0, null); t1.moveNext$0();) {
           colorButton = t1.__interceptors$_current;
           t2 = J.getInterceptor$x(colorButton);
           color = t2.get$style(colorButton).backgroundColor;
+          t3 = this.boardView.gameInfo;
+          (t3 && C.DivElement_methods).setInnerHtml$1(t3, C.JSString_methods.$add("TURN: " + C.JSInt_methods.toString$0(this.turns) + "/", J.toString$0$(this.boardModel.maxSteps)));
           t2 = t2.get$onClick(colorButton);
           W._EventStreamSubscription$(t2._html$_target, t2._eventType, new F.GameController_initButtons_closure(this, color), false, H.getTypeArgumentByIndex(t2, 0));
         }
@@ -8316,19 +8320,35 @@
     GameController_initButtons_closure: {
       "^": "Closure:1;$this,color",
       call$1: function(e) {
-        var t1, t2;
+        var t1, t2, t3;
         t1 = this.$this;
         t1.boardModel.setColor$1(this.color);
         t1.updateColors$0();
         if (t1.boardModel.checkWin$0()) {
           t2 = t1.boardView.statusBar;
           (t2 && C.DivElement_methods).setInnerHtml$1(t2, "You win!");
-          t1.loadLevel$1(++t1.thisLevel);
+          t2 = ++t1.thisLevel;
+          t1.turns = 0;
+          t1.loadLevel$1(t2);
+        } else {
+          t2 = t1.turns;
+          t3 = t1.boardModel.maxSteps;
+          if (typeof t3 !== "number")
+            return H.iae(t3);
+          if (t2 < t3) {
+            ++t2;
+            t1.turns = t2;
+            t3 = t1.boardView.gameInfo;
+            (t3 && C.DivElement_methods).setInnerHtml$1(t3, C.JSString_methods.$add("TURN: " + C.JSInt_methods.toString$0(t2) + "/", J.toString$0$(t1.boardModel.maxSteps)));
+          } else {
+            t1 = t1.boardView.statusBar;
+            (t1 && C.DivElement_methods).setInnerHtml$1(t1, "You loose! :-(");
+          }
         }
       }
     },
     BoardModel: {
-      "^": "Object;x,y,colors,tiles,level",
+      "^": "Object;x,y,colors,tiles,level,maxSteps",
       setColor$1: function(newColor) {
         var oldColor, i, t1, j;
         oldColor = J.$index$asx(J.$index$asx(this.tiles, 0), 0);
@@ -8382,7 +8402,7 @@
       }
     },
     BoardView: {
-      "^": "Object;tileViews,rootElem,boardElem,width,height,buttonBar,titleBar,statusBar,x,y,colors",
+      "^": "Object;tileViews,rootElem,boardElem,width,height,buttonBar,titleBar,statusBar,gameInfo,x,y,colors",
       init$0: function() {
         var t1, t2, t3, rowY, rowElem, tileX, tileElem, color, colorButton, t4;
         t1 = document;
@@ -8438,6 +8458,8 @@
           }
           ++rowY;
         }
+        this.gameInfo = t1.createElement("div");
+        J.get$children$x(this.rootElem).add$1(0, this.gameInfo);
         t2 = t1.createElement("div");
         this.buttonBar = t2;
         t2.classList.add("buttonBar");

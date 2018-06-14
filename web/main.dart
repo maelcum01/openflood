@@ -24,6 +24,7 @@ class GameController
   var boardView = null;
   var boardModel = null;
   var thisLevel = 0;
+  var turns = 0;
 
 
   GameController(var levels)
@@ -36,7 +37,7 @@ class GameController
   {
     Map currentLevel = levels[level];
     this.currentLevel = currentLevel;
-    this.boardModel = new BoardModel(currentLevel["level"], currentLevel["boardSize"],currentLevel["colors"], currentLevel["board"]);
+    this.boardModel = new BoardModel(currentLevel["level"], currentLevel["boardSize"],currentLevel["colors"], currentLevel["board"],currentLevel["maxSteps"]);
     this.boardView = new BoardView(boardModel.x,boardModel.y,boardModel.colors);
     initButtons();
     updateColors();
@@ -47,6 +48,7 @@ class GameController
     for(var colorButton in boardView.buttonBar.children)
     {
       var color = colorButton.style.backgroundColor;
+      boardView.gameInfo.innerHtml = "TURN: "+turns.toString()+"/"+boardModel.maxSteps.toString();
       colorButton.onClick.listen((e)
       {
         boardModel.setColor(color);
@@ -55,7 +57,20 @@ class GameController
         {
           boardView.statusBar.innerHtml = "You win!";
           thisLevel++;
+          turns=0;
           this.loadLevel(thisLevel);
+        }
+        else
+        {
+          if(turns<boardModel.maxSteps)
+          {
+            turns++;
+            boardView.gameInfo.innerHtml = "TURN: "+turns.toString()+"/"+boardModel.maxSteps.toString();
+          }
+          else
+          {
+            boardView.statusBar.innerHtml = "You loose! :-(";
+          }
         }
       });
     }
@@ -79,14 +94,16 @@ class BoardModel
   var colors = [];
   var tiles = [];
   var level = 0;
+  var maxSteps = 0;
 
-  BoardModel(var level, var size,var colors, var initialTiles)
+  BoardModel(var level, var size, var colors, var initialTiles, var maxSteps)
   {
     this.level = level;
     this.x = size;
     this.y = size;
     this.colors = colors;
     tiles = initialTiles;
+    this.maxSteps = maxSteps;
   }
 
   setColor(var newColor)
@@ -134,6 +151,7 @@ class BoardView
   var buttonBar = null;
   var titleBar = null;
   var statusBar = null;
+  var gameInfo = null;
   var x = 0;
   var y = 0;
   var colors;
@@ -175,7 +193,8 @@ class BoardView
         tileElem.style.height = height.toString()+"px";
       }
     }
-
+    this.gameInfo = new Element.div();
+    rootElem.children.add(gameInfo);
     this.buttonBar = new Element.div();
     this.buttonBar.classes.add("buttonBar");
     rootElem.children.add(buttonBar);
@@ -187,7 +206,6 @@ class BoardView
       colorButton.style.backgroundColor= color;
       colorButton.style.width =(width * 0.95).toString()+"px";
       colorButton.style.height= height.toString()+"px";
-
     }
     this.statusBar = new Element.div();
     rootElem.children.add(this.statusBar);
