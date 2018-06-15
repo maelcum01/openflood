@@ -25,9 +25,10 @@ class GameController
   var boardModel = null;
   var thisLevel = 0;
   var turns = 0;
-  Future sleepF()
+
+  Timer delayLoadLevel(var level)
   {
-    return new Future.delayed(const Duration(seconds: 5), () => "1");
+    return new Timer(const Duration(seconds: 5), () => this.loadLevel(level));
   }
 
   GameController(var levels)
@@ -61,8 +62,7 @@ class GameController
           boardView.statusBar.innerHtml = "YOU WIN!";
           thisLevel++;
           turns=0;
-          sleepF();
-          this.loadLevel(thisLevel);
+          delayLoadLevel(thisLevel);
         }
         else
         {
