@@ -10,7 +10,7 @@
     "boardSize":4,
     "level":"1",
     "colors":["red","yellow","green","blue"],
-    "maxSteps":10
+    "maxSteps":8
   },
   {
     "board":
@@ -24,7 +24,7 @@
     "boardSize":5,
     "level":"2",
     "colors":["red","yellow","green","blue"],
-    "maxSteps":15
+    "maxSteps":12
   },
   {
     "board":
@@ -39,6 +39,6 @@
     "boardSize":6,
     "level":"3",
     "colors":["red","yellow","green","blue"],
-    "maxSteps":12
+    "maxSteps":13
   }
 ]
