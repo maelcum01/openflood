@@ -8464,6 +8464,7 @@
             t2 = tileElem.style;
             t3 = C.JSNumber_methods.toString$0(this.height) + "px";
             t2.height = t3;
+            tileElem.classList.add("tileElem");
             ++tileX;
           }
           ++rowY;

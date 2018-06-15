@@ -197,6 +197,7 @@ class BoardView
         tileElem.style.border = "solid 1px grey";
         tileElem.style.width = (width * 0.95).toString()+"px";
         tileElem.style.height = height.toString()+"px";
+        tileElem.classes.add("tileElem");
       }
     }
     this.gameInfo = new Element.div();
