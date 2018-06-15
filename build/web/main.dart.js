@@ -3997,15 +3997,6 @@
         return errorHandler;
       }
     },
-    Future_Future$delayed: function(duration, computation, $T) {
-      var result = new P._Future(0, $.Zone__current, null, [$T]);
-      P.Timer_Timer(duration, new P.closure(computation, result));
-      return result;
-    },
-    _completeWithErrorCallback: function(result, error, stackTrace) {
-      $.Zone__current.toString;
-      result._completeError$2(error, stackTrace);
-    },
     _microtaskLoop: function() {
       var t1, t2;
       for (; t1 = $._nextCallback, t1 != null;) {
@@ -4188,20 +4179,6 @@
       call$0: function() {
         --init.globalState.topEventLoop._activeJsAsyncCount;
         this.callback.call$0();
-      }
-    },
-    closure: {
-      "^": "Closure:0;computation,result",
-      call$0: function() {
-        var e, s, t1, exception;
-        try {
-          t1 = this.computation.call$0();
-          this.result._complete$1(t1);
-        } catch (exception) {
-          e = H.unwrapException(exception);
-          s = H.getTraceFromException(exception);
-          P._completeWithErrorCallback(this.result, e, s);
-        }
       }
     },
     _Completer: {
@@ -6506,7 +6483,7 @@
       t1 = document.body;
       fragment = (t1 && C.BodyElement_methods).createFragment$3$treeSanitizer$validator(t1, html, treeSanitizer, validator);
       fragment.toString;
-      t1 = new H.WhereIterable(new W._ChildNodeListLazy(fragment), new W.closure0(), [W.Node]);
+      t1 = new H.WhereIterable(new W._ChildNodeListLazy(fragment), new W.closure(), [W.Node]);
       return t1.get$single(t1);
     },
     Element__safeTagName: function(element) {
@@ -6809,7 +6786,7 @@
       $isInterceptor: 1,
       "%": ";Element"
     },
-    closure0: {
+    closure: {
       "^": "Closure:1;",
       call$1: function(e) {
         return !!J.getInterceptor(e).$isElement;
@@ -8272,8 +8249,8 @@
     },
     GameController: {
       "^": "Object;levels,currentLevel,boardView,boardModel,thisLevel,turns",
-      sleepF$0: function() {
-        return P.Future_Future$delayed(C.Duration_5000000, new F.GameController_sleepF_closure(), null);
+      delayLoadLevel$1: function(level) {
+        return P.Timer_Timer(C.Duration_5000000, new F.GameController_delayLoadLevel_closure(this, level));
       },
       loadLevel$1: function(level) {
         var currentLevel, t1, t2, t3, t4, t5, t6;
@@ -8343,10 +8320,10 @@
         }
       }
     },
-    GameController_sleepF_closure: {
-      "^": "Closure:0;",
+    GameController_delayLoadLevel_closure: {
+      "^": "Closure:0;$this,level",
       call$0: function() {
-        return "1";
+        return this.$this.loadLevel$1(this.level);
       }
     },
     GameController_initButtons_closure: {
@@ -8359,10 +8336,9 @@
         if (t1.boardModel.checkWin$0()) {
           t2 = t1.boardView.statusBar;
           (t2 && C.DivElement_methods).setInnerHtml$1(t2, "YOU WIN!");
-          ++t1.thisLevel;
+          t2 = ++t1.thisLevel;
           t1.turns = 0;
-          t1.sleepF$0();
-          t1.loadLevel$1(t1.thisLevel);
+          t1.delayLoadLevel$1(t2);
         } else {
           t2 = t1.turns;
           t3 = t1.boardModel.maxSteps;
