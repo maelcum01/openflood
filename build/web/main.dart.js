@@ -8252,8 +8252,8 @@
       delayLoadLevel$1: function(level) {
         return P.Timer_Timer(C.Duration_5000000, new F.GameController_delayLoadLevel_closure(this, level));
       },
-      gameOver$0: function() {
-        return P.Timer_Timer(C.Duration_2000000, new F.GameController_gameOver_closure(this));
+      loadGameOver$0: function() {
+        return P.Timer_Timer(C.Duration_2000000, new F.GameController_loadGameOver_closure(this));
       },
       loadLevel$1: function(level) {
         var currentLevel, t1, t2, t3, t4, t5, t6;
@@ -8329,7 +8329,7 @@
         return this.$this.loadLevel$1(this.level);
       }
     },
-    GameController_gameOver_closure: {
+    GameController_loadGameOver_closure: {
       "^": "Closure:0;$this",
       call$0: function() {
         var t1, asciiArt;
@@ -8349,11 +8349,11 @@
         t1.boardModel.setColor$1(this.color);
         t1.updateColors$0();
         if (t1.boardModel.checkWin$0()) {
+          ++t1.thisLevel;
+          t1.turns = 0;
           t2 = t1.boardView.statusBar;
           (t2 && C.DivElement_methods).setInnerHtml$1(t2, "YOU WIN!");
-          t2 = ++t1.thisLevel;
-          t1.turns = 0;
-          t1.delayLoadLevel$1(t2);
+          t1.delayLoadLevel$1(t1.thisLevel);
         } else {
           t2 = t1.turns;
           t3 = t1.boardModel.maxSteps;
@@ -8367,7 +8367,7 @@
           } else {
             t2 = t1.boardView.statusBar;
             (t2 && C.DivElement_methods).setInnerHtml$1(t2, "YOU LOOSE! :-(");
-            t1.gameOver$0();
+            t1.loadGameOver$0();
           }
         }
       }
@@ -8436,7 +8436,7 @@
         this.rootElem = t2;
         J.get$children$x(t2).clear$0(0);
         t2 = this.rootElem.style;
-        t2.width = "480px";
+        t2.width = "360px";
         t2 = W._ElementFactoryProvider_createElement_tag("H1", null);
         this.titleBar = t2;
         J.set$innerHtml$x(t2, "");
