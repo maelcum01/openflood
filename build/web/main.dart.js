@@ -7032,7 +7032,7 @@
       }
     },
     Node: {
-      "^": "EventTarget;parentNode=,previousNode:previousSibling=",
+      "^": "EventTarget;parentNode=,previousNode:previousSibling=,text:textContent}",
       get$nodes: function(receiver) {
         return new W._ChildNodeListLazy(receiver);
       },
@@ -8252,6 +8252,9 @@
       delayLoadLevel$1: function(level) {
         return P.Timer_Timer(C.Duration_5000000, new F.GameController_delayLoadLevel_closure(this, level));
       },
+      gameOver$0: function() {
+        return P.Timer_Timer(C.Duration_2000000, new F.GameController_gameOver_closure(this));
+      },
       loadLevel$1: function(level) {
         var currentLevel, t1, t2, t3, t4, t5, t6;
         currentLevel = J.$index$asx(this.levels, level);
@@ -8326,6 +8329,18 @@
         return this.$this.loadLevel$1(this.level);
       }
     },
+    GameController_gameOver_closure: {
+      "^": "Closure:0;$this",
+      call$0: function() {
+        var t1, asciiArt;
+        t1 = this.$this;
+        J.get$children$x(t1.boardView.rootElem).clear$0(0);
+        asciiArt = W._ElementFactoryProvider_createElement_tag("pre", null);
+        J.get$children$x(t1.boardView.rootElem).add$1(0, asciiArt);
+        J.set$text$x(asciiArt, "      \u2584\u2588\u2588\u2588\u2588  \u2584\u2584\u2584       \u2588\u2588\u2588\u2584 \u2584\u2588\u2588\u2588\u2593\u2593\u2588\u2588\u2588\u2588\u2588     \u2592\u2588\u2588\u2588\u2588\u2588   \u2588\u2588\u2592   \u2588\u2593\u2593\u2588\u2588\u2588\u2588\u2588  \u2588\u2588\u2580\u2588\u2588\u2588      \u2590\u2588\u2588\u258c\n     \u2588\u2588\u2592 \u2580\u2588\u2592\u2592\u2588\u2588\u2588\u2588\u2584    \u2593\u2588\u2588\u2592\u2580\u2588\u2580 \u2588\u2588\u2592\u2593\u2588   \u2580    \u2592\u2588\u2588\u2592  \u2588\u2588\u2592\u2593\u2588\u2588\u2591   \u2588\u2592\u2593\u2588   \u2580 \u2593\u2588\u2588 \u2592 \u2588\u2588\u2592    \u2590\u2588\u2588\u258c\n    \u2592\u2588\u2588\u2591\u2584\u2584\u2584\u2591\u2592\u2588\u2588  \u2580\u2588\u2584  \u2593\u2588\u2588    \u2593\u2588\u2588\u2591\u2592\u2588\u2588\u2588      \u2592\u2588\u2588\u2591  \u2588\u2588\u2592 \u2593\u2588\u2588  \u2588\u2592\u2591\u2592\u2588\u2588\u2588   \u2593\u2588\u2588 \u2591\u2584\u2588 \u2592    \u2590\u2588\u2588\u258c\n    \u2591\u2593\u2588  \u2588\u2588\u2593\u2591\u2588\u2588\u2584\u2584\u2584\u2584\u2588\u2588 \u2592\u2588\u2588    \u2592\u2588\u2588 \u2592\u2593\u2588  \u2584    \u2592\u2588\u2588   \u2588\u2588\u2591  \u2592\u2588\u2588 \u2588\u2591\u2591\u2592\u2593\u2588  \u2584 \u2592\u2588\u2588\u2580\u2580\u2588\u2584      \u2593\u2588\u2588\u2592\n    \u2591\u2592\u2593\u2588\u2588\u2588\u2580\u2592 \u2593\u2588   \u2593\u2588\u2588\u2592\u2592\u2588\u2588\u2592   \u2591\u2588\u2588\u2592\u2591\u2592\u2588\u2588\u2588\u2588\u2592   \u2591 \u2588\u2588\u2588\u2588\u2593\u2592\u2591   \u2592\u2580\u2588\u2591  \u2591\u2592\u2588\u2588\u2588\u2588\u2592\u2591\u2588\u2588\u2593 \u2592\u2588\u2588\u2592    \u2592\u2584\u2584\n     \u2591\u2592   \u2592  \u2592\u2592   \u2593\u2592\u2588\u2591\u2591 \u2592\u2591   \u2591  \u2591\u2591\u2591 \u2592\u2591 \u2591   \u2591 \u2592\u2591\u2592\u2591\u2592\u2591    \u2591 \u2590\u2591  \u2591\u2591 \u2592\u2591 \u2591\u2591 \u2592\u2593 \u2591\u2592\u2593\u2591    \u2591\u2580\u2580\u2592\n      \u2591   \u2591   \u2592   \u2592\u2592 \u2591\u2591  \u2591      \u2591 \u2591 \u2591  \u2591     \u2591 \u2592 \u2592\u2591    \u2591 \u2591\u2591   \u2591 \u2591  \u2591  \u2591\u2592 \u2591 \u2592\u2591    \u2591  \u2591\n    \u2591 \u2591   \u2591   \u2591   \u2592   \u2591      \u2591      \u2591      \u2591 \u2591 \u2591 \u2592       \u2591\u2591     \u2591     \u2591\u2591   \u2591        \u2591\n          \u2591       \u2591  \u2591       \u2591      \u2591  \u2591       \u2591 \u2591        \u2591     \u2591  \u2591   \u2591         \u2591\n                                                         \u2591");
+        return;
+      }
+    },
     GameController_initButtons_closure: {
       "^": "Closure:1;$this,color",
       call$1: function(e) {
@@ -8350,8 +8365,9 @@
             t3 = t1.boardView.gameInfo;
             (t3 && C.DivElement_methods).setInnerHtml$1(t3, C.JSString_methods.$add("TURN: " + C.JSInt_methods.toString$0(t2) + "/", J.toString$0$(t1.boardModel.maxSteps)) + " | SCORE: " + C.JSInt_methods.toString$0(t1.boardModel.score));
           } else {
-            t1 = t1.boardView.statusBar;
-            (t1 && C.DivElement_methods).setInnerHtml$1(t1, "YOU LOOSE! :-(");
+            t2 = t1.boardView.statusBar;
+            (t2 && C.DivElement_methods).setInnerHtml$1(t2, "YOU LOOSE! :-(");
+            t1.gameOver$0();
           }
         }
       }
@@ -8597,6 +8613,9 @@
   J.set$innerHtml$x = function(receiver, value) {
     return J.getInterceptor$x(receiver).set$innerHtml(receiver, value);
   };
+  J.set$text$x = function(receiver, value) {
+    return J.getInterceptor$x(receiver).set$text(receiver, value);
+  };
   J.get$attributes$x = function(receiver) {
     return J.getInterceptor$x(receiver).get$attributes(receiver);
   };
@@ -8717,6 +8736,7 @@
   C.C__DelayedDone = new P._DelayedDone();
   C.C__RootZone = new P._RootZone();
   C.Duration_0 = new P.Duration(0);
+  C.Duration_2000000 = new P.Duration(2000000);
   C.Duration_5000000 = new P.Duration(5000000);
   C.JS_CONST_0 = function(hooks) {
   if (typeof dartExperimentalFixupGetTag != "function") return hooks;

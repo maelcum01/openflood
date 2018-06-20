@@ -14,23 +14,28 @@ h1 {
 }
 
 #main {
-    background-color: lightgray;
+    background-color: white
 }
 
 .tileElem {
     border-radius: 20px;
+    box-shadow: 0 1px 4px #acacac, 0 0 0 1px #dadada;
+    overflow: hidden;
+    background: linear-gradient(rgba(255,255,255,0.1), rgba(255,255,255,0.3 ));
 }
+
 
 .colorButton {
     border-radius: 30px;
     display: inline-block;
     vertical-align: middle;
     transform: translateZ(0);
-    box-shadow: 0 0 1px rgba(0, 0, 0, 0);
     backface-visibility: hidden;
     -moz-osx-font-smoothing: grayscale;
     transition-duration: 0.3s;
     transition-property: transform;
+    background: linear-gradient(rgba(255,255,255,0.1), rgba(255,255,255,0.3 ));
+    box-shadow: 0 1px 4px #acacac, 0 0 0 1px #dadada;
 }
 
 .colorButton:hover,

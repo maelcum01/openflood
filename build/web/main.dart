@@ -31,6 +31,11 @@ class GameController
     return new Timer(const Duration(seconds: 5), () => this.loadLevel(level));
   }
 
+  Timer gameOver()
+  {
+    return new Timer(const Duration(seconds: 2), () => this.gameover());
+  }
+
   GameController(var levels)
   {
     this.levels = levels;
@@ -45,6 +50,23 @@ class GameController
     this.boardView = new BoardView(boardModel.x,boardModel.y,boardModel.colors);
     initButtons();
     updateColors();
+  }
+
+  gameover()
+  {
+    boardView.rootElem.children.clear();
+    var asciiArt =  new Element.pre();
+    boardView.rootElem.children.add(asciiArt);
+    asciiArt.text = "      ▄████  ▄▄▄       ███▄ ▄███▓▓█████     ▒█████   ██▒   █▓▓█████  ██▀███      ▐██▌"+"\n"
+                  +"     ██▒ ▀█▒▒████▄    ▓██▒▀█▀ ██▒▓█   ▀    ▒██▒  ██▒▓██░   █▒▓█   ▀ ▓██ ▒ ██▒    ▐██▌"+"\n"
+                  +"    ▒██░▄▄▄░▒██  ▀█▄  ▓██    ▓██░▒███      ▒██░  ██▒ ▓██  █▒░▒███   ▓██ ░▄█ ▒    ▐██▌"+"\n"
+                  +"    ░▓█  ██▓░██▄▄▄▄██ ▒██    ▒██ ▒▓█  ▄    ▒██   ██░  ▒██ █░░▒▓█  ▄ ▒██▀▀█▄      ▓██▒"+"\n"
+                  +"    ░▒▓███▀▒ ▓█   ▓██▒▒██▒   ░██▒░▒████▒   ░ ████▓▒░   ▒▀█░  ░▒████▒░██▓ ▒██▒    ▒▄▄"+"\n"
+                  +"     ░▒   ▒  ▒▒   ▓▒█░░ ▒░   ░  ░░░ ▒░ ░   ░ ▒░▒░▒░    ░ ▐░  ░░ ▒░ ░░ ▒▓ ░▒▓░    ░▀▀▒"+"\n"
+                  +"      ░   ░   ▒   ▒▒ ░░  ░      ░ ░ ░  ░     ░ ▒ ▒░    ░ ░░   ░ ░  ░  ░▒ ░ ▒░    ░  ░"+"\n"
+                  +"    ░ ░   ░   ░   ▒   ░      ░      ░      ░ ░ ░ ▒       ░░     ░     ░░   ░        ░"+"\n"
+                  +"          ░       ░  ░       ░      ░  ░       ░ ░        ░     ░  ░   ░         ░"+"\n"
+                  +"                                                         ░";
   }
 
   initButtons()
@@ -74,6 +96,7 @@ class GameController
           else
           {
             boardView.statusBar.innerHtml = "YOU LOOSE! :-(";
+            gameOver();
           }
         }
       });
