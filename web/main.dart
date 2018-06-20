@@ -31,9 +31,9 @@ class GameController
     return new Timer(const Duration(seconds: 5), () => this.loadLevel(level));
   }
 
-  Timer gameOver()
+  Timer loadGameOver()
   {
-    return new Timer(const Duration(seconds: 2), () => this.gameover());
+    return new Timer(const Duration(seconds: 2), () => this.gameOver());
   }
 
   GameController(var levels)
@@ -52,12 +52,12 @@ class GameController
     updateColors();
   }
 
-  gameover()
+  gameOver()
   {
     boardView.rootElem.children.clear();
     var asciiArt =  new Element.pre();
     boardView.rootElem.children.add(asciiArt);
-    asciiArt.text = "      ▄████  ▄▄▄       ███▄ ▄███▓▓█████ "+"\n"
+    asciiArt.text ="      ▄████  ▄▄▄       ███▄ ▄███▓▓█████ "+"\n"
                   +"     ██▒ ▀█▒▒████▄    ▓██▒▀█▀ ██▒▓█   ▀  "+"\n"
                   +"    ▒██░▄▄▄░▒██  ▀█▄  ▓██    ▓██░▒███    "+"\n"
                   +"    ░▓█  ██▓░██▄▄▄▄██ ▒██    ▒██ ▒▓█  ▄  "+"\n"
@@ -114,9 +114,9 @@ class GameController
         updateColors();
         if(boardModel.checkWin())
         {
-          boardView.statusBar.innerHtml = "YOU WIN!";
           thisLevel++;
           turns=0;
+          boardView.statusBar.innerHtml = "YOU WIN!";
           delayLoadLevel(thisLevel);
         }
         else
@@ -129,7 +129,7 @@ class GameController
           else
           {
             boardView.statusBar.innerHtml = "YOU LOOSE! :-(";
-            gameOver();
+            loadGameOver();
           }
         }
       });
@@ -230,7 +230,7 @@ class BoardView
   {
     this.rootElem = querySelector('#main');
     rootElem.children.clear();
-    rootElem.style.width = "480px";
+    rootElem.style.width = "360px";
 
     this.titleBar = new Element.tag("H1");
     this.titleBar.innerHtml = "";
