@@ -2,15 +2,15 @@
   {
     "board":
     [
-       ["red","green","yellow","blue"],
-       ["green","yellow","red","blue"],
+       ["red","yellow","yellow","blue"],
+       ["green","green","red","blue"],
        ["green","blue","blue","yellow"],
        ["blue","blue","yellow","red"]
     ],
     "boardSize":4,
     "level":"1",
     "colors":["red","yellow","green","blue"],
-    "maxSteps":8
+    "maxSteps":7
   },
   {
     "board":
@@ -24,7 +24,7 @@
     "boardSize":5,
     "level":"2",
     "colors":["red","yellow","green","blue"],
-    "maxSteps":12
+    "maxSteps":11
   },
   {
     "board":
@@ -39,6 +39,22 @@
     "boardSize":6,
     "level":"3",
     "colors":["red","yellow","green","blue"],
-    "maxSteps":13
+    "maxSteps":12
+  },
+  {
+    "board":
+    [
+      ["red","green","yellow","blue","red","yellow","blue"],
+      ["green","yellow","red","blue","yellow","yellow","blue"],
+      ["green","blue","blue","yellow","blue","green","blue"],
+      ["blue","blue","yellow","red","blue","green","green"],
+      ["yellow","blue","yellow","red","blue","blue","blue"],
+      ["yellow","blue","blue","red","red","red","red"],
+      ["green","red","yellow","red","red","blue","yellow"]
+    ],
+    "boardSize":7,
+    "level":"4",
+    "colors":["red","yellow","green","blue"],
+    "maxSteps":14
   }
 ]
