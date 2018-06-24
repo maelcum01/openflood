@@ -1,4 +1,4 @@
-part of main;
+part of 'main';
 
 class GameController
 {

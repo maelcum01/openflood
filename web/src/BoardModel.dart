@@ -1,4 +1,4 @@
-part of main;
+part of 'main';
 /* The Model class:
     Implements the game model and instantiation for each level
     with the following parameters

@@ -8247,6 +8247,144 @@
         P.print(e);
       }
     },
+    BoardModel: {
+      "^": "Object;x,y,colors,tiles,level,maxSteps,score",
+      setColor$1: function(newColor) {
+        var oldColor, i, t1, j;
+        oldColor = J.$index$asx(J.$index$asx(this.tiles, 0), 0);
+        i = 0;
+        while (true) {
+          t1 = J.get$length$asx(this.tiles);
+          if (typeof t1 !== "number")
+            return H.iae(t1);
+          if (!(i < t1))
+            break;
+          j = 0;
+          while (true) {
+            t1 = J.get$length$asx(J.$index$asx(this.tiles, i));
+            if (typeof t1 !== "number")
+              return H.iae(t1);
+            if (!(j < t1))
+              break;
+            if (J.$eq$(J.$index$asx(J.$index$asx(this.tiles, i), j), oldColor)) {
+              J.$indexSet$ax(J.$index$asx(this.tiles, i), j, newColor);
+              this.score += 2;
+            } else
+              break;
+            ++j;
+          }
+          ++i;
+        }
+      },
+      checkWin$0: function() {
+        var color, i, t1, j;
+        color = J.$index$asx(J.$index$asx(this.tiles, 0), 0);
+        i = 0;
+        while (true) {
+          t1 = J.get$length$asx(this.tiles);
+          if (typeof t1 !== "number")
+            return H.iae(t1);
+          if (!(i < t1))
+            break;
+          j = 0;
+          while (true) {
+            t1 = J.get$length$asx(J.$index$asx(this.tiles, i));
+            if (typeof t1 !== "number")
+              return H.iae(t1);
+            if (!(j < t1))
+              break;
+            if (!J.$eq$(J.$index$asx(J.$index$asx(this.tiles, i), j), color))
+              return false;
+            ++j;
+          }
+          ++i;
+        }
+        return true;
+      }
+    },
+    BoardView: {
+      "^": "Object;rootElem,boardElem,width,height,buttonBar,titleBar,statusBar,gameInfo,x,y,colors",
+      init$0: function() {
+        var t1, t2, t3, rowY, rowElem, tileX, tileElem, color, colorButton, t4;
+        t1 = document;
+        t2 = t1.querySelector("#main");
+        this.rootElem = t2;
+        J.get$children$x(t2).clear$0(0);
+        t2 = this.rootElem.style;
+        t2.width = "360px";
+        t2 = W._ElementFactoryProvider_createElement_tag("H1", null);
+        this.titleBar = t2;
+        J.set$innerHtml$x(t2, "");
+        J.get$children$x(this.rootElem).add$1(0, this.titleBar);
+        t2 = H.Primitives_parseDouble(H.stringReplaceAllUnchecked(this.rootElem.style.width, "px", ""), null);
+        t3 = this.x;
+        if (typeof t2 !== "number")
+          return t2.$div();
+        if (typeof t3 !== "number")
+          return H.iae(t3);
+        t3 = t2 / t3;
+        this.width = t3;
+        this.height = t3;
+        this.boardElem = t1.createElement("div");
+        J.get$children$x(this.rootElem).add$1(0, this.boardElem);
+        rowY = 0;
+        while (true) {
+          t2 = this.y;
+          if (typeof t2 !== "number")
+            return H.iae(t2);
+          if (!(rowY < t2))
+            break;
+          rowElem = t1.createElement("div");
+          this.boardElem.appendChild(rowElem);
+          tileX = 0;
+          while (true) {
+            t2 = this.x;
+            if (typeof t2 !== "number")
+              return H.iae(t2);
+            if (!(tileX < t2))
+              break;
+            tileElem = t1.createElement("div");
+            rowElem.appendChild(tileElem);
+            t2 = tileElem.style;
+            t2.display = "inline-block";
+            t2 = tileElem.style;
+            t2.border = "solid 1px grey";
+            t2 = tileElem.style;
+            t3 = C.JSNumber_methods.toString$0(this.width * 0.95) + "px";
+            t2.width = t3;
+            t2 = tileElem.style;
+            t3 = C.JSNumber_methods.toString$0(this.height) + "px";
+            t2.height = t3;
+            tileElem.classList.add("tileElem");
+            ++tileX;
+          }
+          ++rowY;
+        }
+        this.gameInfo = t1.createElement("div");
+        J.get$children$x(this.rootElem).add$1(0, this.gameInfo);
+        t2 = t1.createElement("div");
+        this.buttonBar = t2;
+        t2.classList.add("buttonBar");
+        J.get$children$x(this.rootElem).add$1(0, this.buttonBar);
+        for (t2 = J.get$iterator$ax(this.colors); t2.moveNext$0();) {
+          color = t2.get$current();
+          colorButton = t1.createElement("button");
+          colorButton.classList.add("colorButton");
+          this.buttonBar.appendChild(colorButton);
+          t3 = colorButton.style;
+          t3.toString;
+          t3.backgroundColor = color == null ? "" : color;
+          t3 = colorButton.style;
+          t4 = C.JSNumber_methods.toString$0(this.width * 0.95) + "px";
+          t3.width = t4;
+          t3 = colorButton.style;
+          t4 = C.JSNumber_methods.toString$0(this.height) + "px";
+          t3.height = t4;
+        }
+        this.statusBar = t1.createElement("div");
+        J.get$children$x(this.rootElem).add$1(0, this.statusBar);
+      }
+    },
     GameController: {
       "^": "Object;levels,currentLevel,boardView,boardModel,thisLevel,turns",
       delayLoadLevel$1: function(level) {
@@ -8273,7 +8411,7 @@
         t6.tiles = t5;
         t6.maxSteps = t1;
         this.boardModel = t6;
-        t6 = new F.BoardView(null, null, null, 50, 50, null, null, null, null, 0, 0, null);
+        t6 = new F.BoardView(null, null, 50, 50, null, null, null, null, 0, 0, null);
         t6.x = t3;
         t6.y = t3;
         t6.colors = t4;
@@ -8370,144 +8508,6 @@
             t1.loadGameOver$0();
           }
         }
-      }
-    },
-    BoardModel: {
-      "^": "Object;x,y,colors,tiles,level,maxSteps,score",
-      setColor$1: function(newColor) {
-        var oldColor, i, t1, j;
-        oldColor = J.$index$asx(J.$index$asx(this.tiles, 0), 0);
-        i = 0;
-        while (true) {
-          t1 = J.get$length$asx(this.tiles);
-          if (typeof t1 !== "number")
-            return H.iae(t1);
-          if (!(i < t1))
-            break;
-          j = 0;
-          while (true) {
-            t1 = J.get$length$asx(J.$index$asx(this.tiles, i));
-            if (typeof t1 !== "number")
-              return H.iae(t1);
-            if (!(j < t1))
-              break;
-            if (J.$eq$(J.$index$asx(J.$index$asx(this.tiles, i), j), oldColor)) {
-              J.$indexSet$ax(J.$index$asx(this.tiles, i), j, newColor);
-              this.score += 2;
-            } else
-              break;
-            ++j;
-          }
-          ++i;
-        }
-      },
-      checkWin$0: function() {
-        var color, i, t1, j;
-        color = J.$index$asx(J.$index$asx(this.tiles, 0), 0);
-        i = 0;
-        while (true) {
-          t1 = J.get$length$asx(this.tiles);
-          if (typeof t1 !== "number")
-            return H.iae(t1);
-          if (!(i < t1))
-            break;
-          j = 0;
-          while (true) {
-            t1 = J.get$length$asx(J.$index$asx(this.tiles, i));
-            if (typeof t1 !== "number")
-              return H.iae(t1);
-            if (!(j < t1))
-              break;
-            if (!J.$eq$(J.$index$asx(J.$index$asx(this.tiles, i), j), color))
-              return false;
-            ++j;
-          }
-          ++i;
-        }
-        return true;
-      }
-    },
-    BoardView: {
-      "^": "Object;tileViews,rootElem,boardElem,width,height,buttonBar,titleBar,statusBar,gameInfo,x,y,colors",
-      init$0: function() {
-        var t1, t2, t3, rowY, rowElem, tileX, tileElem, color, colorButton, t4;
-        t1 = document;
-        t2 = t1.querySelector("#main");
-        this.rootElem = t2;
-        J.get$children$x(t2).clear$0(0);
-        t2 = this.rootElem.style;
-        t2.width = "360px";
-        t2 = W._ElementFactoryProvider_createElement_tag("H1", null);
-        this.titleBar = t2;
-        J.set$innerHtml$x(t2, "");
-        J.get$children$x(this.rootElem).add$1(0, this.titleBar);
-        t2 = H.Primitives_parseDouble(H.stringReplaceAllUnchecked(this.rootElem.style.width, "px", ""), null);
-        t3 = this.x;
-        if (typeof t2 !== "number")
-          return t2.$div();
-        if (typeof t3 !== "number")
-          return H.iae(t3);
-        t3 = t2 / t3;
-        this.width = t3;
-        this.height = t3;
-        this.boardElem = t1.createElement("div");
-        J.get$children$x(this.rootElem).add$1(0, this.boardElem);
-        rowY = 0;
-        while (true) {
-          t2 = this.y;
-          if (typeof t2 !== "number")
-            return H.iae(t2);
-          if (!(rowY < t2))
-            break;
-          rowElem = t1.createElement("div");
-          this.boardElem.appendChild(rowElem);
-          tileX = 0;
-          while (true) {
-            t2 = this.x;
-            if (typeof t2 !== "number")
-              return H.iae(t2);
-            if (!(tileX < t2))
-              break;
-            tileElem = t1.createElement("div");
-            rowElem.appendChild(tileElem);
-            t2 = tileElem.style;
-            t2.display = "inline-block";
-            t2 = tileElem.style;
-            t2.border = "solid 1px grey";
-            t2 = tileElem.style;
-            t3 = C.JSNumber_methods.toString$0(this.width * 0.95) + "px";
-            t2.width = t3;
-            t2 = tileElem.style;
-            t3 = C.JSNumber_methods.toString$0(this.height) + "px";
-            t2.height = t3;
-            tileElem.classList.add("tileElem");
-            ++tileX;
-          }
-          ++rowY;
-        }
-        this.gameInfo = t1.createElement("div");
-        J.get$children$x(this.rootElem).add$1(0, this.gameInfo);
-        t2 = t1.createElement("div");
-        this.buttonBar = t2;
-        t2.classList.add("buttonBar");
-        J.get$children$x(this.rootElem).add$1(0, this.buttonBar);
-        for (t2 = J.get$iterator$ax(this.colors); t2.moveNext$0();) {
-          color = t2.get$current();
-          colorButton = t1.createElement("button");
-          colorButton.classList.add("colorButton");
-          this.buttonBar.appendChild(colorButton);
-          t3 = colorButton.style;
-          t3.toString;
-          t3.backgroundColor = color == null ? "" : color;
-          t3 = colorButton.style;
-          t4 = C.JSNumber_methods.toString$0(this.width * 0.95) + "px";
-          t3.width = t4;
-          t3 = colorButton.style;
-          t4 = C.JSNumber_methods.toString$0(this.height) + "px";
-          t3.height = t4;
-        }
-        this.statusBar = t1.createElement("div");
-        J.get$children$x(this.rootElem).add$1(0, this.statusBar);
       }
     }
   }, 1]];
