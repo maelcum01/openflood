@@ -107,7 +107,7 @@ class GameController
       });
     }
   }
-  updateColors() // updates the colors inside the model's div elements
+  updateColors() // updates the colors inside the model's view div elements
   {
     for(var i = 0; i < boardModel.tiles.length; i++)
     {
