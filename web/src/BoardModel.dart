@@ -30,6 +30,10 @@ class BoardModel
   setColor(var newColor) // set the old color tiles to the new color
   {
     var oldColor = tiles[0][0];
+    if(newColor == oldColor)
+    {
+      return;
+    }
     for(var i = 0; i < tiles.length; i++)
     {
       for(var j = 0; j < tiles[i].length; j++)
