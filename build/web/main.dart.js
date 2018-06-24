@@ -783,6 +783,11 @@
           throw H.wrapException(H.argumentErrorValue(other));
         return receiver + other;
       },
+      $sub: function(receiver, other) {
+        if (typeof other !== "number")
+          throw H.wrapException(H.argumentErrorValue(other));
+        return receiver - other;
+      },
       _tdivFast$1: function(receiver, other) {
         return (receiver | 0) === receiver ? receiver / other | 0 : this._tdivSlow$1(receiver, other);
       },
@@ -6099,6 +6104,9 @@
       $add: function(_, other) {
         return new P.Duration(C.JSInt_methods.$add(this._duration, other.get$_duration()));
       },
+      $sub: function(_, other) {
+        return new P.Duration(C.JSInt_methods.$sub(this._duration, other.get$_duration()));
+      },
       $lt: function(_, other) {
         return C.JSInt_methods.$lt(this._duration, other.get$_duration());
       },
@@ -8252,6 +8260,8 @@
       setColor$1: function(newColor) {
         var oldColor, i, t1, j;
         oldColor = J.$index$asx(J.$index$asx(this.tiles, 0), 0);
+        if (newColor === oldColor)
+          return;
         i = 0;
         while (true) {
           t1 = J.get$length$asx(this.tiles);
@@ -8268,7 +8278,7 @@
               break;
             if (J.$eq$(J.$index$asx(J.$index$asx(this.tiles, i), j), oldColor)) {
               J.$indexSet$ax(J.$index$asx(this.tiles, i), j, newColor);
-              this.score += 2;
+              this.score = ++this.score + 1;
             } else
               break;
             ++j;
@@ -8420,14 +8430,17 @@
         this.initButtons$0();
         this.updateColors$0();
       },
+      gameInfo$0: function() {
+        var t1 = this.boardView.gameInfo;
+        (t1 && C.DivElement_methods).setInnerHtml$1(t1, C.JSString_methods.$add(C.JSString_methods.$add("LEVEL: ", J.toString$0$(this.boardModel.level)) + " | TURN: " + C.JSInt_methods.toString$0(this.turns) + "/", J.toString$0$(this.boardModel.maxSteps)) + " | SCORE: " + C.JSInt_methods.toString$0(this.boardModel.score));
+      },
       initButtons$0: function() {
-        var t1, colorButton, t2, color, t3;
+        var t1, colorButton, t2, color;
         for (t1 = this.boardView.buttonBar, t1 = new W._ChildrenElementList(t1, t1.children), t1 = t1.toList$0(t1), t1 = new J.ArrayIterator(t1, t1.length, 0, null); t1.moveNext$0();) {
           colorButton = t1.__interceptors$_current;
           t2 = J.getInterceptor$x(colorButton);
           color = t2.get$style(colorButton).backgroundColor;
-          t3 = this.boardView.gameInfo;
-          (t3 && C.DivElement_methods).setInnerHtml$1(t3, C.JSString_methods.$add("TURN: " + C.JSInt_methods.toString$0(this.turns) + "/", J.toString$0$(this.boardModel.maxSteps)) + " | SCORE: " + C.JSInt_methods.toString$0(this.boardModel.score));
+          this.gameInfo$0();
           t2 = t2.get$onClick(colorButton);
           W._EventStreamSubscription$(t2._html$_target, t2._eventType, new U.GameController_initButtons_closure(this, color), false, H.getTypeArgumentByIndex(t2, 0));
         }
@@ -8488,20 +8501,20 @@
         t1.updateColors$0();
         if (t1.boardModel.checkWin$0()) {
           ++t1.thisLevel;
-          t1.turns = 0;
+          ++t1.turns;
           t2 = t1.boardView.statusBar;
           (t2 && C.DivElement_methods).setInnerHtml$1(t2, "YOU WIN!");
+          t1.gameInfo$0();
+          t1.turns = 0;
           t1.delayLoadLevel$1(t1.thisLevel);
         } else {
           t2 = t1.turns;
-          t3 = t1.boardModel.maxSteps;
+          t3 = J.$sub$n(t1.boardModel.maxSteps, 1);
           if (typeof t3 !== "number")
             return H.iae(t3);
-          if (t2 < t3) {
-            ++t2;
-            t1.turns = t2;
-            t3 = t1.boardView.gameInfo;
-            (t3 && C.DivElement_methods).setInnerHtml$1(t3, C.JSString_methods.$add("TURN: " + C.JSInt_methods.toString$0(t2) + "/", J.toString$0$(t1.boardModel.maxSteps)) + " | SCORE: " + C.JSInt_methods.toString$0(t1.boardModel.score));
+          if (t2 <= t3) {
+            ++t1.turns;
+            t1.gameInfo$0();
           } else {
             t2 = t1.boardView.statusBar;
             (t2 && C.DivElement_methods).setInnerHtml$1(t2, "YOU LOOSE! :-(");
@@ -8671,6 +8684,11 @@
     if (typeof receiver == "number" && typeof a0 == "number")
       return receiver < a0;
     return J.getInterceptor$n(receiver).$lt(receiver, a0);
+  };
+  J.$sub$n = function(receiver, a0) {
+    if (typeof receiver == "number" && typeof a0 == "number")
+      return receiver - a0;
+    return J.getInterceptor$n(receiver).$sub(receiver, a0);
   };
   J._addEventListener$3$x = function(receiver, a0, a1, a2) {
     return J.getInterceptor$x(receiver)._addEventListener$3(receiver, a0, a1, a2);
