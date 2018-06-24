@@ -1,11 +1,11 @@
 part of main;
 /* The Model class:
-    Implements the game model and instantiation for each level
+    Implements the game model and its instantiation for each level
     with the following parameters
     level: the level as an integer value
     size: the size of the Game Board as an integer value
     colors: the colors present in an instance as a list of strings
-    initialTiles: the initial tiles of the Board as a list of lists of (background)colors
+    initialTiles: the initial tiles of the Board as a list of lists of strings(background-colors)
     maxSteps: the maximum steps allowed for each level as an integer
 */
 class BoardModel
