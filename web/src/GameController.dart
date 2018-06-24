@@ -93,9 +93,9 @@ class GameController
         }
         else
         {
-          if(turns<boardModel.maxSteps-1)
+          if(turns<=boardModel.maxSteps-1)
           {
-            turns++;
+            ++turns;
             gameInfo();                               // re-render game info
           }
           else
