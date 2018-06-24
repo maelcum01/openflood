@@ -1,4 +1,4 @@
-part of 'main';
+part of main;
 /* The View Class:
     Initializes and renders the DOM and HTML elements
     The constructors parameters are the boards size
