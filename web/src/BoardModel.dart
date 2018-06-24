@@ -41,7 +41,8 @@ class BoardModel
         if(tiles[i][j] == oldColor)
         {
           tiles[i][j] = newColor;
-          score +=2;
+          ++score;
+          ++score;
         }
         else
         {

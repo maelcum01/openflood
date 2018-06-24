@@ -40,7 +40,7 @@ class GameController
 
   gameInfo()// render game info
   {
-    boardView.gameInfo.innerHtml = "TURN: "+turns.toString()+"/"+boardModel.maxSteps.toString()+" | " +"SCORE: "+boardModel.score.toString();
+    boardView.gameInfo.innerHtml = "LEVEL: "+boardModel.level.toString()+" | "+"TURN: "+turns.toString()+"/"+boardModel.maxSteps.toString()+" | " +"SCORE: "+boardModel.score.toString();
   }
   gameOver() // render game over view
   {
@@ -87,8 +87,10 @@ class GameController
         if(boardModel.checkWin())
         {
           thisLevel++;
-          turns=0;
+          ++turns;
           boardView.statusBar.innerHtml = "YOU WIN!";
+          gameInfo();
+          turns=0;
           delayLoadLevel(thisLevel);
         }
         else
