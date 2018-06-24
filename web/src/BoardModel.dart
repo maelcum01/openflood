@@ -1,7 +1,9 @@
-part of openflood;
+part of main;
+/* The Model class:
+    Implements the game model and instantiation for each level
+    with the following parameters
 
-
-
+*/
 class BoardModel
 {
   var x,y;
