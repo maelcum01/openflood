@@ -8219,12 +8219,12 @@
     "^": ""
   }], ["dart.dom.web_sql", "dart:web_sql",, P, {
     "^": ""
-  }], ["", "main.dart",, F, {
+  }], ["main", "main.dart",, U, {
     "^": "",
     main: [function() {
       var t1, onError, t2;
-      t1 = W.HttpRequest_getString("levels.json", null, null).then$1(new F.main_closure());
-      onError = new F.main_closure0();
+      t1 = W.HttpRequest_getString("levels.json", null, null).then$1(new U.main_closure());
+      onError = new U.main_closure0();
       t2 = $.Zone__current;
       if (t2 !== C.C__RootZone)
         onError = P._registerErrorHandler(onError, t2);
@@ -8235,7 +8235,7 @@
       call$1: function(s) {
         var levels, gameController;
         levels = C.JsonCodec_null_null.decode$1(s);
-        gameController = new F.GameController([], P.LinkedHashMap__makeEmpty(), null, null, 0, 0);
+        gameController = new U.GameController([], P.LinkedHashMap__makeEmpty(), null, null, 0, 0);
         gameController.levels = levels;
         P.print(levels);
         gameController.loadLevel$1(0);
@@ -8388,10 +8388,10 @@
     GameController: {
       "^": "Object;levels,currentLevel,boardView,boardModel,thisLevel,turns",
       delayLoadLevel$1: function(level) {
-        return P.Timer_Timer(C.Duration_5000000, new F.GameController_delayLoadLevel_closure(this, level));
+        return P.Timer_Timer(C.Duration_5000000, new U.GameController_delayLoadLevel_closure(this, level));
       },
       loadGameOver$0: function() {
-        return P.Timer_Timer(C.Duration_2000000, new F.GameController_loadGameOver_closure(this));
+        return P.Timer_Timer(C.Duration_2000000, new U.GameController_loadGameOver_closure(this));
       },
       loadLevel$1: function(level) {
         var currentLevel, t1, t2, t3, t4, t5, t6;
@@ -8403,7 +8403,7 @@
         t4 = t1.$index(currentLevel, "colors");
         t5 = t1.$index(currentLevel, "board");
         t1 = t1.$index(currentLevel, "maxSteps");
-        t6 = new F.BoardModel(null, null, [], [], 0, 0, 0);
+        t6 = new U.BoardModel(null, null, [], [], 0, 0, 0);
         t6.level = t2;
         t6.x = t3;
         t6.y = t3;
@@ -8411,7 +8411,7 @@
         t6.tiles = t5;
         t6.maxSteps = t1;
         this.boardModel = t6;
-        t6 = new F.BoardView(null, null, 50, 50, null, null, null, null, 0, 0, null);
+        t6 = new U.BoardView(null, null, 50, 50, null, null, null, null, 0, 0, null);
         t6.x = t3;
         t6.y = t3;
         t6.colors = t4;
@@ -8429,7 +8429,7 @@
           t3 = this.boardView.gameInfo;
           (t3 && C.DivElement_methods).setInnerHtml$1(t3, C.JSString_methods.$add("TURN: " + C.JSInt_methods.toString$0(this.turns) + "/", J.toString$0$(this.boardModel.maxSteps)) + " | SCORE: " + C.JSInt_methods.toString$0(this.boardModel.score));
           t2 = t2.get$onClick(colorButton);
-          W._EventStreamSubscription$(t2._html$_target, t2._eventType, new F.GameController_initButtons_closure(this, color), false, H.getTypeArgumentByIndex(t2, 0));
+          W._EventStreamSubscription$(t2._html$_target, t2._eventType, new U.GameController_initButtons_closure(this, color), false, H.getTypeArgumentByIndex(t2, 0));
         }
       },
       updateColors$0: function() {
@@ -9146,11 +9146,11 @@
     init.currentScript = currentScript;
     if (typeof dartMainRunner === "function")
       dartMainRunner(function(a) {
-        H.startRootIsolate(F.main__main$closure(), a);
+        H.startRootIsolate(U.main__main$closure(), a);
       }, []);
     else
       (function(a) {
-        H.startRootIsolate(F.main__main$closure(), a);
+        H.startRootIsolate(U.main__main$closure(), a);
       })([]);
   });
   // END invoke [main].
