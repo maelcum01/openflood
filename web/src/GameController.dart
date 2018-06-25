@@ -20,7 +20,7 @@ class GameController
 
   Timer delayLoadLevel(var level)
   {
-    return new Timer(const Duration(seconds: 5), () => this.loadLevel(level));
+    return new Timer(const Duration(seconds: 4), () => this.loadLevel(level));
   }
 
   Timer loadGameOver()
@@ -68,8 +68,7 @@ class GameController
                   +"        ░ ░        ░     ░  ░   ░      ░"+"\n"
                   +"                   ░";
   }
-  /* Initializes the Button Bar with as many buttons as there are colors.
-     An click-event listener is placed for each of those buttons
+  /* A click-event listener is placed for each of the view classes buttons
      modifying and manipulating the model upon the triggered event.
      Also includes the execution of the actual game logic which determines
      a win or loose of the player.
