@@ -20,7 +20,7 @@ class GameController
 
   Timer delayLoadLevel(var level)
   {
-    return new Timer(const Duration(seconds: 4), () => this.loadLevel(level));
+    return new Timer(const Duration(seconds: 5), () => this.loadLevel(level));
   }
 
   Timer loadGameOver()
@@ -81,7 +81,7 @@ class GameController
       gameInfo();                                     // render game info
       colorButton.onClick.listen((e)
       {
-        boardModel.setColor(color);                   // manipulate model
+          boardModel.setColor(color);                   // manipulate model
         updateColors();                               // re-render view
         if(boardModel.checkWin())
         {
