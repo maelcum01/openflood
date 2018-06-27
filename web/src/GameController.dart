@@ -68,7 +68,7 @@ class GameController
                   +"        ░ ░        ░     ░  ░   ░      ░"+"\n"
                   +"                   ░";
   }
-  /* A click-event listener is placed for each of the view classes buttons
+  /* A click-event listener is placed for each of the view classes buttons,
      modifying and manipulating the model upon the triggered event.
      Also includes the execution of the actual game logic which determines
      a win or loose of the player.
@@ -81,7 +81,7 @@ class GameController
       gameInfo();                                     // render game info
       colorButton.onClick.listen((e)
       {
-          boardModel.setColor(color);                   // manipulate model
+        boardModel.setColor(color);                   // manipulate model
         updateColors();                               // re-render view
         if(boardModel.checkWin())
         {
