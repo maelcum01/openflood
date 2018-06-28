@@ -40,7 +40,7 @@ class GameController
 
   gameInfo()// render game info
   {
-    boardView.gameInfo.innerHtml = "LEVEL: "+boardModel.level.toString()+" | "+"TURN: "+turns.toString()+"/"+boardModel.maxSteps.toString()+" | " +"SCORE: "+boardModel.score.toString();
+    boardView.gameInfo.innerHtml = "LEVEL: "+boardModel.level.toString()+" | "+"TURN: "+turns.toString()+"/"+boardModel.maxSteps.toString()+" | " +"SCORE: "+boardModel.score.toString() +" | " + "<a href='#instructions'> MANUAL </a>";;
   }
   gameOver() // render game over view
   {
