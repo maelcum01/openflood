@@ -71,7 +71,7 @@ class GameController
   /* A click-event listener is placed for each of the view classes buttons,
      modifying and manipulating the model upon the triggered event.
      Also includes the execution of the actual game logic which determines
-     a win or loose of the player.
+     a win or loose of the current player.
    */
   initButtons()
   {
