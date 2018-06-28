@@ -8432,7 +8432,7 @@
       },
       gameInfo$0: function() {
         var t1 = this.boardView.gameInfo;
-        (t1 && C.DivElement_methods).setInnerHtml$1(t1, C.JSString_methods.$add(C.JSString_methods.$add("LEVEL: ", J.toString$0$(this.boardModel.level)) + " | TURN: " + C.JSInt_methods.toString$0(this.turns) + "/", J.toString$0$(this.boardModel.maxSteps)) + " | SCORE: " + C.JSInt_methods.toString$0(this.boardModel.score));
+        (t1 && C.DivElement_methods).setInnerHtml$1(t1, C.JSString_methods.$add(C.JSString_methods.$add("LEVEL: ", J.toString$0$(this.boardModel.level)) + " | TURN: " + C.JSInt_methods.toString$0(this.turns) + "/", J.toString$0$(this.boardModel.maxSteps)) + " | SCORE: " + C.JSInt_methods.toString$0(this.boardModel.score) + " | <a href='#instructions'> MANUAL </a>");
       },
       initButtons$0: function() {
         var t1, colorButton, t2, color;
