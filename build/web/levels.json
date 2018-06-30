@@ -76,13 +76,14 @@
   {
     "board":
     [
-      ["red","green","yellow","blue","red","pink","red"],
-      ["blue","yellow","red","blue","yellow","pink","pink"],
-      ["green","blue","blue","yellow","blue","green","blue"],
-      ["blue","blue","pink","pink","pink","green","green"],
-      ["yellow","blue","yellow","pink","blue","blue","blue"],
-      ["yellow","blue","blue","pink","red","red","red"],
-      ["green","red","yellow","pink","red","blue","green"]
+      ["red","green","yellow","blue","red","pink","red","red"],
+      ["blue","yellow","red","blue","yellow","pink","pink","red"],
+      ["green","blue","blue","yellow","blue","green","blue","red"],
+      ["blue","blue","pink","pink","pink","green","green","red"],
+      ["yellow","blue","yellow","pink","blue","blue","blue","red"],
+      ["yellow","blue","blue","pink","red","red","red","red"],
+      ["green","red","yellow","pink","red","red","green","red"],
+      ["red","green","yellow","blue","red","pink","pink","red"]
     ],
     "boardSize":8,
     "level":"6",
@@ -91,13 +92,15 @@
   },{
   "board":
   [
-    ["red","green","yellow","blue","red","pink","red"],
-    ["green","yellow","red","blue","yellow","pink","pink"],
-    ["green","blue","blue","yellow","blue","green","blue"],
-    ["blue","blue","pink","pink","pink","green","green"],
-    ["yellow","blue","yellow","pink","blue","blue","blue"],
-    ["yellow","blue","blue","pink","red","red","red"],
-    ["green","red","yellow","pink","red","blue","yellow"]
+    ["red","green","yellow","blue","yellow","pink","red","red","red"],
+    ["green","yellow","red","blue","yellow","pink","pink","pink","red"],
+    ["green","blue","blue","yellow","blue","green","blue","red","red"],
+    ["blue","blue","pink","pink","pink","green","green","blue","red"],
+    ["yellow","blue","yellow","pink","blue","blue","blue","blue","red"],
+    ["yellow","blue","blue","pink","red","red","red","yellow","yellow"],
+    ["green","red","yellow","pink","red","blue","red","yellow","yellow"],
+    ["red","green","yellow","blue","red","pink","red","red","pink"],
+    ["red","green","yellow","blue","red","pink","red","pink","pink"]
   ],
   "boardSize":9,
   "level":"7",
