@@ -60,18 +60,18 @@
   {
     "board":
     [
-      ["red","green","yellow","blue","red","pink","red"],
-      ["green","yellow","red","blue","yellow","pink","pink"],
-      ["green","blue","blue","yellow","blue","green","blue"],
+      ["red","green","green","blue","red","pink","red"],
+      ["green","yellow","green","blue","yellow","pink","pink"],
+      ["green","blue","green","yellow","blue","green","blue"],
       ["blue","blue","pink","pink","pink","green","green"],
-      ["yellow","blue","yellow","pink","blue","blue","blue"],
-      ["yellow","blue","blue","pink","red","red","red"],
-      ["green","red","yellow","pink","red","blue","yellow"]
+      ["yellow","blue","yellow","pink","green","blue","blue"],
+      ["yellow","blue","blue","pink","green","red","red"],
+      ["green","red","yellow","pink","green","blue","yellow"]
     ],
     "boardSize":7,
     "level":"5",
     "colors":["red","yellow","green","blue","pink"],
-    "maxSteps":16
+    "maxSteps":19
   },
   {
     "board":
@@ -88,7 +88,7 @@
     "boardSize":8,
     "level":"6",
     "colors":["red","yellow","green","blue","pink"],
-    "maxSteps":17
+    "maxSteps":21
   },
   {
     "board":
@@ -106,6 +106,6 @@
     "boardSize":9,
     "level":"7",
     "colors":["red","yellow","green","blue","pink"],
-    "maxSteps":18
+    "maxSteps":30
 }
 ]
