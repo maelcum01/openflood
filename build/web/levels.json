@@ -55,7 +55,7 @@
     "boardSize":7,
     "level":"4",
     "colors":["red","yellow","green","blue"],
-    "maxSteps":14
+    "maxSteps":16
   },
   {
     "board":
@@ -71,7 +71,7 @@
     "boardSize":7,
     "level":"5",
     "colors":["red","yellow","green","blue","pink"],
-    "maxSteps":25
+    "maxSteps":31
   },
   {
     "board":
@@ -88,7 +88,7 @@
     "boardSize":8,
     "level":"6",
     "colors":["red","yellow","green","blue","pink"],
-    "maxSteps":27
+    "maxSteps":34
   },
   {
     "board":
@@ -106,6 +106,6 @@
     "boardSize":9,
     "level":"7",
     "colors":["red","yellow","green","blue","pink"],
-    "maxSteps":30
+    "maxSteps":40
 }
 ]
